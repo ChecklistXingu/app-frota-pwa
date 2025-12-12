@@ -1,11 +1,11 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import { registerSW } from 'virtual:pwa-register'
 import './index.css'
 import AppRouter from './router/AppRouter'
 import { AuthProvider } from './contexts/AuthContext'
 import InstallPrompt from './components/pwa/InstallPrompt'
-import UpdatePrompt from './components/pwa/UpdatePrompt'
 import OfflineIndicator from './components/pwa/OfflineIndicator'
 import { startAutoSync } from './services/syncService'
 
@@ -13,7 +13,6 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
       <BrowserRouter>
-        <UpdatePrompt />
         <OfflineIndicator />
         <AppRouter />
         <InstallPrompt />
@@ -25,14 +24,21 @@ createRoot(document.getElementById('root')!).render(
 // Inicia sincronização automática de uploads pendentes
 startAutoSync()
 
-// Registra Service Worker
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      await navigator.serviceWorker.register('/sw.js')
-      console.log('[App] Service Worker registrado')
-    } catch (error) {
-      console.error('[App] Falha ao registrar SW:', error)
+// Registra Service Worker do PWA
+const updateSW = registerSW({
+  onNeedRefresh() {
+    // Nova versão disponível
+    if (confirm('Nova versão disponível! Deseja atualizar?')) {
+      updateSW(true)
     }
-  })
-}
+  },
+  onOfflineReady() {
+    console.log('[PWA] App pronto para uso offline!')
+  },
+  onRegistered(r) {
+    console.log('[PWA] Service Worker registrado:', r)
+  },
+  onRegisterError(error) {
+    console.error('[PWA] Erro ao registrar SW:', error)
+  },
+})
