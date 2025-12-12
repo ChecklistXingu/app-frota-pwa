@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../services/firebase";
+import { isOnline, savePendingUpload } from "../services/offlineStorage";
 
 interface UploadResult {
   url: string;
   path: string;
+  isOffline?: boolean; // true se foi salvo localmente para sincronizar depois
 }
 
 export const useImageUpload = () => {
@@ -72,9 +74,79 @@ export const useImageUpload = () => {
     }
   };
 
+  /**
+   * Upload com suporte offline
+   * Se estiver offline, salva localmente e retorna URL temporária
+   * Quando voltar online, sincroniza automaticamente
+   */
+  const uploadWithOfflineSupport = async (
+    file: File,
+    folder: string,
+    userId: string,
+    documentId: string, // ID do documento que será atualizado quando sincronizar
+    maxWidth = 1200
+  ): Promise<UploadResult | null> => {
+    setUploading(true);
+    setError(null);
+    setProgress(0);
+
+    try {
+      // Comprime a imagem primeiro
+      let imageFile: File;
+      try {
+        imageFile = await compressImage(file, maxWidth);
+      } catch {
+        imageFile = file;
+      }
+
+      // Se estiver online, faz upload normal
+      if (isOnline()) {
+        const result = await uploadImage(imageFile, folder, userId);
+        return result;
+      }
+
+      // Se estiver offline, salva localmente
+      console.log("[Upload] Offline - salvando localmente");
+      
+      const timestamp = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, "_");
+      const fileName = `${timestamp}_${safeName}`;
+
+      // Converte para Blob
+      const blob = new Blob([await imageFile.arrayBuffer()], { type: imageFile.type });
+
+      // Salva na fila de uploads pendentes
+      await savePendingUpload({
+        type: folder as "maintenance" | "refueling" | "vehicle",
+        userId,
+        photoBlob: blob,
+        fileName,
+        documentId,
+      });
+
+      // Cria URL temporária para preview
+      const tempUrl = URL.createObjectURL(blob);
+
+      setProgress(100);
+      setUploading(false);
+
+      return {
+        url: tempUrl,
+        path: `${folder}/${userId}/${fileName}`,
+        isOffline: true,
+      };
+    } catch (err: any) {
+      console.error("Erro no upload offline:", err);
+      setError(err.message || "Erro ao salvar imagem");
+      setUploading(false);
+      return null;
+    }
+  };
+
   return {
     uploadImage,
     uploadCompressedImage,
+    uploadWithOfflineSupport,
     uploading,
     progress,
     error,

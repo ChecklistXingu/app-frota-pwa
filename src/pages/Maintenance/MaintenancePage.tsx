@@ -6,6 +6,8 @@ import {
   onSnapshot,
   query,
   where,
+  updateDoc,
+  doc,
 } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -68,7 +70,7 @@ const MaintenancePage = () => {
     {},
   );
   const [photos, setPhotos] = useState<File[]>([]);
-  const { uploadCompressedImage, uploading: uploadingPhotos } = useImageUpload();
+  const { uploadWithOfflineSupport, uploading: uploadingPhotos } = useImageUpload();
 
   const {
     register,
@@ -179,16 +181,8 @@ const MaintenancePage = () => {
 
     const date = data.date ? new Date(data.date) : new Date();
 
-    // Faz upload das fotos (se houver)
-    const photoUrls: string[] = [];
-    for (const photo of photos) {
-      const result = await uploadCompressedImage(photo, "maintenance", user.uid);
-      if (result) {
-        photoUrls.push(result.url);
-      }
-    }
-
-    await addDoc(collection(db, "maintenance"), {
+    // Primeiro salva o documento (funciona offline com Firestore persistence)
+    const docRef = await addDoc(collection(db, "maintenance"), {
       userId: user.uid,
       vehicleId: data.vehicleId,
       date,
@@ -196,11 +190,41 @@ const MaintenancePage = () => {
       type: data.type,
       items,
       notes: data.notes || "",
-      photos: photoUrls,
+      photos: [], // Fotos serão adicionadas depois
       status: "pending" as MaintenanceStatus,
     });
 
-    setMessage("Manutenção registrada com sucesso.");
+    // Faz upload das fotos com suporte offline
+    // Se offline, salva localmente e sincroniza quando voltar a rede
+    const photoUrls: string[] = [];
+    let hasOfflinePhotos = false;
+
+    for (const photo of photos) {
+      const result = await uploadWithOfflineSupport(
+        photo,
+        "maintenance",
+        user.uid,
+        docRef.id
+      );
+      if (result) {
+        photoUrls.push(result.url);
+        if (result.isOffline) {
+          hasOfflinePhotos = true;
+        }
+      }
+    }
+
+    // Se teve fotos online, atualiza o documento
+    // (fotos offline serão sincronizadas pelo syncService)
+    if (photoUrls.length > 0 && !hasOfflinePhotos) {
+      await updateDoc(doc(db, "maintenance", docRef.id), { photos: photoUrls });
+    }
+
+    if (hasOfflinePhotos) {
+      setMessage("Manutenção salva! Fotos serão enviadas quando houver conexão.");
+    } else {
+      setMessage("Manutenção registrada com sucesso.");
+    }
 
     // limpa formulário mas mantém veículo selecionado
     reset({
