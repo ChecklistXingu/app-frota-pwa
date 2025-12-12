@@ -13,6 +13,7 @@ import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useImageUpload } from "../../hooks/useImageUpload";
 import PhotoCapture from "../../components/ui/PhotoCapture";
+import { Pencil, X } from "lucide-react";
 
 type VehicleOption = {
   id: string;
@@ -66,11 +67,30 @@ const MaintenancePage = () => {
   const [loadingVehicles, setLoadingVehicles] = useState(true);
   const [loadingMaintenance, setLoadingMaintenance] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageType, setMessageType] = useState<"success" | "offline">("success");
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>(
     {},
   );
   const [photos, setPhotos] = useState<File[]>([]);
   const { uploadWithOfflineSupport, uploading: uploadingPhotos } = useImageUpload();
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  // Estado para edição
+  const [editingRecord, setEditingRecord] = useState<MaintenanceRecord | null>(null);
+  const [editForm, setEditForm] = useState({ km: 0, date: "", notes: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Monitora status de conexão
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   const {
     register,
@@ -179,10 +199,11 @@ const MaintenancePage = () => {
       status: !!checklistState[name],
     }));
 
-    const date = data.date ? new Date(data.date) : new Date();
+    // Corrige fuso horário: input date retorna YYYY-MM-DD que é interpretado como UTC
+    // Adicionamos T12:00:00 para garantir que fique no dia correto em qualquer fuso
+    const date = data.date ? new Date(data.date + "T12:00:00") : new Date();
 
-    // Primeiro salva o documento (funciona offline com Firestore persistence)
-    const docRef = await addDoc(collection(db, "maintenance"), {
+    const maintenanceData = {
       userId: user.uid,
       vehicleId: data.vehicleId,
       date,
@@ -190,15 +211,51 @@ const MaintenancePage = () => {
       type: data.type,
       items,
       notes: data.notes || "",
-      photos: [], // Fotos serão adicionadas depois
+      photos: [],
       status: "pending" as MaintenanceStatus,
-    });
+    };
 
-    // Faz upload das fotos com suporte offline
-    // Se offline, salva localmente e sincroniza quando voltar a rede
+    // Função para limpar o formulário
+    const clearForm = () => {
+      reset({
+        vehicleId: data.vehicleId,
+        type: data.type,
+        km: undefined as any,
+        date: "",
+        notes: "",
+      });
+      const initial: Record<string, boolean> = {};
+      CHECKLIST_ITEMS.forEach((item) => {
+        initial[item] = false;
+      });
+      setChecklistState(initial);
+      setPhotos([]);
+    };
+
+    // Se está OFFLINE: salva localmente e libera o formulário imediatamente
+    if (isOffline) {
+      // Firestore vai salvar localmente e sincronizar depois
+      const docRef = addDoc(collection(db, "maintenance"), maintenanceData);
+      
+      // Salva fotos offline
+      for (const photo of photos) {
+        // Gera um ID temporário para o documento
+        docRef.then((ref) => {
+          uploadWithOfflineSupport(photo, "maintenance", user.uid, ref.id);
+        });
+      }
+
+      setMessageType("offline");
+      setMessage("Salvo offline! Será enviado quando houver conexão.");
+      clearForm();
+      return;
+    }
+
+    // Se está ONLINE: fluxo normal com await
+    const docRef = await addDoc(collection(db, "maintenance"), maintenanceData);
+
+    // Faz upload das fotos
     const photoUrls: string[] = [];
-    let hasOfflinePhotos = false;
-
     for (const photo of photos) {
       const result = await uploadWithOfflineSupport(
         photo,
@@ -208,46 +265,58 @@ const MaintenancePage = () => {
       );
       if (result) {
         photoUrls.push(result.url);
-        if (result.isOffline) {
-          hasOfflinePhotos = true;
-        }
       }
     }
 
-    // Se teve fotos online, atualiza o documento
-    // (fotos offline serão sincronizadas pelo syncService)
-    if (photoUrls.length > 0 && !hasOfflinePhotos) {
+    // Atualiza documento com URLs das fotos
+    if (photoUrls.length > 0) {
       await updateDoc(doc(db, "maintenance", docRef.id), { photos: photoUrls });
     }
 
-    if (hasOfflinePhotos) {
-      setMessage("Manutenção salva! Fotos serão enviadas quando houver conexão.");
-    } else {
-      setMessage("Manutenção registrada com sucesso.");
-    }
-
-    // limpa formulário mas mantém veículo selecionado
-    reset({
-      vehicleId: data.vehicleId,
-      type: data.type,
-      km: undefined as any,
-      date: "",
-      notes: "",
-    });
-
-    // reseta checklist e fotos
-    const initial: Record<string, boolean> = {};
-    CHECKLIST_ITEMS.forEach((item) => {
-      initial[item] = false;
-    });
-    setChecklistState(initial);
-    setPhotos([]);
+    setMessageType("success");
+    setMessage("Manutenção registrada com sucesso!");
+    clearForm();
   };
 
   const getVehicleLabel = (vehicleId: string) => {
     const v = vehicles.find((x) => x.id === vehicleId);
     if (!v) return "Veículo";
     return `${v.plate} • ${v.model}`;
+  };
+
+  // Abre modal de edição
+  const openEditModal = (record: MaintenanceRecord) => {
+    setEditingRecord(record);
+    setEditForm({
+      km: record.km,
+      date: record.date ? record.date.toISOString().split("T")[0] : "",
+      notes: record.notes || "",
+    });
+  };
+
+  // Salva edição
+  const saveEdit = async () => {
+    if (!editingRecord) return;
+    setSavingEdit(true);
+
+    try {
+      const date = editForm.date ? new Date(editForm.date + "T12:00:00") : new Date();
+      
+      await updateDoc(doc(db, "maintenance", editingRecord.id), {
+        km: Number(editForm.km),
+        date,
+        notes: editForm.notes,
+      });
+
+      setEditingRecord(null);
+      setMessageType("success");
+      setMessage("Registro atualizado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao atualizar:", error);
+      setMessage("Erro ao atualizar registro.");
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const typeLabels: Record<MaintenanceType, string> = useMemo(
@@ -370,7 +439,9 @@ const MaintenancePage = () => {
             />
 
             {message && (
-              <p className="text-xs text-green-600 text-center">{message}</p>
+              <p className={`text-xs text-center ${messageType === "offline" ? "text-orange-600" : "text-green-600"}`}>
+                {message}
+              </p>
             )}
 
             <button
@@ -415,11 +486,20 @@ const MaintenancePage = () => {
                     {statusLabels[m.status]}
                   </span>
                 </div>
-                {m.date && (
-                  <p className="text-[10px] text-gray-500 whitespace-nowrap">
-                    {m.date.toLocaleDateString("pt-BR")}
-                  </p>
-                )}
+                <div className="flex items-center gap-2">
+                  {m.date && (
+                    <p className="text-[10px] text-gray-500 whitespace-nowrap">
+                      {m.date.toLocaleDateString("pt-BR")}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => openEditModal(m)}
+                    className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                    title="Editar"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                </div>
               </div>
 
               {/* Detalhes */}
@@ -466,6 +546,63 @@ const MaintenancePage = () => {
           ))}
         </div>
       </div>
+
+      {/* Modal de Edição */}
+      {editingRecord && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-sm p-5 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-gray-800">Editar Manutenção</h3>
+              <button
+                onClick={() => setEditingRecord(null)}
+                className="p-1 text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Data</label>
+                <input
+                  type="date"
+                  value={editForm.date}
+                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">KM</label>
+                <input
+                  type="number"
+                  value={editForm.km}
+                  onChange={(e) => setEditForm({ ...editForm, km: Number(e.target.value) })}
+                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Observações</label>
+                <textarea
+                  rows={2}
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              <button
+                onClick={saveEdit}
+                disabled={savingEdit}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {savingEdit ? "Salvando..." : "Salvar alterações"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

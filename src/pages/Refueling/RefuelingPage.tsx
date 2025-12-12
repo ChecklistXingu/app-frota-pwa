@@ -6,11 +6,14 @@ import {
   onSnapshot,
   query,
   where,
+  doc,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import VoiceInputButton from "../../components/ui/VoiceInputButton";
 import type { ExtractedData } from "../../utils/voiceDataExtractor";
+import { Pencil, X } from "lucide-react";
 
 type VehicleOption = {
   id: string;
@@ -44,6 +47,25 @@ const RefuelingPage = () => {
   const [loadingVehicles, setLoadingVehicles] = useState(true);
   const [loadingRefuelings, setLoadingRefuelings] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageType, setMessageType] = useState<"success" | "offline">("success");
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  
+  // Estado para edição
+  const [editingRecord, setEditingRecord] = useState<RefuelingRecord | null>(null);
+  const [editForm, setEditForm] = useState({ km: 0, liters: 0, value: 0, date: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Monitora status de conexão
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   const {
     register,
@@ -122,33 +144,54 @@ const RefuelingPage = () => {
     if (!user) return;
 
     const selectedVehicle = vehicles.find((v) => v.id === data.vehicleId);
-    const date = data.date ? new Date(data.date) : new Date();
+    
+    // Corrige fuso horário: input date retorna YYYY-MM-DD que é interpretado como UTC
+    // Adicionamos T12:00:00 para garantir que fique no dia correto em qualquer fuso
+    const date = data.date ? new Date(data.date + "T12:00:00") : new Date();
 
-    await addDoc(collection(db, "refueling"), {
+    const refuelingData = {
       userId: user.uid,
       vehicleId: data.vehicleId,
       date,
       km: Number(data.km),
       liters: Number(data.liters),
       value: Number(data.value),
-      photoUrl: "", // placeholder para foto do cupom
+      photoUrl: "",
       notes: data.notes || "",
-    });
+    };
 
+    const clearForm = () => {
+      reset({
+        vehicleId: data.vehicleId,
+        km: undefined as any,
+        liters: undefined as any,
+        value: undefined as any,
+        date: "",
+        notes: "",
+      });
+    };
+
+    // Se está OFFLINE: salva localmente e libera o formulário imediatamente
+    if (isOffline) {
+      // Firestore vai salvar localmente e sincronizar depois (não aguarda)
+      addDoc(collection(db, "refueling"), refuelingData);
+      
+      setMessageType("offline");
+      setMessage("Salvo offline! Será enviado quando houver conexão.");
+      clearForm();
+      return;
+    }
+
+    // Se está ONLINE: fluxo normal com await
+    await addDoc(collection(db, "refueling"), refuelingData);
+
+    setMessageType("success");
     setMessage(
       `Abastecimento registrado para ${
         selectedVehicle?.plate ?? "veículo"
       } com sucesso.`,
     );
-
-    reset({
-      vehicleId: data.vehicleId,
-      km: undefined as any,
-      liters: undefined as any,
-      value: undefined as any,
-      date: "",
-      notes: "",
-    });
+    clearForm();
   };
 
   const getVehicleLabel = (vehicleId: string) => {
@@ -163,6 +206,43 @@ const RefuelingPage = () => {
     if (data.liters) setValue("liters", data.liters);
     if (data.value) setValue("value", data.value);
   }, [setValue]);
+
+  // Abre modal de edição
+  const openEditModal = (record: RefuelingRecord) => {
+    setEditingRecord(record);
+    setEditForm({
+      km: record.km,
+      liters: record.liters,
+      value: record.value,
+      date: record.date ? record.date.toISOString().split("T")[0] : "",
+    });
+  };
+
+  // Salva edição
+  const saveEdit = async () => {
+    if (!editingRecord) return;
+    setSavingEdit(true);
+
+    try {
+      const date = editForm.date ? new Date(editForm.date + "T12:00:00") : new Date();
+      
+      await updateDoc(doc(db, "refueling", editingRecord.id), {
+        km: Number(editForm.km),
+        liters: Number(editForm.liters),
+        value: Number(editForm.value),
+        date,
+      });
+
+      setEditingRecord(null);
+      setMessageType("success");
+      setMessage("Registro atualizado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao atualizar:", error);
+      setMessage("Erro ao atualizar registro.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -249,7 +329,9 @@ const RefuelingPage = () => {
             </div>
 
             {message && (
-              <p className="text-xs text-green-600 text-center">{message}</p>
+              <p className={`text-xs text-center ${messageType === "offline" ? "text-orange-600" : "text-green-600"}`}>
+                {message}
+              </p>
             )}
 
             <button
@@ -289,11 +371,20 @@ const RefuelingPage = () => {
                 {/* Cabeçalho */}
                 <div className="flex justify-between items-start gap-2 mb-2">
                   <p className="font-semibold">{getVehicleLabel(r.vehicleId)}</p>
-                  {r.date && (
-                    <p className="text-[10px] text-gray-500 whitespace-nowrap">
-                      {r.date.toLocaleDateString("pt-BR")}
-                    </p>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {r.date && (
+                      <p className="text-[10px] text-gray-500 whitespace-nowrap">
+                        {r.date.toLocaleDateString("pt-BR")}
+                      </p>
+                    )}
+                    <button
+                      onClick={() => openEditModal(r)}
+                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                      title="Editar"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Detalhes */}
@@ -316,6 +407,75 @@ const RefuelingPage = () => {
           })}
         </div>
       </div>
+
+      {/* Modal de Edição */}
+      {editingRecord && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-sm p-5 shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-gray-800">Editar Abastecimento</h3>
+              <button
+                onClick={() => setEditingRecord(null)}
+                className="p-1 text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Data</label>
+                <input
+                  type="date"
+                  value={editForm.date}
+                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">KM</label>
+                <input
+                  type="number"
+                  value={editForm.km}
+                  onChange={(e) => setEditForm({ ...editForm, km: Number(e.target.value) })}
+                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Litros</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editForm.liters}
+                  onChange={(e) => setEditForm({ ...editForm, liters: Number(e.target.value) })}
+                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Valor (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editForm.value}
+                  onChange={(e) => setEditForm({ ...editForm, value: Number(e.target.value) })}
+                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <button
+                onClick={saveEdit}
+                disabled={savingEdit}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {savingEdit ? "Salvando..." : "Salvar alterações"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
