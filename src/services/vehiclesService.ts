@@ -7,6 +7,7 @@ export type Vehicle = {
   plate: string;
   model?: string;
   brand?: string;
+  year?: number;
   active?: boolean;
 };
 
