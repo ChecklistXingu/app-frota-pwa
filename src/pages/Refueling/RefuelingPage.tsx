@@ -278,39 +278,38 @@ const RefuelingPage = () => {
           </p>
         )}
 
-        <div className="space-y-2">
+        <div className="space-y-3 pb-4">
           {refuelings.map((r) => {
             const pricePerLiter = r.liters ? r.value / r.liters : 0;
             return (
               <div
                 key={r.id}
-                className="rounded-xl border bg-white px-4 py-3 shadow-sm text-xs flex justify-between gap-3"
+                className="rounded-xl border bg-white px-4 py-3 shadow-sm text-xs"
               >
-                <div className="space-y-1">
-                  <p className="font-semibold">
-                    {getVehicleLabel(r.vehicleId)}
-                  </p>
-                  <p className="text-gray-600">
-                    {r.liters.toFixed(2)} L • R$ {r.value.toFixed(2)} (
-                    {pricePerLiter.toFixed(2)} R$/L)
-                  </p>
-                  {r.notes && (
-                    <p className="text-[10px] text-gray-500 truncate">
-                      {r.notes}
+                {/* Cabeçalho */}
+                <div className="flex justify-between items-start gap-2 mb-2">
+                  <p className="font-semibold">{getVehicleLabel(r.vehicleId)}</p>
+                  {r.date && (
+                    <p className="text-[10px] text-gray-500 whitespace-nowrap">
+                      {r.date.toLocaleDateString("pt-BR")}
                     </p>
                   )}
                 </div>
 
-                <div className="text-right space-y-1">
-                  {r.date && (
-                    <p className="text-[10px] text-gray-500">
-                      {r.date.toLocaleDateString("pt-BR")}
+                {/* Detalhes */}
+                <div className="flex justify-between items-end">
+                  <div className="space-y-1">
+                    <p className="text-gray-600">
+                      {r.liters.toFixed(2)} L • R$ {r.value.toFixed(2)} ({pricePerLiter.toFixed(2)} R$/L)
                     </p>
-                  )}
-                  <p className="text-[10px] text-gray-500">KM</p>
-                  <p className="font-semibold">
-                    {r.km.toLocaleString("pt-BR")} km
-                  </p>
+                    {r.notes && (
+                      <p className="text-[10px] text-gray-500">{r.notes}</p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-gray-500">KM</p>
+                    <p className="font-semibold">{r.km.toLocaleString("pt-BR")} km</p>
+                  </div>
                 </div>
               </div>
             );
