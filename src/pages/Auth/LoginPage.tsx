@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { Truck, Mail, Lock } from "lucide-react";
+import { Truck, Mail, Lock, WifiOff } from "lucide-react";
 
 type LoginForm = {
   email: string;
@@ -15,8 +15,29 @@ const LoginPage = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  // Monitora status de conexão
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   const onSubmit = async (data: LoginForm) => {
+    // Se está offline, mostra mensagem específica
+    if (isOffline) {
+      setError("Sem conexão com a internet. Conecte-se para fazer login.");
+      return;
+    }
+
     try {
       setError(null);
       await login(data.email, data.password);
@@ -45,6 +66,19 @@ const LoginPage = () => {
           <p className="text-gray-500 text-sm mb-6">
             Acesse sua conta para continuar
           </p>
+
+          {/* Aviso de offline */}
+          {isOffline && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
+              <WifiOff size={20} className="text-orange-500 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-orange-700">Sem conexão</p>
+                <p className="text-xs text-orange-600">
+                  Conecte-se à internet para fazer login pela primeira vez.
+                </p>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-1.5">
