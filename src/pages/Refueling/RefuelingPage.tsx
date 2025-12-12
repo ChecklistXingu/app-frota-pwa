@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import {
   addDoc,
@@ -9,6 +9,8 @@ import {
 } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
+import VoiceInputButton from "../../components/ui/VoiceInputButton";
+import type { ExtractedData } from "../../utils/voiceDataExtractor";
 
 type VehicleOption = {
   id: string;
@@ -155,6 +157,13 @@ const RefuelingPage = () => {
     return `${v.plate} • ${v.model}`;
   };
 
+  // Processa dados extraídos da voz
+  const handleVoiceData = useCallback((data: ExtractedData) => {
+    if (data.km) setValue("km", data.km);
+    if (data.liters) setValue("liters", data.liters);
+    if (data.value) setValue("value", data.value);
+  }, [setValue]);
+
   return (
     <div className="space-y-5">
       <h2 className="text-xl font-semibold">Abastecimentos</h2>
@@ -173,6 +182,9 @@ const RefuelingPage = () => {
           </p>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+            {/* Botão de entrada por voz */}
+            <VoiceInputButton onDataExtracted={handleVoiceData} />
+
             <div className="space-y-1">
               <label className="text-xs font-medium">Veículo</label>
               <select
