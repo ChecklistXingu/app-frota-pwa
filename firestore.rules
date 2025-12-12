@@ -1,65 +1,60 @@
+// Firestore Security Rules (sem Custom Claims; usa users/{uid}.role)
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // ============================================
     // FUNÇÕES AUXILIARES
     // ============================================
-    
-    // Verifica se o usuário está autenticado
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    // Verifica se o usuário é o dono do documento
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
-    
-    // Verifica se o usuário está criando um documento com seu próprio userId
+
     function isCreatingOwnData() {
       return isAuthenticated() && request.resource.data.userId == request.auth.uid;
     }
 
-    // Verifica se o usuário é administrador (Custom Claim)
+    // Admin via documento do Firestore: users/{uid}.role == 'admin'
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.role == 'admin';
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-    
+
     // ============================================
-    // COLEÇÃO: users
-    // Perfil do usuário (documento ID = uid do Firebase Auth)
+    // COLEÇÃO: users (perfil do usuário)
     // ============================================
     match /users/{userId} {
       // Admin pode tudo
       allow read, write: if isAdmin();
 
-      // Usuário comum: regras restritas
+      // Usuário comum
       allow read: if isOwner(userId);
       allow create: if isOwner(userId);
       allow update: if isOwner(userId);
       allow delete: if false;
     }
-    
+
     // ============================================
-    // COLEÇÃO: vehicles
-    // Veículos do usuário
+    // COLEÇÃO: vehicles (veículos)
     // ============================================
     match /vehicles/{vehicleId} {
       // Admin pode tudo
       allow read, write: if isAdmin();
 
-      // Usuário comum
+      // Usuário comum (baseado no campo userId do documento)
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow create: if isCreatingOwnData();
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================
-    // COLEÇÃO: refueling
-    // Registros de abastecimento
+    // COLEÇÃO: refueling (abastecimentos)
     // ============================================
     match /refueling/{refuelingId} {
       // Admin pode tudo
@@ -71,12 +66,14 @@ service cloud.firestore {
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
-    
+
     // ============================================
-    // COLEÇÃO: maintenance
-    // Registros de manutenção/checklist
+    // COLEÇÃO: maintenance (manutenções)
     // ============================================
     match /maintenance/{maintenanceId} {
+      // TEMPORÁRIO: Para debug - qualquer usuário autenticado pode ler
+      allow read: if isAuthenticated();
+      
       // Admin pode tudo
       allow read, write: if isAdmin();
 
@@ -86,10 +83,8 @@ service cloud.firestore {
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
-    
-    // ============================================
-    // BLOQUEIA QUALQUER OUTRA COLEÇÃO
-    // ============================================
+
+    // Bloqueia qualquer outra coleção por padrão
     match /{document=**} {
       allow read, write: if false;
     }

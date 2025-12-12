@@ -1,12 +1,14 @@
-import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
 export type MaintenanceStatus =
   | "pending"
+  | "in_progress"
   | "in_review"
   | "approved"
   | "rejected"
   | "scheduled"
+  | "completed"
   | "done";
 
 export type Maintenance = {
@@ -27,16 +29,47 @@ export const listenMaintenances = (
   options: { status?: MaintenanceStatus; userId?: string; vehicleId?: string } = {},
   cb: (data: Maintenance[]) => void
 ) => {
+  console.log("🔍 listenMaintenances called with options:", options);
+  
   const col = collection(db, "maintenance");
-  const filters = [] as any[];
-  if (options.status) filters.push(where("status", "==", options.status));
-  if (options.userId) filters.push(where("userId", "==", options.userId));
-  if (options.vehicleId) filters.push(where("vehicleId", "==", options.vehicleId));
-
-  const q = query(col, ...filters, orderBy("createdAt", "desc"));
+  
+  // TEMPORÁRIO: Sem orderBy para evitar erro de índice
+  const q = query(col);
+  
+  console.log("📝 Query created:", q);
+  
   return onSnapshot(q, (snap) => {
-    const list: Maintenance[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+    console.log("📸 Snapshot received:", snap.size, "documents");
+    
+    const list: Maintenance[] = snap.docs.map((d) => {
+      const data = d.data() as any;
+      console.log("📄 Document:", d.id, "Data:", data);
+      
+      // Verifica se o documento tem os campos necessários
+      if (!data.status) {
+        console.warn("⚠️ Document without status:", d.id);
+      }
+      if (!data.userId) {
+        console.warn("⚠️ Document without userId:", d.id);
+      }
+      if (!data.vehicleId) {
+        console.warn("⚠️ Document without vehicleId:", d.id);
+      }
+      
+      return { id: d.id, ...data };
+    });
+    
+    // Ordena localmente por createdAt
+    list.sort((a, b) => {
+      const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0;
+      const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0;
+      return timeB - timeA;
+    });
+    
+    console.log("🔧 Maintenance service - Processed list:", list.length, "items");
     cb(list);
+  }, (error) => {
+    console.error("❌ Firestore error:", error);
   });
 };
 

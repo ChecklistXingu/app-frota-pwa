@@ -4,10 +4,12 @@ import { ChevronDown, Wrench } from "lucide-react";
 
 const statusOptions: MaintenanceStatus[] = [
   "pending",
+  "in_progress",
   "in_review",
   "approved",
   "rejected",
   "scheduled",
+  "completed",
   "done",
 ];
 
@@ -16,9 +18,14 @@ const AdminMaintenancePage = () => {
   const [filter, setFilter] = useState<MaintenanceStatus | "all">("all");
 
   useEffect(() => {
+    console.log("🔄 AdminMaintenancePage: Setting up listener with filter:", filter);
     const unsub = listenMaintenances(
       filter === "all" ? {} : { status: filter },
-      setItems
+      (data) => {
+        console.log("📊 AdminMaintenancePage: Received data:", data.length, "items");
+        console.log("📋 Data:", data);
+        setItems(data);
+      }
     );
     return () => unsub();
   }, [filter]);
@@ -68,15 +75,15 @@ const AdminMaintenancePage = () => {
                     </div>
                   </div>
                 </td>
-                <td className="p-3">{m.userId}</td>
-                <td className="p-3">{m.vehicleId}</td>
+                <td className="p-3">{m.userId || "N/A"}</td>
+                <td className="p-3">{m.vehicleId || "N/A"}</td>
                 <td className="p-3">
-                  <StatusBadge status={m.status} />
+                  <StatusBadge status={m.status || "pending"} />
                 </td>
                 <td className="p-3">
                   <div className="relative inline-block">
                     <select
-                      value={m.status}
+                      value={m.status || "pending"}
                       onChange={(e) => onChangeStatus(m.id, e.target.value as MaintenanceStatus)}
                       className="appearance-none border rounded-lg px-3 py-2 pr-8 bg-white"
                     >
@@ -104,10 +111,12 @@ const AdminMaintenancePage = () => {
 const StatusBadge = ({ status }: { status: MaintenanceStatus }) => {
   const map: Record<string, string> = {
     pending: "bg-orange-100 text-orange-800",
+    in_progress: "bg-blue-100 text-blue-800",
     in_review: "bg-blue-100 text-blue-800",
     approved: "bg-emerald-100 text-emerald-800",
     rejected: "bg-red-100 text-red-800",
     scheduled: "bg-purple-100 text-purple-800",
+    completed: "bg-gray-100 text-gray-800",
     done: "bg-gray-100 text-gray-800",
   };
   return <span className={`px-2 py-1 rounded-md text-xs font-medium ${map[status]}`}>{status}</span>;
