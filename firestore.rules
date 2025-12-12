@@ -1,0 +1,104 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // FUNÇÕES AUXILIARES
+    // ============================================
+    
+    // Verifica se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Verifica se o usuário é o dono do documento
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Verifica se o usuário está criando um documento com seu próprio userId
+    function isCreatingOwnData() {
+      return isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // COLEÇÃO: users
+    // Perfil do usuário (documento ID = uid do Firebase Auth)
+    // ============================================
+    match /users/{userId} {
+      // Usuário pode ler seu próprio perfil
+      allow read: if isOwner(userId);
+      
+      // Usuário pode criar seu próprio perfil (no registro)
+      allow create: if isOwner(userId);
+      
+      // Usuário pode atualizar seu próprio perfil
+      allow update: if isOwner(userId);
+      
+      // Não permite deletar perfil (segurança)
+      allow delete: if false;
+    }
+    
+    // ============================================
+    // COLEÇÃO: vehicles
+    // Veículos do usuário
+    // ============================================
+    match /vehicles/{vehicleId} {
+      // Usuário pode ler seus próprios veículos
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Usuário pode criar veículo com seu próprio userId
+      allow create: if isCreatingOwnData();
+      
+      // Usuário pode atualizar seus próprios veículos
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Usuário pode deletar seus próprios veículos
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // COLEÇÃO: refueling
+    // Registros de abastecimento
+    // ============================================
+    match /refueling/{refuelingId} {
+      // Usuário pode ler seus próprios abastecimentos
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Usuário pode criar abastecimento com seu próprio userId
+      allow create: if isCreatingOwnData();
+      
+      // Usuário pode atualizar seus próprios abastecimentos
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Usuário pode deletar seus próprios abastecimentos
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // COLEÇÃO: maintenance
+    // Registros de manutenção/checklist
+    // ============================================
+    match /maintenance/{maintenanceId} {
+      // Usuário pode ler suas próprias manutenções
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Usuário pode criar manutenção com seu próprio userId
+      allow create: if isCreatingOwnData();
+      
+      // Usuário pode atualizar suas próprias manutenções
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Usuário pode deletar suas próprias manutenções
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================
+    // BLOQUEIA QUALQUER OUTRA COLEÇÃO
+    // ============================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
