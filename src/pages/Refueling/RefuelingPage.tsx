@@ -4,10 +4,8 @@ import {
   addDoc,
   collection,
   onSnapshot,
-  orderBy,
   query,
   where,
-  limit,
 } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -60,7 +58,6 @@ const RefuelingPage = () => {
     const q = query(
       collection(db, "vehicles"),
       where("userId", "==", user.uid),
-      orderBy("createdAt", "desc"),
     );
 
     const unsub = onSnapshot(q, (snap) => {
@@ -90,12 +87,17 @@ const RefuelingPage = () => {
     const q = query(
       collection(db, "refueling"),
       where("userId", "==", user.uid),
-      orderBy("date", "desc"),
-      limit(20),
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      const list: RefuelingRecord[] = snap.docs.map((doc) => {
+      // Ordena localmente por data
+      const sortedDocs = snap.docs.sort((a, b) => {
+        const dateA = a.data().date?.toDate?.() || new Date(0);
+        const dateB = b.data().date?.toDate?.() || new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      }).slice(0, 20);
+      
+      const list: RefuelingRecord[] = sortedDocs.map((doc) => {
         const data = doc.data() as any;
         return {
           id: doc.id,

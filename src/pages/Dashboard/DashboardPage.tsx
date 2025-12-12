@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   collection,
-  limit,
   onSnapshot,
-  orderBy,
   query,
   where,
 } from "firebase/firestore";
@@ -52,7 +50,6 @@ const DashboardPage = () => {
     const qVehicles = query(
       collection(db, "vehicles"),
       where("userId", "==", user.uid),
-      orderBy("createdAt", "desc"),
     );
 
     const unsubVehicles = onSnapshot(qVehicles, (snap) => {
@@ -71,8 +68,6 @@ const DashboardPage = () => {
     const qRefueling = query(
       collection(db, "refueling"),
       where("userId", "==", user.uid),
-      orderBy("date", "desc"),
-      limit(1),
     );
 
     const unsubRefueling = onSnapshot(qRefueling, (snap) => {
@@ -80,7 +75,13 @@ const DashboardPage = () => {
         setLastRefueling(null);
         return;
       }
-      const docSnap = snap.docs[0];
+      // Ordena localmente e pega o mais recente
+      const sorted = snap.docs.sort((a, b) => {
+        const dateA = a.data().date?.toDate?.() || new Date(0);
+        const dateB = b.data().date?.toDate?.() || new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
+      const docSnap = sorted[0];
       const data = docSnap.data() as any;
       setLastRefueling({
         id: docSnap.id,
@@ -99,8 +100,6 @@ const DashboardPage = () => {
     const qMaintenance = query(
       collection(db, "maintenance"),
       where("userId", "==", user.uid),
-      orderBy("date", "desc"),
-      limit(1),
     );
 
     const unsubMaintenance = onSnapshot(qMaintenance, (snap) => {
@@ -108,7 +107,13 @@ const DashboardPage = () => {
         setLastMaintenance(null);
         return;
       }
-      const docSnap = snap.docs[0];
+      // Ordena localmente e pega o mais recente
+      const sorted = snap.docs.sort((a, b) => {
+        const dateA = a.data().date?.toDate?.() || new Date(0);
+        const dateB = b.data().date?.toDate?.() || new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
+      const docSnap = sorted[0];
       const data = docSnap.data() as any;
       setLastMaintenance({
         id: docSnap.id,

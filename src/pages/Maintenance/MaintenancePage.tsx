@@ -3,9 +3,7 @@ import { useForm } from "react-hook-form";
 import {
   addDoc,
   collection,
-  limit,
   onSnapshot,
-  orderBy,
   query,
   where,
 } from "firebase/firestore";
@@ -99,7 +97,6 @@ const MaintenancePage = () => {
     const q = query(
       collection(db, "vehicles"),
       where("userId", "==", user.uid),
-      orderBy("createdAt", "desc"),
     );
 
     const unsub = onSnapshot(q, (snap) => {
@@ -129,12 +126,17 @@ const MaintenancePage = () => {
     const q = query(
       collection(db, "maintenance"),
       where("userId", "==", user.uid),
-      orderBy("date", "desc"),
-      limit(20),
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      const list: MaintenanceRecord[] = snap.docs.map((doc) => {
+      // Ordena localmente por data
+      const sortedDocs = snap.docs.sort((a, b) => {
+        const dateA = a.data().date?.toDate?.() || new Date(0);
+        const dateB = b.data().date?.toDate?.() || new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      }).slice(0, 20);
+      
+      const list: MaintenanceRecord[] = sortedDocs.map((doc) => {
         const data = doc.data() as any;
         return {
           id: doc.id,

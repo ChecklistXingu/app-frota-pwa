@@ -5,7 +5,6 @@ import {
   onSnapshot,
   query,
   where,
-  orderBy,
 } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -37,24 +36,30 @@ const VehiclesPage = () => {
     const q = query(
       collection(db, "vehicles"),
       where("userId", "==", user.uid),
-      orderBy("createdAt", "desc"),
     );
 
-    const unsub = onSnapshot(q, (snap) => {
-      const list: Vehicle[] = snap.docs.map((doc) => {
-        const data = doc.data() as any;
-        return {
-          id: doc.id,
-          plate: data.plate ?? "",
-          model: data.model ?? "",
-          year: data.year ?? 0,
-          currentKm: data.currentKm ?? 0,
-          status: (data.status as Vehicle["status"]) ?? "ok",
-        };
-      });
-      setVehicles(list);
-      setLoading(false);
-    });
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list: Vehicle[] = snap.docs.map((doc) => {
+          const data = doc.data() as any;
+          return {
+            id: doc.id,
+            plate: data.plate ?? "",
+            model: data.model ?? "",
+            year: data.year ?? 0,
+            currentKm: data.currentKm ?? 0,
+            status: (data.status as Vehicle["status"]) ?? "ok",
+          };
+        });
+        setVehicles(list);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Erro ao carregar veículos:", error);
+        setLoading(false);
+      }
+    );
 
     return () => unsub();
   }, [user]);
