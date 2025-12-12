@@ -12,12 +12,44 @@ type RegisterForm = {
 };
 
 const RegisterPage = () => {
-  const { register: registerField, handleSubmit, formState } =
-    useForm<RegisterForm>();
+  const {
+    register: registerField,
+    handleSubmit,
+    formState,
+    setValue,
+  } = useForm<RegisterForm>();
   const { isSubmitting } = formState;
   const { register } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const [phoneDisplay, setPhoneDisplay] = useState("");
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 3) return `${digits.slice(0, 2)} ${digits.slice(2)}`;
+
+    const ddd = digits.slice(0, 2);
+    const nine = digits.slice(2, 3);
+    const part1 = digits.slice(3, 7);
+    const part2 = digits.slice(7, 11);
+
+    let formatted = `${ddd} ${nine}`;
+    if (part1) formatted += ` ${part1}`;
+    if (part2) formatted += `-${part2}`;
+
+    return formatted;
+  };
+
+  const handlePhoneChange = (e: any) => {
+    const raw = e.target.value as string;
+    const digits = raw.replace(/\D/g, "").slice(0, 11);
+    const formatted = formatPhone(raw);
+
+    setPhoneDisplay(formatted);
+    setValue("phone", digits, { shouldValidate: true });
+  };
 
   const onSubmit = async (data: RegisterForm) => {
     try {
@@ -35,6 +67,13 @@ const RegisterPage = () => {
       setError("Não foi possível criar a conta. Tente novamente.");
     }
   };
+
+  const phoneRegister = registerField("phone", {
+    required: true,
+    validate: (value) =>
+      value.replace(/\D/g, "").length === 11 ||
+      "Telefone deve ter 11 dígitos (ex: 66 9 9999-9999)",
+  });
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-[color:var(--color-background)] text-[color:var(--color-primary)]">
@@ -58,17 +97,27 @@ const RegisterPage = () => {
           <div className="space-y-1">
             <label className="text-sm font-medium">Telefone</label>
             <input
+              type="tel"
               className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
-              {...registerField("phone", { required: true })}
+              {...phoneRegister}
+              value={phoneDisplay}
+              onChange={handlePhoneChange}
+              placeholder="66 9 9999-9999"
             />
           </div>
 
           <div className="space-y-1">
             <label className="text-sm font-medium">Filial</label>
-            <input
-              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
+            <select
+              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] bg-white"
               {...registerField("filial", { required: true })}
-            />
+            >
+              <option value="">Selecione a filial</option>
+              <option value="Água Boa">Água Boa</option>
+              <option value="Querência">Querência</option>
+              <option value="Canarana">Canarana</option>
+              <option value="Confresa">Confresa</option>
+            </select>
           </div>
 
           <div className="space-y-1">
