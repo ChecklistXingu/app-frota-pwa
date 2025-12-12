@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { listenRefuelings, type Refueling } from "../../services/refuelingService";
+import { getRefuelingTimestamp, listenRefuelings, type Refueling } from "../../services/refuelingService";
 import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { Fuel } from "lucide-react";
@@ -35,15 +35,12 @@ const AdminRefuelingPage = () => {
   const formatDate = (dateField: any) => {
     if (!dateField) return "N/A";
     
-    if (dateField.seconds) {
-      return new Date(dateField.seconds * 1000).toLocaleString("pt-BR");
-    }
-    
-    if (dateField.toDate) {
-      return dateField.toDate().toLocaleString("pt-BR");
-    }
-    
-    return new Date(dateField).toLocaleString("pt-BR");
+    const timestamp = getRefuelingTimestamp(dateField);
+    if (!timestamp) return "N/A";
+
+    return new Date(timestamp).toLocaleString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+    });
   };
 
   // Calcula totais
@@ -80,7 +77,9 @@ const AdminRefuelingPage = () => {
             </tr>
           </thead>
           <tbody>
-            {items.map((r) => {
+            {[...items]
+              .sort((a, b) => getRefuelingTimestamp(b.date) - getRefuelingTimestamp(a.date))
+              .map((r) => {
               const pricePerLiter = r.liters ? r.value / r.liters : 0;
               return (
                 <tr key={r.id} className="border-t">
