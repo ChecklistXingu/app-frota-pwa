@@ -9,7 +9,13 @@ export const useDashboardData = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const processData = useCallback((maintenances: any[] = [], vehicles: any[] = [], users: any[] = [], refuelings: any[] = []): DashboardData => {
+  const processData = useCallback(
+    (
+      maintenances: any[] = [],
+      vehicles: any[] = [],
+      users: any[] = [],
+      refuelings: any[] = []
+    ): DashboardData => {
     // Processar dados de manutenção
     const maintenanceStats = {
       total: maintenances.length,
@@ -29,7 +35,9 @@ export const useDashboardData = () => {
 
     // Processar dados de abastecimento
     const monthlyRefuelings = refuelings.filter(r => {
-      const refuelingDate = r.date?.toDate();
+      const timestamp = r.date?.toDate ? r.date.toDate() : r.date;
+      if (!timestamp) return false;
+      const refuelingDate = timestamp instanceof Date ? timestamp : new Date(timestamp);
       const oneMonthAgo = new Date();
       oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
       return refuelingDate > oneMonthAgo;
@@ -38,8 +46,8 @@ export const useDashboardData = () => {
     const refuelingStats = {
       monthlyTotal: monthlyRefuelings.reduce((sum, r) => sum + (r.value || 0), 0),
       totalLiters: monthlyRefuelings.reduce((sum, r) => sum + (r.liters || 0), 0),
-      averageConsumption: 8.5, // km/l - exemplo
-      costPerKm: 0.85 // R$/km - exemplo
+      averageConsumption: 8.5,
+      costPerKm: 0.85
     };
 
     // Atividades recentes
@@ -96,38 +104,36 @@ export const useDashboardData = () => {
 
   useEffect(() => {
     setLoading(true);
-    
+
+    let maintenances: any[] = [];
+    let vehicles: any[] = [];
+    let users: any[] = [];
+    let refuelings: any[] = [];
+
+    const updateDashboard = () => {
+      setData(processData(maintenances, vehicles, users, refuelings));
+      setLoading(false);
+    };
+
     const unsubs = [
-      listenMaintenances({}, (maintenances) => {
-        setData(prev => {
-          if (!prev) return null;
-          return { ...prev, maintenances } as DashboardData;
-        });
+      listenMaintenances({}, (items) => {
+        maintenances = items;
+        updateDashboard();
       }),
-      
-      listenVehicles({}, (vehicles) => {
-        setData(prev => {
-          if (!prev) return null;
-          return { ...prev, vehicles } as DashboardData;
-        });
+      listenVehicles({}, (items) => {
+        vehicles = items;
+        updateDashboard();
       }),
-      
-      listenUsers((users) => {
-        setData(prev => {
-          if (!prev) return null;
-          return { ...prev, users } as DashboardData;
-        });
+      listenUsers((items) => {
+        users = items;
+        updateDashboard();
       }),
-      
-      listenRefuelings((refuelings) => {
-        setData(prev => {
-          if (!prev) return null;
-          return { ...prev, refuelings } as any;
-        });
+      listenRefuelings((items) => {
+        refuelings = items;
+        updateDashboard();
       })
     ];
 
-    // Cleanup function
     return () => {
       unsubs.forEach(unsub => unsub());
     };
