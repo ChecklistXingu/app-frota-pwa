@@ -16,8 +16,8 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['icons/icon-192.svg'],
       manifest: {
-        name: 'App Frota',
-        short_name: 'Frota',
+        name: 'Frota Xingu',
+        short_name: 'Frota Xingu',
         description: 'Gestão inteligente de veículos e frotas',
         start_url: '/',
         scope: '/',
