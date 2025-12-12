@@ -5,11 +5,13 @@ import './index.css'
 import AppRouter from './router/AppRouter'
 import { AuthProvider } from './contexts/AuthContext'
 import InstallPrompt from './components/pwa/InstallPrompt'
+import UpdatePrompt from './components/pwa/UpdatePrompt'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
       <BrowserRouter>
+        <UpdatePrompt />
         <AppRouter />
         <InstallPrompt />
       </BrowserRouter>
@@ -21,22 +23,10 @@ createRoot(document.getElementById('root')!).render(
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const registration = await navigator.serviceWorker.register('/sw.js')
-      
-      // Força atualização se houver nova versão
-      registration.addEventListener('updatefound', () => {
-        const newWorker = registration.installing
-        if (newWorker) {
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // Nova versão disponível - recarrega
-              window.location.reload()
-            }
-          })
-        }
-      })
+      await navigator.serviceWorker.register('/sw.js')
+      console.log('[App] Service Worker registrado')
     } catch (error) {
-      console.error('SW registration failed', error)
+      console.error('[App] Falha ao registrar SW:', error)
     }
   })
 }

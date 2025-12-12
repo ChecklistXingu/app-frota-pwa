@@ -1,23 +1,36 @@
-const CACHE_NAME = 'app-frota-cache-v2';
+const CACHE_NAME = 'app-frota-cache-v3';
 
-// Instala e força ativação imediata
+// Instala o novo SW
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  // Não chama skipWaiting automaticamente - espera mensagem do cliente
+  console.log('[SW] Nova versão instalada, aguardando ativação...');
+});
+
+// Escuta mensagem para ativar imediatamente
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // Limpa caches antigos e assume controle
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Ativando nova versão...');
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log('[SW] Removendo cache antigo:', key);
             return caches.delete(key);
           }
           return undefined;
         })
       )
-    ).then(() => self.clients.claim())
+    ).then(() => {
+      console.log('[SW] Assumindo controle dos clientes');
+      return self.clients.claim();
+    })
   );
 });
 
@@ -28,11 +41,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network first, fallback to cache
+  // Para arquivos de assets (JS, CSS), sempre busca da rede primeiro
+  const url = new URL(request.url);
+  const isAsset = url.pathname.startsWith('/assets/');
+  
+  if (isAsset) {
+    // Network only para assets - garante versão mais recente
+    event.respondWith(
+      fetch(request).catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Para navegação e outros recursos: Network first, fallback to cache
   event.respondWith(
     fetch(request)
       .then((response) => {
-        // Só cacheia respostas válidas
         if (response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
