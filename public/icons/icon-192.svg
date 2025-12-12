@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#0d2d6c"/>
+  <circle cx="96" cy="80" r="40" fill="#ffd300"/>
+  <path d="M60 90 L72 70 L120 70 L132 90 L132 110 L60 110 Z" fill="#0d2d6c"/>
+  <circle cx="75" cy="115" r="12" fill="#333"/>
+  <circle cx="117" cy="115" r="12" fill="#333"/>
+  <rect x="70" y="78" width="52" height="20" rx="4" fill="#87CEEB"/>
+  <text x="96" y="160" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="white">FROTA</text>
+</svg>

@@ -1,14 +1,11 @@
-const CACHE_NAME = 'app-frota-cache-v1';
-const OFFLINE_URLS = ['/', '/index.html'];
+const CACHE_NAME = 'app-frota-cache-v2';
 
+// Instala e força ativação imediata
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(OFFLINE_URLS);
-    })
-  );
+  self.skipWaiting();
 });
 
+// Limpa caches antigos e assume controle
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -20,7 +17,7 @@ self.addEventListener('activate', (event) => {
           return undefined;
         })
       )
-    )
+    ).then(() => self.clients.claim())
   );
 });
 
@@ -35,8 +32,11 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        // Só cacheia respostas válidas
+        if (response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        }
         return response;
       })
       .catch(async () => {
@@ -47,7 +47,7 @@ self.addEventListener('fetch', (event) => {
           return caches.match('/');
         }
 
-        throw new Error('Network error and no cache.');
+        return new Response('Offline', { status: 503 });
       })
   );
 });
