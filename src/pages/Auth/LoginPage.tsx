@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { Truck, Mail, Lock, WifiOff } from "lucide-react";
+import { Mail, Lock, WifiOff } from "lucide-react";
+import frotaLogo from "../../assets/frota 1.png";
 
 type LoginForm = {
   email: string;
@@ -52,10 +53,14 @@ const LoginPage = () => {
     <div className="min-h-screen flex flex-col bg-[#0d2d6c]">
       {/* Header com logo */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-8">
-        <div className="w-20 h-20 bg-[#ffd300] rounded-full flex items-center justify-center mb-4 shadow-lg">
-          <Truck size={40} className="text-[#0d2d6c]" />
+        <div className="w-20 h-20 bg-[#ffd300] rounded-full flex items-center justify-center mb-4 shadow-lg overflow-hidden">
+          <img 
+            src={frotaLogo} 
+            alt="App Frota Xingu" 
+            className="w-full h-full object-contain p-2"
+          />
         </div>
-        <h1 className="text-3xl font-bold text-white mb-1">App Frota</h1>
+        <h1 className="text-3xl font-bold text-white mb-1">App Frota Xingu</h1>
         <p className="text-white/70 text-sm">Gestão inteligente de veículos</p>
       </div>
 
