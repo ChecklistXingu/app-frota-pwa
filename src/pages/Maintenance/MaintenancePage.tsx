@@ -8,6 +8,7 @@ import {
   where,
   updateDoc,
   doc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -36,7 +37,7 @@ type MaintenanceForm = {
   vehicleId: string;
   type: MaintenanceType;
   km: number;
-  date: string;
+  dateTime: string;
   notes: string;
 };
 
@@ -85,7 +86,7 @@ const MaintenancePage = () => {
 
   // Estado para edição
   const [editingRecord, setEditingRecord] = useState<MaintenanceRecord | null>(null);
-  const [editForm, setEditForm] = useState({ km: 0, date: "", notes: "" });
+  const [editForm, setEditForm] = useState({ km: 0, dateTime: "", notes: "" });
   const [editChecklist, setEditChecklist] = useState<Record<string, boolean>>({});
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -210,12 +211,12 @@ const MaintenancePage = () => {
 
     // Corrige fuso horário: input date retorna YYYY-MM-DD que é interpretado como UTC
     // Adicionamos T12:00:00 para garantir que fique no dia correto em qualquer fuso
-    const date = data.date ? new Date(data.date + "T12:00:00") : new Date();
+    const dateValue = data.dateTime ? new Date(data.dateTime) : serverTimestamp();
 
     const maintenanceData = {
       userId: user.uid,
       vehicleId: data.vehicleId,
-      date,
+      date: dateValue,
       km: Number(data.km),
       type: data.type,
       items,
@@ -230,7 +231,7 @@ const MaintenancePage = () => {
         vehicleId: data.vehicleId,
         type: data.type,
         km: undefined as any,
-        date: "",
+        dateTime: "",
         notes: "",
       });
       const initial: Record<string, boolean> = {};
@@ -298,7 +299,7 @@ const MaintenancePage = () => {
     setEditingRecord(record);
     setEditForm({
       km: record.km,
-      date: record.date ? record.date.toISOString().split("T")[0] : "",
+      dateTime: record.date ? record.date.toISOString().slice(0, 16) : "",
       notes: record.notes || "",
     });
     // Carrega estado do checklist
@@ -324,7 +325,7 @@ const MaintenancePage = () => {
     setSavingEdit(true);
 
     try {
-      const date = editForm.date ? new Date(editForm.date + "T12:00:00") : new Date();
+      const date = editForm.dateTime ? new Date(editForm.dateTime) : new Date();
       
       // Monta array de itens do checklist
       const items = CHECKLIST_ITEMS.map((name) => ({
@@ -434,11 +435,11 @@ const MaintenancePage = () => {
               </div>
 
               <div className="flex-1 space-y-1">
-                <label className="text-xs font-medium">Data</label>
+                <label className="text-xs font-medium">Data e hora</label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
-                  {...register("date")}
+                  {...register("dateTime")}
                 />
               </div>
             </div>
@@ -604,11 +605,11 @@ const MaintenancePage = () => {
 
             <div className="space-y-3 max-h-[70vh] overflow-y-auto">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-600">Data</label>
+                <label className="text-xs font-medium text-gray-600">Data e hora</label>
                 <input
-                  type="date"
-                  value={editForm.date}
-                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  type="datetime-local"
+                  value={editForm.dateTime}
+                  onChange={(e) => setEditForm({ ...editForm, dateTime: e.target.value })}
                   className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
