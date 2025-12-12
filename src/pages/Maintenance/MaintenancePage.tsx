@@ -38,6 +38,7 @@ type MaintenanceRecord = {
   status: MaintenanceStatus;
   items: { name: string; status: boolean }[];
   notes?: string;
+  photos?: string[];
 };
 
 const CHECKLIST_ITEMS = [
@@ -151,6 +152,7 @@ const MaintenancePage = () => {
           status: data.status ?? "pending",
           items: Array.isArray(data.items) ? data.items : [],
           notes: data.notes,
+          photos: Array.isArray(data.photos) ? data.photos : [],
         };
       });
       setMaintenanceList(list);
@@ -373,14 +375,15 @@ const MaintenancePage = () => {
           </p>
         )}
 
-        <div className="space-y-2">
+        <div className="space-y-3">
           {maintenanceList.map((m) => (
             <div
               key={m.id}
-              className="rounded-xl border bg-white px-4 py-3 shadow-sm text-xs flex justify-between gap-3"
+              className="rounded-xl border bg-white px-4 py-3 shadow-sm text-xs"
             >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
+              {/* Cabeçalho */}
+              <div className="flex justify-between items-start gap-2 mb-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-semibold">{getVehicleLabel(m.vehicleId)}</p>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusClasses[m.status]}`}
@@ -388,26 +391,53 @@ const MaintenancePage = () => {
                     {statusLabels[m.status]}
                   </span>
                 </div>
-                <p className="text-gray-600">
-                  {typeLabels[m.type]} • {m.km.toLocaleString("pt-BR")} km
-                </p>
-                {m.items.some((i) => i.status) && (
-                  <p className="text-[10px] text-gray-500 truncate">
-                    Itens: {m.items.filter((i) => i.status).map((i) => i.name).join(", ")}
-                  </p>
-                )}
-                {m.notes && (
-                  <p className="text-[10px] text-gray-500 truncate">{m.notes}</p>
-                )}
-              </div>
-
-              <div className="text-right space-y-1">
                 {m.date && (
-                  <p className="text-[10px] text-gray-500">
+                  <p className="text-[10px] text-gray-500 whitespace-nowrap">
                     {m.date.toLocaleDateString("pt-BR")}
                   </p>
                 )}
               </div>
+
+              {/* Detalhes */}
+              <p className="text-gray-600 mb-1">
+                {typeLabels[m.type]} • {m.km.toLocaleString("pt-BR")} km
+              </p>
+
+              {/* Itens do checklist */}
+              {m.items.some((i) => i.status) && (
+                <p className="text-[10px] text-gray-500 mb-1">
+                  <span className="font-medium">Itens:</span>{" "}
+                  {m.items.filter((i) => i.status).map((i) => i.name).join(", ")}
+                </p>
+              )}
+
+              {/* Observações */}
+              {m.notes && (
+                <p className="text-[10px] text-gray-500 mb-2">
+                  <span className="font-medium">Obs:</span> {m.notes}
+                </p>
+              )}
+
+              {/* Fotos */}
+              {m.photos && m.photos.length > 0 && (
+                <div className="flex gap-2 mt-2 overflow-x-auto">
+                  {m.photos.map((url, idx) => (
+                    <a
+                      key={idx}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-shrink-0"
+                    >
+                      <img
+                        src={url}
+                        alt={`Foto ${idx + 1}`}
+                        className="w-16 h-16 object-cover rounded-lg border"
+                      />
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
