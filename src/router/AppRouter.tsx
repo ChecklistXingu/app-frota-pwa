@@ -15,6 +15,7 @@ import AdminDashboardPage from "../pages/Admin/AdminDashboardPage";
 import AdminMaintenancePage from "../pages/Admin/AdminMaintenancePage";
 import AdminVehiclesPage from "../pages/Admin/AdminVehiclesPage";
 import AdminUsersPage from "../pages/Admin/AdminUsersPage";
+import AdminRefuelingPage from "../pages/Admin/AdminRefuelingPage";
 
 const AppRouter = () => {
   const { user, loading, profile } = useAuth();
@@ -66,6 +67,7 @@ const AppRouter = () => {
               <Routes>
                 <Route path="" element={<AdminDashboardPage />} />
                 <Route path="maintenance" element={<AdminMaintenancePage />} />
+                <Route path="refueling" element={<AdminRefuelingPage />} />
                 <Route path="vehicles" element={<AdminVehiclesPage />} />
                 <Route path="users" element={<AdminUsersPage />} />
               </Routes>

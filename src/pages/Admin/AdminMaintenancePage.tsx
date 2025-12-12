@@ -80,6 +80,23 @@ const AdminMaintenancePage = () => {
     return new Date(dateField).toLocaleString("pt-BR");
   };
 
+  // Função para obter os itens marcados da manutenção
+  const getMaintenanceItems = (m: Maintenance) => {
+    // Pega os itens marcados (status: true)
+    const checkedItems = m.items?.filter(item => item.status)?.map(item => item.name) || [];
+    
+    if (checkedItems.length > 0) {
+      return checkedItems.join(", ");
+    }
+    
+    return m.description || "Checklist de manutenção";
+  };
+
+  // Função para obter a observação
+  const getNotes = (m: Maintenance) => {
+    return (m as any).notes || m.managerNote || "";
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -116,8 +133,11 @@ const AdminMaintenancePage = () => {
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded bg-[#ffd300]/30 flex items-center justify-center text-[#0d2d6c]"><Wrench size={16} /></div>
                     <div>
-                      <p className="font-medium truncate max-w-[340px]">{m.description || "Checklist de manutenção"}</p>
-                      <p className="text-gray-500">{formatDate(m.createdAt || (m as any).date)}</p>
+                      <p className="font-medium truncate max-w-[340px]">{getMaintenanceItems(m)}</p>
+                      {getNotes(m) && (
+                        <p className="text-gray-600 text-xs truncate max-w-[340px]">Obs: {getNotes(m)}</p>
+                      )}
+                      <p className="text-gray-400 text-xs">{formatDate(m.createdAt || (m as any).date)}</p>
                     </div>
                   </div>
                 </td>

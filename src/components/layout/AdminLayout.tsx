@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Wrench, Car, Users, LogOut } from "lucide-react";
+import { LayoutDashboard, Wrench, Car, Users, LogOut, Fuel } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
 const AdminLayout = ({ children }: { children: ReactNode }) => {
@@ -22,6 +22,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
         <nav className="flex-1 p-3 space-y-1">
           <NavItem to="/admin" icon={<LayoutDashboard size={18} />} label="Dashboard" />
           <NavItem to="/admin/maintenance" icon={<Wrench size={18} />} label="Manutenções" />
+          <NavItem to="/admin/refueling" icon={<Fuel size={18} />} label="Abastecimentos" />
           <NavItem to="/admin/vehicles" icon={<Car size={18} />} label="Veículos" />
           <NavItem to="/admin/users" icon={<Users size={18} />} label="Usuários" />
         </nav>
@@ -37,6 +38,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
         <div className="max-w-md mx-auto flex justify-between px-4 py-2 text-xs">
           <NavItem to="/admin" icon={<LayoutDashboard size={18} />} label="Home" />
           <NavItem to="/admin/maintenance" icon={<Wrench size={18} />} label="Manut." />
+          <NavItem to="/admin/refueling" icon={<Fuel size={18} />} label="Abast." />
           <NavItem to="/admin/vehicles" icon={<Car size={18} />} label="Veículos" />
           <NavItem to="/admin/users" icon={<Users size={18} />} label="Usuários" />
         </div>
