@@ -8,6 +8,7 @@ import {
   where,
   doc,
   updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -26,7 +27,7 @@ type RefuelingForm = {
   km: number;
   liters: number;
   value: number;
-  date: string;
+  dateTime: string;
   notes: string;
 };
 
@@ -52,7 +53,7 @@ const RefuelingPage = () => {
   
   // Estado para edição
   const [editingRecord, setEditingRecord] = useState<RefuelingRecord | null>(null);
-  const [editForm, setEditForm] = useState({ km: 0, liters: 0, value: 0, date: "" });
+  const [editForm, setEditForm] = useState({ km: 0, liters: 0, value: 0, dateTime: "" });
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Monitora status de conexão
@@ -144,15 +145,13 @@ const RefuelingPage = () => {
     if (!user) return;
 
     const selectedVehicle = vehicles.find((v) => v.id === data.vehicleId);
-    
-    // Corrige fuso horário: input date retorna YYYY-MM-DD que é interpretado como UTC
-    // Adicionamos T12:00:00 para garantir que fique no dia correto em qualquer fuso
-    const date = data.date ? new Date(data.date + "T12:00:00") : new Date();
+
+    const dateValue = data.dateTime ? new Date(data.dateTime) : serverTimestamp();
 
     const refuelingData = {
       userId: user.uid,
       vehicleId: data.vehicleId,
-      date,
+      date: dateValue,
       km: Number(data.km),
       liters: Number(data.liters),
       value: Number(data.value),
@@ -166,7 +165,7 @@ const RefuelingPage = () => {
         km: undefined as any,
         liters: undefined as any,
         value: undefined as any,
-        date: "",
+        dateTime: "",
         notes: "",
       });
     };
@@ -214,7 +213,7 @@ const RefuelingPage = () => {
       km: record.km,
       liters: record.liters,
       value: record.value,
-      date: record.date ? record.date.toISOString().split("T")[0] : "",
+      dateTime: record.date ? record.date.toISOString().slice(0, 16) : "",
     });
   };
 
@@ -224,7 +223,7 @@ const RefuelingPage = () => {
     setSavingEdit(true);
 
     try {
-      const date = editForm.date ? new Date(editForm.date + "T12:00:00") : new Date();
+      const date = editForm.dateTime ? new Date(editForm.dateTime) : new Date();
       
       await updateDoc(doc(db, "refueling", editingRecord.id), {
         km: Number(editForm.km),
@@ -288,11 +287,11 @@ const RefuelingPage = () => {
               </div>
 
               <div className="flex-1 space-y-1">
-                <label className="text-xs font-medium">Data</label>
+                <label className="text-xs font-medium">Data e hora</label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
-                  {...register("date")}
+                  {...register("dateTime")}
                 />
               </div>
             </div>
@@ -424,11 +423,11 @@ const RefuelingPage = () => {
 
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-600">Data</label>
+                <label className="text-xs font-medium text-gray-600">Data e hora</label>
                 <input
-                  type="date"
-                  value={editForm.date}
-                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  type="datetime-local"
+                  value={editForm.dateTime}
+                  onChange={(e) => setEditForm({ ...editForm, dateTime: e.target.value })}
                   className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
