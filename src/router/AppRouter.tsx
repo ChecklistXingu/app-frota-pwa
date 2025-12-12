@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import MainLayout from "../components/layout/MainLayout";
+import AdminLayout from "../components/layout/AdminLayout";
 import { useAuth } from "../contexts/AuthContext";
 
 import DashboardPage from "../pages/Dashboard/DashboardPage";
@@ -10,9 +11,13 @@ import ProfilePage from "../pages/Profile/ProfilePage";
 import OnboardingVehiclesPage from "../pages/Vehicles/OnboardingVehiclesPage";
 import LoginPage from "../pages/Auth/LoginPage";
 import RegisterPage from "../pages/Auth/RegisterPage";
+import AdminDashboardPage from "../pages/Admin/AdminDashboardPage";
+import AdminMaintenancePage from "../pages/Admin/AdminMaintenancePage";
+import AdminVehiclesPage from "../pages/Admin/AdminVehiclesPage";
+import AdminUsersPage from "../pages/Admin/AdminUsersPage";
 
 const AppRouter = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, profile } = useAuth();
 
   if (loading) {
     return (
@@ -33,17 +38,44 @@ const AppRouter = () => {
   }
 
   return (
-    <MainLayout>
-      <Routes>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/onboarding/vehicles" element={<OnboardingVehiclesPage />} />
-        <Route path="/vehicles" element={<VehiclesPage />} />
-        <Route path="/refueling" element={<RefuelingPage />} />
-        <Route path="/maintenance" element={<MaintenancePage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </MainLayout>
+    <Routes>
+      {/* Rotas do app (motorista) */}
+      <Route
+        path="/*"
+        element={
+          <MainLayout>
+            <Routes>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/onboarding/vehicles" element={<OnboardingVehiclesPage />} />
+              <Route path="/vehicles" element={<VehiclesPage />} />
+              <Route path="/refueling" element={<RefuelingPage />} />
+              <Route path="/maintenance" element={<MaintenancePage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </MainLayout>
+        }
+      />
+
+      {/* Rotas do Painel Admin (somente perfil admin) */}
+      <Route
+        path="/admin/*"
+        element={
+          profile?.role === "admin" ? (
+            <AdminLayout>
+              <Routes>
+                <Route path="" element={<AdminDashboardPage />} />
+                <Route path="maintenance" element={<AdminMaintenancePage />} />
+                <Route path="vehicles" element={<AdminVehiclesPage />} />
+                <Route path="users" element={<AdminUsersPage />} />
+              </Routes>
+            </AdminLayout>
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
+      />
+    </Routes>
   );
 };
 
