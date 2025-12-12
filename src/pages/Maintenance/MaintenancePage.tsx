@@ -78,6 +78,7 @@ const MaintenancePage = () => {
   // Estado para edição
   const [editingRecord, setEditingRecord] = useState<MaintenanceRecord | null>(null);
   const [editForm, setEditForm] = useState({ km: 0, date: "", notes: "" });
+  const [editChecklist, setEditChecklist] = useState<Record<string, boolean>>({});
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Monitora status de conexão
@@ -292,6 +293,21 @@ const MaintenancePage = () => {
       date: record.date ? record.date.toISOString().split("T")[0] : "",
       notes: record.notes || "",
     });
+    // Carrega estado do checklist
+    const checklistFromRecord: Record<string, boolean> = {};
+    CHECKLIST_ITEMS.forEach((item) => {
+      const found = record.items.find((i) => i.name === item);
+      checklistFromRecord[item] = found ? found.status : false;
+    });
+    setEditChecklist(checklistFromRecord);
+  };
+
+  // Toggle item do checklist na edição
+  const onToggleEditItem = (name: string) => {
+    setEditChecklist((prev) => ({
+      ...prev,
+      [name]: !prev[name],
+    }));
   };
 
   // Salva edição
@@ -302,10 +318,17 @@ const MaintenancePage = () => {
     try {
       const date = editForm.date ? new Date(editForm.date + "T12:00:00") : new Date();
       
+      // Monta array de itens do checklist
+      const items = CHECKLIST_ITEMS.map((name) => ({
+        name,
+        status: !!editChecklist[name],
+      }));
+      
       await updateDoc(doc(db, "maintenance", editingRecord.id), {
         km: Number(editForm.km),
         date,
         notes: editForm.notes,
+        items,
       });
 
       setEditingRecord(null);
@@ -561,7 +584,7 @@ const MaintenancePage = () => {
               </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[70vh] overflow-y-auto">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">Data</label>
                 <input
@@ -580,6 +603,40 @@ const MaintenancePage = () => {
                   onChange={(e) => setEditForm({ ...editForm, km: Number(e.target.value) })}
                   className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+
+              {/* Checklist */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-600">Itens do Checklist</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {CHECKLIST_ITEMS.map((item) => (
+                    <label
+                      key={item}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer transition-colors ${
+                        editChecklist[item]
+                          ? "bg-blue-50 border-blue-300 text-blue-700"
+                          : "bg-gray-50 border-gray-200 text-gray-600"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!!editChecklist[item]}
+                        onChange={() => onToggleEditItem(item)}
+                        className="sr-only"
+                      />
+                      <span className={`w-4 h-4 rounded flex items-center justify-center border ${
+                        editChecklist[item] ? "bg-blue-600 border-blue-600" : "border-gray-300"
+                      }`}>
+                        {editChecklist[item] && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </span>
+                      {item}
+                    </label>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-1">
