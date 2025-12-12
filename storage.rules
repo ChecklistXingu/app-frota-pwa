@@ -1,0 +1,71 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Função para verificar se está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Função para verificar se é o dono do arquivo
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Função para verificar se é uma imagem
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Função para verificar tamanho máximo (5MB)
+    function isValidSize() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+    
+    // ============================================
+    // PASTA: maintenance/{userId}/*
+    // Fotos de manutenção/problemas dos veículos
+    // ============================================
+    match /maintenance/{userId}/{allPaths=**} {
+      // Usuário pode ler suas próprias fotos
+      allow read: if isOwner(userId);
+      
+      // Usuário pode fazer upload de suas próprias fotos
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+      
+      // Usuário pode deletar suas próprias fotos
+      allow delete: if isOwner(userId);
+    }
+    
+    // ============================================
+    // PASTA: vehicles/{userId}/*
+    // Fotos dos veículos
+    // ============================================
+    match /vehicles/{userId}/{allPaths=**} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+      allow delete: if isOwner(userId);
+    }
+    
+    // ============================================
+    // PASTA: refueling/{userId}/*
+    // Fotos de cupons de abastecimento
+    // ============================================
+    match /refueling/{userId}/{allPaths=**} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+      allow delete: if isOwner(userId);
+    }
+    
+    // ============================================
+    // PASTA: profile/{userId}/*
+    // Foto de perfil do usuário
+    // ============================================
+    match /profile/{userId}/{allPaths=**} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && isImage() && isValidSize();
+      allow delete: if isOwner(userId);
+    }
+  }
+}

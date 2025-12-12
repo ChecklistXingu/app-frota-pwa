@@ -11,6 +11,8 @@ import {
 } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
+import { useImageUpload } from "../../hooks/useImageUpload";
+import PhotoCapture from "../../components/ui/PhotoCapture";
 
 type VehicleOption = {
   id: string;
@@ -66,6 +68,8 @@ const MaintenancePage = () => {
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>(
     {},
   );
+  const [photos, setPhotos] = useState<File[]>([]);
+  const { uploadCompressedImage, uploading: uploadingPhotos } = useImageUpload();
 
   const {
     register,
@@ -171,6 +175,15 @@ const MaintenancePage = () => {
 
     const date = data.date ? new Date(data.date) : new Date();
 
+    // Faz upload das fotos (se houver)
+    const photoUrls: string[] = [];
+    for (const photo of photos) {
+      const result = await uploadCompressedImage(photo, "maintenance", user.uid);
+      if (result) {
+        photoUrls.push(result.url);
+      }
+    }
+
     await addDoc(collection(db, "maintenance"), {
       userId: user.uid,
       vehicleId: data.vehicleId,
@@ -179,7 +192,7 @@ const MaintenancePage = () => {
       type: data.type,
       items,
       notes: data.notes || "",
-      photos: [],
+      photos: photoUrls,
       status: "pending" as MaintenanceStatus,
     });
 
@@ -194,12 +207,13 @@ const MaintenancePage = () => {
       notes: "",
     });
 
-    // reseta checklist
+    // reseta checklist e fotos
     const initial: Record<string, boolean> = {};
     CHECKLIST_ITEMS.forEach((item) => {
       initial[item] = false;
     });
     setChecklistState(initial);
+    setPhotos([]);
   };
 
   const getVehicleLabel = (vehicleId: string) => {
@@ -319,6 +333,13 @@ const MaintenancePage = () => {
                 {...register("notes")}
               />
             </div>
+
+            {/* Captura de fotos */}
+            <PhotoCapture
+              onPhotosChange={setPhotos}
+              maxPhotos={3}
+              uploading={uploadingPhotos}
+            />
 
             {message && (
               <p className="text-xs text-green-600 text-center">{message}</p>
