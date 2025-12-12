@@ -35,26 +35,10 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm uppercase tracking-widest text-muted-foreground">Painel de gestão</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Resumo em tempo real de manutenção, frota e abastecimentos</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <a href="/admin/vehicles" className="flex items-center gap-2">
-              Ver veículos
-              <ArrowUpRight className="h-4 w-4" />
-            </a>
-          </Button>
-          <Button asChild>
-            <a href="/admin/maintenance" className="flex items-center gap-2">
-              Nova manutenção
-              <ArrowUpRight className="h-4 w-4" />
-            </a>
-          </Button>
-        </div>
+      <header className="space-y-1">
+        <p className="text-sm uppercase tracking-widest text-muted-foreground">Painel de gestão</p>
+        <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">Resumo em tempo real de manutenção, frota e abastecimentos</p>
       </header>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
