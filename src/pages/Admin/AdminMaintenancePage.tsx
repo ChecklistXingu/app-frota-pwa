@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { listenMaintenances, updateMaintenanceStatus, type Maintenance, type MaintenanceStatus } from "../../services/maintenanceService";
+import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
+import { listenUsers, type AppUser } from "../../services/usersService";
 import { ChevronDown, Wrench } from "lucide-react";
 
 const statusOptions: MaintenanceStatus[] = [
@@ -27,23 +29,55 @@ const statusLabels: Record<string, string> = {
 
 const AdminMaintenancePage = () => {
   const [items, setItems] = useState<Maintenance[]>([]);
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filter, setFilter] = useState<MaintenanceStatus | "all">("all");
 
   useEffect(() => {
-    console.log("🔄 AdminMaintenancePage: Setting up listener with filter:", filter);
-    const unsub = listenMaintenances(
+    const unsub1 = listenMaintenances(
       filter === "all" ? {} : { status: filter },
-      (data) => {
-        console.log("📊 AdminMaintenancePage: Received data:", data.length, "items");
-        console.log("📋 Data:", data);
-        setItems(data);
-      }
+      setItems
     );
-    return () => unsub();
+    const unsub2 = listenUsers(setUsers);
+    const unsub3 = listenVehicles({}, setVehicles);
+    return () => { unsub1(); unsub2(); unsub3(); };
   }, [filter]);
 
   const onChangeStatus = async (id: string, status: MaintenanceStatus) => {
     await updateMaintenanceStatus(id, status);
+  };
+
+  // Função para obter o nome do usuário pelo ID
+  const getUserName = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    return user?.name || userId;
+  };
+
+  // Função para obter placa e modelo do veículo pelo ID
+  const getVehicleInfo = (vehicleId: string) => {
+    const vehicle = vehicles.find(v => v.id === vehicleId);
+    if (vehicle) {
+      return `${vehicle.plate} • ${vehicle.model}`;
+    }
+    return vehicleId;
+  };
+
+  // Função para formatar a data corretamente
+  const formatDate = (dateField: any) => {
+    if (!dateField) return "N/A";
+    
+    // Se for um Timestamp do Firestore (tem seconds)
+    if (dateField.seconds) {
+      return new Date(dateField.seconds * 1000).toLocaleString("pt-BR");
+    }
+    
+    // Se for um objeto Date do Firestore (toDate)
+    if (dateField.toDate) {
+      return dateField.toDate().toLocaleString("pt-BR");
+    }
+    
+    // Se for uma string ou Date normal
+    return new Date(dateField).toLocaleString("pt-BR");
   };
 
   return (
@@ -69,7 +103,7 @@ const AdminMaintenancePage = () => {
           <thead className="bg-gray-50 text-left">
             <tr>
               <th className="p-3">Solicitação</th>
-              <th className="p-3">Usuário</th>
+              <th className="p-3">Motorista</th>
               <th className="p-3">Veículo</th>
               <th className="p-3">Status</th>
               <th className="p-3 w-40">Ações</th>
@@ -83,12 +117,12 @@ const AdminMaintenancePage = () => {
                     <div className="w-8 h-8 rounded bg-[#ffd300]/30 flex items-center justify-center text-[#0d2d6c]"><Wrench size={16} /></div>
                     <div>
                       <p className="font-medium truncate max-w-[340px]">{m.description || "Checklist de manutenção"}</p>
-                      <p className="text-gray-500">{new Date(m.createdAt?.seconds ? m.createdAt.seconds * 1000 : Date.now()).toLocaleString()}</p>
+                      <p className="text-gray-500">{formatDate(m.createdAt || (m as any).date)}</p>
                     </div>
                   </div>
                 </td>
-                <td className="p-3">{m.userId || "N/A"}</td>
-                <td className="p-3">{m.vehicleId || "N/A"}</td>
+                <td className="p-3">{getUserName(m.userId)}</td>
+                <td className="p-3">{getVehicleInfo(m.vehicleId)}</td>
                 <td className="p-3">
                   <StatusBadge status={m.status || "pending"} />
                 </td>
