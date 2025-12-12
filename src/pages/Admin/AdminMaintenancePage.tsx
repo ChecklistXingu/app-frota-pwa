@@ -13,6 +13,18 @@ const statusOptions: MaintenanceStatus[] = [
   "done",
 ];
 
+const statusLabels: Record<string, string> = {
+  pending: "Pendente",
+  in_progress: "Em andamento",
+  in_review: "Em análise",
+  approved: "Aprovado",
+  rejected: "Rejeitado",
+  scheduled: "Agendado",
+  completed: "Concluído",
+  done: "Finalizado",
+  all: "Todas",
+};
+
 const AdminMaintenancePage = () => {
   const [items, setItems] = useState<Maintenance[]>([]);
   const [filter, setFilter] = useState<MaintenanceStatus | "all">("all");
@@ -46,7 +58,7 @@ const AdminMaintenancePage = () => {
           >
             <option value="all">Todas</option>
             {statusOptions.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>{statusLabels[s]}</option>
             ))}
           </select>
         </div>
@@ -88,7 +100,7 @@ const AdminMaintenancePage = () => {
                       className="appearance-none border rounded-lg px-3 py-2 pr-8 bg-white"
                     >
                       {statusOptions.map((s) => (
-                        <option key={s} value={s}>{s}</option>
+                        <option key={s} value={s}>{statusLabels[s]}</option>
                       ))}
                     </select>
                     <ChevronDown size={16} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
@@ -119,7 +131,7 @@ const StatusBadge = ({ status }: { status: MaintenanceStatus }) => {
     completed: "bg-gray-100 text-gray-800",
     done: "bg-gray-100 text-gray-800",
   };
-  return <span className={`px-2 py-1 rounded-md text-xs font-medium ${map[status]}`}>{status}</span>;
+  return <span className={`px-2 py-1 rounded-md text-xs font-medium ${map[status]}`}>{statusLabels[status] || status}</span>;
 };
 
 export default AdminMaintenancePage;
