@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   addDoc,
@@ -13,8 +13,6 @@ import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useImageUpload } from "../../hooks/useImageUpload";
 import PhotoCapture from "../../components/ui/PhotoCapture";
-import VoiceInputButton from "../../components/ui/VoiceInputButton";
-import type { ExtractedData } from "../../utils/voiceDataExtractor";
 
 type VehicleOption = {
   id: string;
@@ -252,11 +250,6 @@ const MaintenancePage = () => {
     return `${v.plate} • ${v.model}`;
   };
 
-  // Processa dados extraídos da voz
-  const handleVoiceData = useCallback((data: ExtractedData) => {
-    if (data.km) setValue("km", data.km);
-  }, [setValue]);
-
   const typeLabels: Record<MaintenanceType, string> = useMemo(
     () => ({
       preventiva: "Preventiva",
@@ -296,9 +289,6 @@ const MaintenancePage = () => {
           </p>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-            {/* Botão de entrada por voz */}
-            <VoiceInputButton onDataExtracted={handleVoiceData} />
-
             <div className="space-y-1">
               <label className="text-xs font-medium">Veículo</label>
               <select
