@@ -1,9 +1,11 @@
-import { ArrowUpRight, Activity, Fuel, Wrench, Car, Users, Clock, AlertTriangle } from "lucide-react";
+import { Activity, Fuel, Wrench, Users, Clock } from "lucide-react";
 import { Button } from "../../../components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Skeleton } from "../../../components/ui/skeleton";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
+import { Skeleton } from "../../../components/ui/skeleton.tsx";
 import { cn } from "../../../lib/utils";
 import { useDashboardData } from "./hooks/useDashboardData";
+import type { Maintenance } from "../../../services/maintenanceService";
+import type { DashboardData } from "./types/dashboard.types";
 
 const DashboardPage = () => {
   const { data, loading } = useDashboardData();
@@ -31,7 +33,7 @@ const DashboardPage = () => {
     );
   }
 
-  const { maintenanceStats, vehicleStats, refuelingStats, recentActivities, maintenanceByType, monthlyCosts } = data;
+  const { maintenanceStats, refuelingStats, recentActivities, maintenanceByType, monthlyCosts } = data;
 
   return (
     <div className="space-y-6">
@@ -45,28 +47,14 @@ const DashboardPage = () => {
         <StatsCard
           label="Manutenções"
           value={maintenanceStats.total}
-          trend={{ value: +12, label: "vs mês anterior" }}
           icon={Wrench}
           accent="bg-blue-500/10 text-blue-600"
         />
-        <StatsCard
-          label="Pendentes"
-          value={maintenanceStats.pending}
-          trend={{ value: -6, label: "em andamento" }}
-          icon={AlertTriangle}
-          accent="bg-amber-500/10 text-amber-600"
-        />
-        <StatsCard
-          label="Em operação"
-          value={vehicleStats.inOperation}
-          trend={{ value: +4, label: "veículos ativos" }}
-          icon={Car}
-          accent="bg-emerald-500/10 text-emerald-600"
-        />
+        <StatusBreakdownCard maintenances={data.maintenances} />
+        <FuelSummaryCard stats={refuelingStats} />
         <StatsCard
           label="Usuários"
           value={data.users.length}
-          trend={{ value: +2, label: "cadastros recentes" }}
           icon={Users}
           accent="bg-purple-500/10 text-purple-600"
         />
@@ -174,10 +162,9 @@ const DashboardPage = () => {
   );
 };
 
-const StatsCard = ({ label, value, trend, icon: Icon, accent }: {
+const StatsCard = ({ label, value, icon: Icon, accent }: {
   label: string;
   value: number;
-  trend: { value: number; label: string };
   icon: typeof Activity;
   accent: string;
 }) => (
@@ -189,12 +176,6 @@ const StatsCard = ({ label, value, trend, icon: Icon, accent }: {
       <CardDescription>{label}</CardDescription>
       <CardTitle className="text-3xl">{value}</CardTitle>
     </CardHeader>
-    <CardContent className="pt-0">
-      <span className="flex items-center gap-2 text-sm text-muted-foreground">
-        <ArrowUpRight className="h-4 w-4" />
-        {trend.value}% {trend.label}
-      </span>
-    </CardContent>
   </Card>
 );
 
@@ -218,6 +199,83 @@ const ChartPlaceholder = ({ data }: { data: { month: string; maintenance: number
     ))}
   </div>
 );
+
+const STATUS_LABELS: Record<Maintenance["status"], string> = {
+  pending: "Pendentes",
+  in_progress: "Em andamento",
+  in_review: "Em análise",
+  approved: "Aprovadas",
+  rejected: "Rejeitadas",
+  scheduled: "Agendadas",
+  completed: "Concluídas",
+  done: "Finalizadas",
+};
+
+const StatusBreakdownCard = ({ maintenances }: { maintenances: Maintenance[] }) => {
+  const counts = maintenances.reduce<Record<Maintenance["status"], number>>((acc, current) => {
+    const status = current.status ?? "pending";
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {
+    pending: 0,
+    in_progress: 0,
+    in_review: 0,
+    approved: 0,
+    rejected: 0,
+    scheduled: 0,
+    completed: 0,
+    done: 0,
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardDescription>Status das solicitações</CardDescription>
+        <CardTitle className="text-xl">Pendências</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        {Object.entries(STATUS_LABELS).map(([status, label]) => (
+          <div key={status} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-1.5">
+            <span className="text-gray-600">{label}</span>
+            <span className="font-semibold text-gray-900">{counts[status as Maintenance["status"]] ?? 0}</span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+};
+
+const FuelSummaryCard = ({ stats }: { stats: DashboardData["refuelingStats"] }) => {
+  const averagePricePerLiter = stats.totalLiters ? stats.monthlyTotal / stats.totalLiters : 0;
+
+  const rows = [
+    { label: "Consumo médio", value: `${stats.averageConsumption.toFixed(1)} km/L` },
+    { label: "Total de litros", value: `${stats.totalLiters.toFixed(2)} L` },
+    { label: "Total gasto", value: `R$ ${stats.monthlyTotal.toFixed(2)}` },
+    { label: "Valor médio por litro", value: `R$ ${averagePricePerLiter.toFixed(2)}` },
+    { label: "Custo por km", value: `R$ ${stats.costPerKm.toFixed(2)}` },
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardDescription>Performance de consumo</CardDescription>
+        <CardTitle className="text-xl flex items-center gap-2">
+          <Fuel className="h-5 w-5 text-emerald-600" />
+          Combustível
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        {rows.map((row) => (
+          <div key={row.label} className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
+            <span className="text-gray-600">{row.label}</span>
+            <span className="font-semibold text-gray-900">{row.value}</span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+};
 
 const InsightCard = ({ title, value, trend, icon: Icon }: {
   title: string;
