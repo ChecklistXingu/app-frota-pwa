@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { listenMaintenances } from "../../../../services/maintenanceService";
 import { listenVehicles } from "../../../../services/vehiclesService";
 import { listenUsers } from "../../../../services/usersService";
-import { listenRefuelings } from "../../../../services/refuelingService";
+import { getRefuelingTimestamp, listenRefuelings } from "../../../../services/refuelingService";
 import type { DashboardData } from "../types/dashboard.types";
 
 export const useDashboardData = () => {
@@ -43,11 +43,39 @@ export const useDashboardData = () => {
       return refuelingDate > oneMonthAgo;
     });
 
+    const monthlyTotal = monthlyRefuelings.reduce((sum, r) => sum + (Number(r.value) || 0), 0);
+    const totalLiters = monthlyRefuelings.reduce((sum, r) => sum + (Number(r.liters) || 0), 0);
+
+    const sortedByDate = [...monthlyRefuelings].sort(
+      (a, b) => getRefuelingTimestamp(a.date) - getRefuelingTimestamp(b.date)
+    );
+
+    const distanceByVehicle = new Map<string, number>();
+    let totalDistance = 0;
+
+    sortedByDate.forEach((refueling) => {
+      const vehicleId = refueling.vehicleId;
+      const currentKm = Number(refueling.km);
+      if (!vehicleId || Number.isNaN(currentKm)) {
+        return;
+      }
+
+      const lastKm = distanceByVehicle.get(vehicleId);
+      if (lastKm !== undefined && currentKm > lastKm) {
+        totalDistance += currentKm - lastKm;
+      }
+
+      distanceByVehicle.set(vehicleId, currentKm);
+    });
+
+    const averageConsumption = totalLiters > 0 ? totalDistance / totalLiters : 0;
+    const costPerKm = totalDistance > 0 ? monthlyTotal / totalDistance : 0;
+
     const refuelingStats = {
-      monthlyTotal: monthlyRefuelings.reduce((sum, r) => sum + (r.value || 0), 0),
-      totalLiters: monthlyRefuelings.reduce((sum, r) => sum + (r.liters || 0), 0),
-      averageConsumption: 8.5,
-      costPerKm: 0.85
+      monthlyTotal,
+      totalLiters,
+      averageConsumption,
+      costPerKm,
     };
 
     // Atividades recentes
