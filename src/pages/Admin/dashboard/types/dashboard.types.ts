@@ -21,6 +21,7 @@ export type DashboardData = {
     averageConsumption: number;
     totalLiters: number;
     costPerKm: number;
+    averageDistancePerRefueling: number;
   };
   recentActivities: Array<{
     id: string;

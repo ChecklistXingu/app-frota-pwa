@@ -253,6 +253,7 @@ const FuelSummaryCard = ({ stats }: { stats: DashboardData["refuelingStats"] }) 
     { label: "Total de litros", value: `${stats.totalLiters.toFixed(2)} L` },
     { label: "Total gasto", value: `R$ ${stats.monthlyTotal.toFixed(2)}` },
     { label: "Valor médio por litro", value: `R$ ${averagePricePerLiter.toFixed(2)}` },
+    { label: "Média de km por abastecimento", value: `${stats.averageDistancePerRefueling.toFixed(0)} km` },
     { label: "Custo por km", value: `R$ ${stats.costPerKm.toFixed(2)}` },
   ];
 

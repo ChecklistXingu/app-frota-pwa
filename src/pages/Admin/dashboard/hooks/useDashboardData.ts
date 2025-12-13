@@ -52,6 +52,7 @@ export const useDashboardData = () => {
 
     const distanceByVehicle = new Map<string, number>();
     let totalDistance = 0;
+    let distanceSamples = 0;
 
     sortedByDate.forEach((refueling) => {
       const vehicleId = refueling.vehicleId;
@@ -63,6 +64,7 @@ export const useDashboardData = () => {
       const lastKm = distanceByVehicle.get(vehicleId);
       if (lastKm !== undefined && currentKm > lastKm) {
         totalDistance += currentKm - lastKm;
+        distanceSamples += 1;
       }
 
       distanceByVehicle.set(vehicleId, currentKm);
@@ -76,6 +78,7 @@ export const useDashboardData = () => {
       totalLiters,
       averageConsumption,
       costPerKm,
+      averageDistancePerRefueling: distanceSamples > 0 ? totalDistance / distanceSamples : 0,
     };
 
     // Atividades recentes
