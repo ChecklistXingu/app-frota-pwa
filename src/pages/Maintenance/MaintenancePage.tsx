@@ -286,6 +286,15 @@ const MaintenancePage = () => {
     return `${v.plate} • ${v.model}`;
   };
 
+  const formatDateField = (dateField: any) => {
+    if (!dateField) return null;
+    if (dateField.seconds) return new Date(dateField.seconds * 1000).toLocaleString("pt-BR");
+    if (dateField.toDate) return dateField.toDate().toLocaleString("pt-BR");
+    try {
+      return new Date(dateField).toLocaleString("pt-BR");
+    } catch { return null; }
+  };
+
   // Abre modal de edição
   const openEditModal = (record: MaintenanceRecord) => {
     setEditingRecord(record);
@@ -568,6 +577,22 @@ const MaintenancePage = () => {
                   ))}
                 </div>
               )}
+              {/* Ticket / status timestamps */}
+              <div className="mt-2 text-xs text-gray-500">
+                { (m as any).assignedAt && <div>Assumido: {formatDateField((m as any).assignedAt)}</div> }
+                { (m as any).scheduledAt && <div>Agendado: {formatDateField((m as any).scheduledAt)}</div> }
+                { (m as any).closedAt && <div>Finalizado: {formatDateField((m as any).closedAt)}</div> }
+                { (m as any).statusHistory && (m as any).statusHistory.length > 0 && (
+                  <div className="mt-1">
+                    <div className="font-medium text-[11px] text-gray-700">Histórico</div>
+                    <div className="text-[11px] text-gray-500">
+                      {(m as any).statusHistory.slice(-3).map((h: any, idx: number) => (
+                        <div key={idx}>{h.status} • {formatDateField(h.timestamp)}{h.note ? ` • ${h.note}` : ''}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
