@@ -3,6 +3,7 @@ import { listenMaintenances, updateMaintenanceStatus, type Maintenance, type Mai
 import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { ChevronDown, Wrench } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 
 const statusOptions: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
 
@@ -19,6 +20,18 @@ const AdminMaintenancePage = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filter, setFilter] = useState<MaintenanceStatus | "all">("all");
+  const { profile } = useAuth();
+
+  const [ticketModal, setTicketModal] = useState<{ open: boolean; maintenance: Maintenance | null }>({
+    open: false,
+    maintenance: null,
+  });
+  const [ticketForm, setTicketForm] = useState({
+    workshopName: "",
+    scheduledFor: "",
+    managerNote: "",
+  });
+  const [savingTicket, setSavingTicket] = useState(false);
 
   useEffect(() => {
     const unsub1 = listenMaintenances(
@@ -30,8 +43,54 @@ const AdminMaintenancePage = () => {
     return () => { unsub1(); unsub2(); unsub3(); };
   }, [filter]);
 
-  const onChangeStatus = async (id: string, status: MaintenanceStatus) => {
-    await updateMaintenanceStatus(id, status);
+  const onChangeStatus = async (maintenance: Maintenance, status: MaintenanceStatus) => {
+    if (status === "scheduled") {
+      openTicketModal(maintenance);
+      return;
+    }
+    await updateMaintenanceStatus(maintenance.id, status, {
+      managerId: profile?.id,
+    });
+  };
+
+  const toInputDateTime = (value: any) => {
+    if (!value) return "";
+    const date = value?.toDate ? value.toDate() : value?.seconds ? new Date(value.seconds * 1000) : new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toISOString().slice(0, 16);
+  };
+
+  const openTicketModal = (maintenance: Maintenance) => {
+    setTicketModal({ open: true, maintenance });
+    setTicketForm({
+      workshopName: maintenance.workshopName || "",
+      scheduledFor: toInputDateTime(maintenance.scheduledFor) || "",
+      managerNote: maintenance.managerNote || "",
+    });
+  };
+
+  const closeTicketModal = () => {
+    setTicketModal({ open: false, maintenance: null });
+    setTicketForm({ workshopName: "", scheduledFor: "", managerNote: "" });
+    setSavingTicket(false);
+  };
+
+  const handleTicketSubmit = async () => {
+    if (!ticketModal.maintenance) return;
+    setSavingTicket(true);
+    try {
+      const scheduledDate = ticketForm.scheduledFor ? new Date(ticketForm.scheduledFor) : null;
+      await updateMaintenanceStatus(ticketModal.maintenance.id, "scheduled", {
+        workshopName: ticketForm.workshopName || undefined,
+        scheduledFor: scheduledDate || undefined,
+        managerNote: ticketForm.managerNote || undefined,
+        managerId: profile?.id,
+      });
+      closeTicketModal();
+    } catch (error) {
+      console.error("Erro ao salvar ticket", error);
+      setSavingTicket(false);
+    }
   };
 
   // Função para obter o nome do usuário pelo ID
@@ -79,85 +138,161 @@ const AdminMaintenancePage = () => {
     return m.description || "Checklist de manutenção";
   };
 
-  // Função para obter a observação
   const getNotes = (m: Maintenance) => {
     return (m as any).notes || m.managerNote || "";
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-2xl font-bold">Manutenções</h2>
-        <div className="flex items-center gap-2">
-          <select
-            className="border rounded-lg px-3 py-2 text-sm"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as any)}
-          >
-            <option value="all">Todas</option>
-            {statusOptions.map((s) => (
-              <option key={s} value={s}>{statusLabels[s]}</option>
-            ))}
-          </select>
+    <>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-2xl font-bold">Manutenções</h2>
+          <div className="flex items-center gap-2">
+            <select
+              className="border rounded-lg px-3 py-2 text-sm"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as any)}
+            >
+              <option value="all">Todas</option>
+              {statusOptions.map((s) => (
+                <option key={s} value={s}>{statusLabels[s]}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="bg-white border rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-left">
+              <tr>
+                <th className="p-3">Solicitação</th>
+                <th className="p-3">Motorista</th>
+                <th className="p-3">Veículo</th>
+                <th className="p-3">Status</th>
+                <th className="p-3 w-40">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((m) => (
+                <tr key={m.id} className="border-t">
+                  <td className="p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded bg-[#ffd300]/30 flex items-center justify-center text-[#0d2d6c]"><Wrench size={16} /></div>
+                      <div>
+                        <p className="font-medium truncate max-w-[340px]">{getMaintenanceItems(m)}</p>
+                        {getNotes(m) && (
+                          <p className="text-gray-600 text-xs truncate max-w-[340px]">Obs: {getNotes(m)}</p>
+                        )}
+                        <p className="text-gray-400 text-xs">{formatDate(m.createdAt || (m as any).date)}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-3">{getUserName(m.userId)}</td>
+                  <td className="p-3">{getVehicleInfo(m.vehicleId)}</td>
+                  <td className="p-3">
+                    <StatusBadge status={m.status || "pending"} />
+                    {m.workshopName && (
+                      <p className="text-xs text-gray-500 mt-1">Oficina: {m.workshopName}</p>
+                    )}
+                    {m.scheduledFor && (
+                      <p className="text-xs text-gray-500">Agendado: {formatDate(m.scheduledFor)}</p>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    <div className="relative inline-block">
+                      <select
+                        value={m.status || "pending"}
+                        onChange={(e) => onChangeStatus(m, e.target.value as MaintenanceStatus)}
+                        className="appearance-none border rounded-lg px-3 py-2 pr-8 bg-white"
+                      >
+                        {statusOptions.map((s) => (
+                          <option key={s} value={s}>{statusLabels[s]}</option>
+                        ))}
+                      </select>
+                      <ChevronDown size={16} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openTicketModal(m)}
+                      className="mt-2 inline-flex items-center rounded-md border border-[#0d2d6c] px-3 py-1 text-xs font-semibold text-[#0d2d6c] hover:bg-[#0d2d6c]/10"
+                    >
+                      {m.status === "scheduled" ? "Editar ticket" : "Abrir ticket"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {items.length === 0 && (
+                <tr>
+                  <td className="p-6 text-center text-gray-500" colSpan={5}>Nenhuma solicitação encontrada</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <div className="bg-white border rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-left">
-            <tr>
-              <th className="p-3">Solicitação</th>
-              <th className="p-3">Motorista</th>
-              <th className="p-3">Veículo</th>
-              <th className="p-3">Status</th>
-              <th className="p-3 w-40">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((m) => (
-              <tr key={m.id} className="border-t">
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded bg-[#ffd300]/30 flex items-center justify-center text-[#0d2d6c]"><Wrench size={16} /></div>
-                    <div>
-                      <p className="font-medium truncate max-w-[340px]">{getMaintenanceItems(m)}</p>
-                      {getNotes(m) && (
-                        <p className="text-gray-600 text-xs truncate max-w-[340px]">Obs: {getNotes(m)}</p>
-                      )}
-                      <p className="text-gray-400 text-xs">{formatDate(m.createdAt || (m as any).date)}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="p-3">{getUserName(m.userId)}</td>
-                <td className="p-3">{getVehicleInfo(m.vehicleId)}</td>
-                <td className="p-3">
-                  <StatusBadge status={m.status || "pending"} />
-                </td>
-                <td className="p-3">
-                  <div className="relative inline-block">
-                    <select
-                      value={m.status || "pending"}
-                      onChange={(e) => onChangeStatus(m.id, e.target.value as MaintenanceStatus)}
-                      className="appearance-none border rounded-lg px-3 py-2 pr-8 bg-white"
-                    >
-                      {statusOptions.map((s) => (
-                        <option key={s} value={s}>{statusLabels[s]}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={16} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
-              <tr>
-                <td className="p-6 text-center text-gray-500" colSpan={5}>Nenhuma solicitação encontrada</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      {ticketModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold mb-1">{ticketModal.maintenance?.status === "scheduled" ? "Editar ticket" : "Abrir ticket"}</h3>
+            <p className="text-sm text-gray-500 mb-4">Informe a oficina e a data programada para que o motorista acompanhe o processo.</p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Oficina</label>
+                <input
+                  type="text"
+                  value={ticketForm.workshopName}
+                  onChange={(e) => setTicketForm((prev) => ({ ...prev, workshopName: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                  placeholder="Ex: Oficina Centro"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Data/Hora agendada</label>
+                <input
+                  type="datetime-local"
+                  value={ticketForm.scheduledFor}
+                  onChange={(e) => setTicketForm((prev) => ({ ...prev, scheduledFor: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Observação</label>
+                <textarea
+                  value={ticketForm.managerNote}
+                  onChange={(e) => setTicketForm((prev) => ({ ...prev, managerNote: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                  rows={3}
+                  placeholder="Detalhes para o motorista"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeTicketModal}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600"
+                disabled={savingTicket}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleTicketSubmit}
+                className="rounded-lg bg-[#0d2d6c] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0b2559] disabled:opacity-60"
+                disabled={savingTicket}
+              >
+                {savingTicket ? "Salvando..." : "Salvar ticket"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

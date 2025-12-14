@@ -31,6 +31,9 @@ export type Maintenance = {
   managerNote?: string;
   analysisStartedAt?: any;
   completedAt?: any;
+  workshopName?: string;
+  workshopId?: string;
+  scheduledFor?: any;
 };
 
 export const listenMaintenances = (
