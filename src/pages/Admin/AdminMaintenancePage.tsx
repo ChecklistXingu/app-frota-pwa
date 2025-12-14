@@ -29,9 +29,16 @@ const AdminMaintenancePage = () => {
   const [ticketForm, setTicketForm] = useState({
     workshopName: "",
     scheduledFor: "",
+    forecastedCompletion: "",
     managerNote: "",
   });
   const [savingTicket, setSavingTicket] = useState(false);
+  const [completionModal, setCompletionModal] = useState<{ open: boolean; maintenance: Maintenance | null; date: string }>({
+    open: false,
+    maintenance: null,
+    date: "",
+  });
+  const [completing, setCompleting] = useState(false);
 
   useEffect(() => {
     const unsub1 = listenMaintenances(
@@ -46,6 +53,10 @@ const AdminMaintenancePage = () => {
   const onChangeStatus = async (maintenance: Maintenance, status: MaintenanceStatus) => {
     if (status === "scheduled") {
       openTicketModal(maintenance);
+      return;
+    }
+    if (status === "done") {
+      setCompletionModal({ open: true, maintenance, date: toInputDateTime(new Date()) });
       return;
     }
     await updateMaintenanceStatus(maintenance.id, status, {
@@ -65,13 +76,14 @@ const AdminMaintenancePage = () => {
     setTicketForm({
       workshopName: maintenance.workshopName || "",
       scheduledFor: toInputDateTime(maintenance.scheduledFor) || "",
+      forecastedCompletion: toInputDateTime(maintenance.forecastedCompletion) || "",
       managerNote: maintenance.managerNote || "",
     });
   };
 
   const closeTicketModal = () => {
     setTicketModal({ open: false, maintenance: null });
-    setTicketForm({ workshopName: "", scheduledFor: "", managerNote: "" });
+    setTicketForm({ workshopName: "", scheduledFor: "", forecastedCompletion: "", managerNote: "" });
     setSavingTicket(false);
   };
 
@@ -80,9 +92,11 @@ const AdminMaintenancePage = () => {
     setSavingTicket(true);
     try {
       const scheduledDate = ticketForm.scheduledFor ? new Date(ticketForm.scheduledFor) : null;
+      const forecastedDate = ticketForm.forecastedCompletion ? new Date(ticketForm.forecastedCompletion) : null;
       await updateMaintenanceStatus(ticketModal.maintenance.id, "scheduled", {
         workshopName: ticketForm.workshopName || undefined,
         scheduledFor: scheduledDate || undefined,
+        forecastedCompletion: forecastedDate || undefined,
         managerNote: ticketForm.managerNote || undefined,
         managerId: profile?.id,
       });
@@ -90,6 +104,23 @@ const AdminMaintenancePage = () => {
     } catch (error) {
       console.error("Erro ao salvar ticket", error);
       setSavingTicket(false);
+    }
+  };
+
+  const handleCompleteSubmit = async () => {
+    if (!completionModal.maintenance) return;
+    setCompleting(true);
+    try {
+      const completedDate = completionModal.date ? new Date(completionModal.date) : new Date();
+      await updateMaintenanceStatus(completionModal.maintenance.id, "done", {
+        completedAt: completedDate,
+        managerId: profile?.id,
+      });
+      setCompletionModal({ open: false, maintenance: null, date: "" });
+    } catch (error) {
+      console.error("Erro ao finalizar manutenção", error);
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -197,6 +228,9 @@ const AdminMaintenancePage = () => {
                     {m.scheduledFor && (
                       <p className="text-xs text-gray-500">Agendado: {formatDate(m.scheduledFor)}</p>
                     )}
+                    {m.forecastedCompletion && (
+                      <p className="text-xs text-gray-500">Previsão: {formatDate(m.forecastedCompletion)}</p>
+                    )}
                   </td>
                   <td className="p-3">
                     <div className="relative inline-block">
@@ -260,6 +294,16 @@ const AdminMaintenancePage = () => {
               </div>
 
               <div>
+                <label className="text-xs font-semibold text-gray-600">Previsão de finalização do conserto</label>
+                <input
+                  type="datetime-local"
+                  value={ticketForm.forecastedCompletion}
+                  onChange={(e) => setTicketForm((prev) => ({ ...prev, forecastedCompletion: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                />
+              </div>
+
+              <div>
                 <label className="text-xs font-semibold text-gray-600">Observação</label>
                 <textarea
                   value={ticketForm.managerNote}
@@ -287,6 +331,46 @@ const AdminMaintenancePage = () => {
                 disabled={savingTicket}
               >
                 {savingTicket ? "Salvando..." : "Salvar ticket"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {completionModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold mb-1">Finalizar manutenção</h3>
+            <p className="text-sm text-gray-500 mb-4">Informe a data/hora real da finalização.</p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Data/Hora da finalização</label>
+                <input
+                  type="datetime-local"
+                  value={completionModal.date}
+                  onChange={(e) => setCompletionModal((prev) => ({ ...prev, date: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setCompletionModal({ open: false, maintenance: null, date: "" })}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600"
+                disabled={completing}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleCompleteSubmit}
+                className="rounded-lg bg-[#0d2d6c] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0b2559] disabled:opacity-60"
+                disabled={completing}
+              >
+                {completing ? "Finalizando..." : "Confirmar"}
               </button>
             </div>
           </div>

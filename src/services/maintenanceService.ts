@@ -106,7 +106,7 @@ export const updateMaintenanceStatus = async (
     updates.analysisStartedAt = serverTimestamp();
   }
 
-  if (!data.completedAt && status === "done" && currentStatus !== "done") {
+  if (!payload.completedAt && !data.completedAt && status === "done" && currentStatus !== "done") {
     updates.completedAt = serverTimestamp();
   }
 
