@@ -12,6 +12,7 @@ export type DashboardData = {
     averageResolutionTime: string;
     avgAnalysisTime: string;
     avgCompletionTime: string;
+    avgForecastDelta: string;
   };
   vehicleStats: {
     total: number;

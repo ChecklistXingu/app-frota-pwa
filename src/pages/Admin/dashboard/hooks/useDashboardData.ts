@@ -51,23 +51,35 @@ export const useDashboardData = () => {
 
     const analysisDurations: number[] = [];
     const resolutionDurations: number[] = [];
+    const forecastDeviationDurations: number[] = [];
 
     maintenances.forEach((m) => {
       const created = toDate(m.createdAt);
       const analysisStarted = toDate((m as any).analysisStartedAt);
       const completed = toDate((m as any).completedAt);
+      const scheduled = toDate((m as any).scheduledFor);
+      const forecasted = toDate((m as any).forecastedCompletion);
 
-      if (created && analysisStarted && analysisStarted > created) {
-        analysisDurations.push(analysisStarted.getTime() - created.getTime());
+      if (created) {
+        if (scheduled && scheduled > created) {
+          analysisDurations.push(scheduled.getTime() - created.getTime());
+        } else if (analysisStarted && analysisStarted > created) {
+          analysisDurations.push(analysisStarted.getTime() - created.getTime());
+        }
       }
 
       if (created && completed && completed > created) {
         resolutionDurations.push(completed.getTime() - created.getTime());
       }
+
+      if (forecasted && completed) {
+        forecastDeviationDurations.push(completed.getTime() - forecasted.getTime());
+      }
     });
 
     const avgAnalysisMs = getAverageDuration(analysisDurations);
     const avgResolutionMs = getAverageDuration(resolutionDurations);
+    const avgForecastDeltaMs = getAverageDuration(forecastDeviationDurations);
 
     const maintenanceStats = {
       total: maintenances.length,
@@ -78,6 +90,7 @@ export const useDashboardData = () => {
       averageResolutionTime: formatDuration(avgResolutionMs),
       avgAnalysisTime: formatDuration(avgAnalysisMs),
       avgCompletionTime: formatDuration(avgResolutionMs),
+      avgForecastDelta: avgForecastDeltaMs ? formatDuration(Math.abs(avgForecastDeltaMs)) : "--",
     };
 
     // Processar dados de veículos
