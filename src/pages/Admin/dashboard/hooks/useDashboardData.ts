@@ -194,6 +194,21 @@ export const useDashboardData = (filters?: DashboardFilters) => {
       return branchEntry;
     };
 
+    filteredRefuelings.forEach((r) => {
+      const date = r.date?.toDate ? r.date.toDate() : r.date ? new Date(r.date) : null;
+      const key = ensureMonthEntry(date);
+      if (!key) return;
+      const entry = monthMap.get(key)!;
+      const fuelValue = Number(r.value) || 0;
+      entry.fuel += fuelValue;
+
+      const branch = userBranchMap.get(r.userId) || "--";
+      const monthEntry = ensureBranchMonthEntry(key, entry.label, branch);
+      monthEntry.fuel += fuelValue;
+      const branchTotals = ensureBranchEntry(branch);
+      branchTotals.fuel += fuelValue;
+    });
+
     const sortedByDate = [...effectiveRefuelings].sort(
       (a, b) => getRefuelingTimestamp(a.date) - getRefuelingTimestamp(b.date)
     );
@@ -204,7 +219,6 @@ export const useDashboardData = (filters?: DashboardFilters) => {
 
     sortedByDate.forEach((refueling) => {
       const vehicleId = refueling.vehicleId;
-      const branch = userBranchMap.get(refueling.userId) || "--";
       const currentKm = Number(refueling.km);
       if (!vehicleId || Number.isNaN(currentKm)) {
         return;
@@ -219,10 +233,8 @@ export const useDashboardData = (filters?: DashboardFilters) => {
         const refuelDate = refueling.date?.toDate ? refueling.date.toDate() : refueling.date ? new Date(refueling.date) : null;
         const monthKey = ensureMonthEntry(refuelDate);
         if (monthKey) {
-          const monthEntry = ensureBranchMonthEntry(monthKey, monthMap.get(monthKey)?.label || monthKey, branch);
-          monthEntry.fuel += Number(refueling.value) || 0;
-          const branchTotals = ensureBranchEntry(branch);
-          branchTotals.fuel += Number(refueling.value) || 0;
+          const monthEntry = ensureBranchMonthEntry(monthKey, monthMap.get(monthKey)?.label || monthKey, userBranchMap.get(refueling.userId) || "--");
+          monthEntry.distance += delta;
         }
       }
 
