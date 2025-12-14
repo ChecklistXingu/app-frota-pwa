@@ -48,7 +48,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        skipWaiting: true,
+        // Prefer waiting activation so we can show a prompt and control reload behavior
+        skipWaiting: false,
         clientsClaim: true,
         maximumFileSizeToCacheInBytes: 5000000,
         cleanupOutdatedCaches: true,

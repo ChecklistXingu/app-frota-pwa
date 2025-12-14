@@ -7,6 +7,7 @@ import AppRouter from './router/AppRouter'
 import { AuthProvider } from './contexts/AuthContext'
 import InstallPrompt from './components/pwa/InstallPrompt'
 import OfflineIndicator from './components/pwa/OfflineIndicator'
+import UpdatePrompt from './components/pwa/UpdatePrompt'
 import { startAutoSync } from './services/syncService'
 
 createRoot(document.getElementById('root')!).render(
@@ -16,6 +17,7 @@ createRoot(document.getElementById('root')!).render(
         <OfflineIndicator />
         <AppRouter />
         <InstallPrompt />
+        <UpdatePrompt />
       </BrowserRouter>
     </AuthProvider>
   </StrictMode>,
@@ -113,6 +115,17 @@ let updateSW = registerSW({
   },
   onRegistered(registration) {
     console.log('[PWA] Service Worker registrado:', registration)
+    // Log updatefound and the installing worker states for debugging
+    if (!registration) return
+    registration.addEventListener('updatefound', () => {
+      console.log('[PWA] updatefound - new service worker installing')
+      const newWorker = registration.installing
+      if (newWorker) {
+        newWorker.addEventListener('statechange', () => {
+          console.log('[PWA] new worker state:', newWorker.state)
+        })
+      }
+    })
     
     // Verifica atualizações a cada 30 minutos
     const updateInterval = setInterval(() => {
@@ -146,3 +159,15 @@ setInterval(() => {
     updateSW(true).catch(console.error);
   }
 }, 5 * 60 * 1000); // 5 minutos
+
+// Reload the page when the controlling service worker changes so new assets
+// are used immediately after activation.
+let refreshing = false
+if (navigator.serviceWorker) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return
+    refreshing = true
+    console.log('[PWA] controllerchange detected - reloading to activate new SW')
+    window.location.reload()
+  })
+}
