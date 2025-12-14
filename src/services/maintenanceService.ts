@@ -34,6 +34,7 @@ export type Maintenance = {
   workshopName?: string;
   workshopId?: string;
   scheduledFor?: any;
+  forecastedCompletion?: any;
 };
 
 export const listenMaintenances = (
