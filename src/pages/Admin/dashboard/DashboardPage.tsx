@@ -5,7 +5,7 @@ import { Skeleton } from "../../../components/ui/skeleton.tsx";
 import { useDashboardData } from "./hooks/useDashboardData";
 import type { Maintenance } from "../../../services/maintenanceService";
 import type { DashboardData, DashboardFilters } from "./types/dashboard.types";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -14,6 +14,10 @@ import {
   YAxis,
   Tooltip,
   Legend,
+  LineChart,
+  Line,
+  ReferenceLine,
+  CartesianGrid,
 } from "recharts";
 
 const BRANCHES = [
@@ -23,6 +27,17 @@ const BRANCHES = [
   { label: "Canarana", value: "Canarana" },
   { label: "Confresa", value: "Confresa" },
 ];
+
+const BENCHMARK_COST_PER_KM = 4;
+
+const BRANCH_COLOR_MAP: Record<string, string> = {
+  "Água Boa": "#2563eb",
+  "Querência": "#16a34a",
+  "Canarana": "#dc2626",
+  "Confresa": "#f97316",
+};
+
+const FALLBACK_COLORS = ["#2563eb", "#16a34a", "#dc2626", "#f97316", "#9333ea", "#0ea5e9"];
 
 const DashboardPage = () => {
   const [filters, setFilters] = useState<DashboardFilters>({
@@ -55,10 +70,40 @@ const DashboardPage = () => {
     );
   }
 
-  const { maintenanceStats, refuelingStats, monthlyCosts, costsByBranch } = data;
+  const { maintenanceStats, refuelingStats, monthlyCosts, costsByBranch, costPerKmTimeline, timelineBranches } = data;
   const branchSummary = costsByBranch.length
     ? costsByBranch.reduce((max, current) => (current.maintenance > max.maintenance ? current : max), costsByBranch[0])
     : null;
+
+  const interpretiveText = useMemo(() => {
+    if (!timelineBranches.length || !costPerKmTimeline.length) {
+      return "Ainda não há dados suficientes para avaliar a tendência de custo por km.";
+    }
+
+    const branchStats = timelineBranches.map((branch) => {
+      const values = costPerKmTimeline
+        .map((point) => point[branch] as number | undefined)
+        .filter((value): value is number => typeof value === "number");
+      if (!values.length) return null;
+      const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+      const aboveBenchmark = values.filter((value) => value > BENCHMARK_COST_PER_KM).length;
+      const trend = values.length >= 2 ? values[values.length - 1] - values[0] : 0;
+      return { branch, avg, aboveBenchmark, total: values.length, trend };
+    }).filter(Boolean) as Array<{ branch: string; avg: number; aboveBenchmark: number; total: number; trend: number }>;
+
+    if (!branchStats.length) {
+      return "Ainda não há dados suficientes para avaliar a tendência de custo por km.";
+    }
+
+    const worstBranch = branchStats.reduce((worst, current) => (current.avg > worst.avg ? current : worst));
+    const trendText = Math.abs(worstBranch.trend) < 0.05
+      ? "mantém estabilidade"
+      : worstBranch.trend > 0
+        ? `está em tendência de alta (+${worstBranch.trend.toFixed(2)} R$/km)`
+        : `apresenta queda (-${Math.abs(worstBranch.trend).toFixed(2)} R$/km)`;
+
+    return `${worstBranch.branch} apresenta custo médio de R$ ${worstBranch.avg.toFixed(2)}/km nos últimos ${worstBranch.total} meses, acima da meta em ${worstBranch.aboveBenchmark} deles e ${trendText}.`;
+  }, [timelineBranches, costPerKmTimeline]);
 
   const handleFilterChange = (key: keyof DashboardFilters, value: string) => {
     setFilters((prev) => ({
@@ -191,6 +236,56 @@ const DashboardPage = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="space-y-1">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Evolução do custo por km</CardTitle>
+              <CardDescription>Últimos meses por filial (R$/km)</CardDescription>
+            </div>
+            <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-1 rounded-full">Meta R$ {BENCHMARK_COST_PER_KM.toFixed(2)}</span>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {costPerKmTimeline.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Ainda não há dados suficientes para projetar a tendência.</p>
+          ) : (
+            <>
+              <div className="w-full h-80">
+                <ResponsiveContainer>
+                  <LineChart data={costPerKmTimeline} margin={{ left: 8, right: 16, top: 16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                    <YAxis
+                      width={80}
+                      tickFormatter={(value) => `R$ ${value.toFixed(2)}`}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => `R$ ${value.toFixed(2)} / km`}
+                    />
+                    <Legend />
+                    <ReferenceLine y={BENCHMARK_COST_PER_KM} stroke="#d97706" strokeDasharray="4 4" label="Meta" />
+                    {timelineBranches.map((branch, index) => (
+                      <Line
+                        key={branch}
+                        type="monotone"
+                        dot={false}
+                        strokeWidth={2}
+                        activeDot={{ r: 5 }}
+                        dataKey={branch}
+                        name={branch}
+                        stroke={BRANCH_COLOR_MAP[branch] || FALLBACK_COLORS[index % FALLBACK_COLORS.length]}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-sm text-muted-foreground leading-6">{interpretiveText}</p>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
@@ -298,9 +393,9 @@ const CompactFuelCard = ({ stats, monthlyCosts }: { stats: DashboardData['refuel
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-2 text-sm">
         {rows.map(r => (
-          <div key={r.label} className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
-            <span className="text-gray-600">{r.label}</span>
-            <span className="font-semibold text-gray-900">{r.value}</span>
+          <div key={r.label} className="rounded-xl bg-gray-50 px-3 py-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{r.label}</p>
+            <p className="text-base font-semibold text-gray-900 whitespace-nowrap">{r.value}</p>
           </div>
         ))}
         <div className="col-span-2 text-right">

@@ -157,6 +157,43 @@ export const useDashboardData = (filters?: DashboardFilters) => {
     const monthlyTotal = effectiveRefuelings.reduce((sum, r) => sum + (Number(r.value) || 0), 0);
     const totalLiters = effectiveRefuelings.reduce((sum, r) => sum + (Number(r.liters) || 0), 0);
 
+    const monthMap = new Map<string, { label: string; order: number; maintenance: number; fuel: number }>();
+    const branchMap = new Map<string, { branch: string; maintenance: number; fuel: number }>();
+    const branchMonthMap = new Map<string, { label: string; branches: Map<string, { maintenance: number; fuel: number; distance: number }> }>();
+
+    const ensureMonthEntry = (date: Date | null | undefined) => {
+      if (!date) return null;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      if (!monthMap.has(key)) {
+        const label = date.toLocaleString("pt-BR", { month: "short" });
+        monthMap.set(key, { label, order: Number(`${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}`), maintenance: 0, fuel: 0 });
+      }
+      return key;
+    };
+
+    const ensureBranchEntry = (branch: string) => {
+      let entry = branchMap.get(branch);
+      if (!entry) {
+        entry = { branch, maintenance: 0, fuel: 0 };
+        branchMap.set(branch, entry);
+      }
+      return entry;
+    };
+
+    const ensureBranchMonthEntry = (monthKey: string, label: string, branch: string) => {
+      let monthEntry = branchMonthMap.get(monthKey);
+      if (!monthEntry) {
+        monthEntry = { label, branches: new Map() };
+        branchMonthMap.set(monthKey, monthEntry);
+      }
+      let branchEntry = monthEntry.branches.get(branch);
+      if (!branchEntry) {
+        branchEntry = { maintenance: 0, fuel: 0, distance: 0 };
+        monthEntry.branches.set(branch, branchEntry);
+      }
+      return branchEntry;
+    };
+
     const sortedByDate = [...effectiveRefuelings].sort(
       (a, b) => getRefuelingTimestamp(a.date) - getRefuelingTimestamp(b.date)
     );
@@ -167,6 +204,7 @@ export const useDashboardData = (filters?: DashboardFilters) => {
 
     sortedByDate.forEach((refueling) => {
       const vehicleId = refueling.vehicleId;
+      const branch = userBranchMap.get(refueling.userId) || "--";
       const currentKm = Number(refueling.km);
       if (!vehicleId || Number.isNaN(currentKm)) {
         return;
@@ -174,8 +212,18 @@ export const useDashboardData = (filters?: DashboardFilters) => {
 
       const lastKm = distanceByVehicle.get(vehicleId);
       if (lastKm !== undefined && currentKm > lastKm) {
-        totalDistance += currentKm - lastKm;
+        const delta = currentKm - lastKm;
+        totalDistance += delta;
         distanceSamples += 1;
+
+        const refuelDate = refueling.date?.toDate ? refueling.date.toDate() : refueling.date ? new Date(refueling.date) : null;
+        const monthKey = ensureMonthEntry(refuelDate);
+        if (monthKey) {
+          const monthEntry = ensureBranchMonthEntry(monthKey, monthMap.get(monthKey)?.label || monthKey, branch);
+          monthEntry.fuel += Number(refueling.value) || 0;
+          const branchTotals = ensureBranchEntry(branch);
+          branchTotals.fuel += Number(refueling.value) || 0;
+        }
       }
 
       distanceByVehicle.set(vehicleId, currentKm);
@@ -222,59 +270,34 @@ export const useDashboardData = (filters?: DashboardFilters) => {
       { type: 'Outros', count: filteredMaintenances.filter(m => !['preventive', 'corrective', 'tires'].includes(m.type)).length }
     ];
 
-    const monthMap = new Map<string, { label: string; order: number; maintenance: number; fuel: number }>();
-    const branchMap = new Map<string, { branch: string; maintenance: number; fuel: number }>();
-
-    const ensureMonthEntry = (date: Date | null | undefined) => {
-      if (!date) return null;
-      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      if (!monthMap.has(key)) {
-        const label = date.toLocaleString('pt-BR', { month: 'short' });
-        monthMap.set(key, { label, order: Number(`${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`), maintenance: 0, fuel: 0 });
-      }
-      return key;
-    };
-
-    const ensureBranchEntry = (branch: string) => {
-      if (!branchMap.has(branch)) {
-        branchMap.set(branch, { branch, maintenance: 0, fuel: 0 });
-      }
-      return branchMap.get(branch)!;
-    };
-
-    filteredRefuelings.forEach((r) => {
-      const date = r.date?.toDate ? r.date.toDate() : r.date ? new Date(r.date) : null;
-      const key = ensureMonthEntry(date);
-      if (!key) return;
-      const entry = monthMap.get(key)!;
-      entry.fuel += Number(r.value) || 0;
-
-      const branch = userBranchMap.get(r.userId) || "--";
-      const branchEntry = ensureBranchEntry(branch);
-      branchEntry.fuel += Number(r.value) || 0;
-    });
-
-    filteredMaintenances.forEach((m) => {
-      const date = toDate(m.createdAt || (m as any).date);
-      const key = ensureMonthEntry(date);
-      if (!key) return;
-      const entry = monthMap.get(key)!;
-      const maintenanceCost = Number(
-        (m as any).finalCost ?? m.finalCost ?? (m as any).cost ?? (m as any).totalCost ?? m.forecastedCost ?? 0
-      );
-      entry.maintenance += maintenanceCost;
-
-      const branch = userBranchMap.get(m.userId) || "--";
-      const branchEntry = ensureBranchEntry(branch);
-      branchEntry.maintenance += maintenanceCost;
-    });
-
     const monthlyCosts = Array.from(monthMap.values())
       .sort((a, b) => a.order - b.order)
       .slice(-6)
       .map(({ label, maintenance, fuel }) => ({ month: label, maintenance, fuel }));
 
     const costsByBranch = Array.from(branchMap.values()).sort((a, b) => b.maintenance + b.fuel - (a.maintenance + a.fuel));
+
+    const sortedTimelineMonths = Array.from(branchMonthMap.entries())
+      .sort((a, b) => ((monthMap.get(a[0])?.order || 0) - (monthMap.get(b[0])?.order || 0)))
+      .slice(-6);
+
+    const timelineBranchesSet = new Set<string>();
+    const costPerKmTimeline = sortedTimelineMonths
+      .map(([_, { label, branches }]) => {
+        const point = { month: label } as { month: string } & Record<string, number>;
+        branches.forEach((values, branch) => {
+          const totalCost = values.maintenance + values.fuel;
+          const distance = values.distance || 0;
+          if (distance > 0 && totalCost > 0) {
+            point[branch] = Number((totalCost / distance).toFixed(2));
+            timelineBranchesSet.add(branch);
+          }
+        });
+        return point;
+      })
+      .filter(point => Object.keys(point).length > 1);
+
+    const timelineBranches = Array.from(timelineBranchesSet).sort();
 
     return {
       maintenanceStats,
@@ -286,7 +309,9 @@ export const useDashboardData = (filters?: DashboardFilters) => {
       costsByBranch,
       vehicles,
       users,
-      maintenances: filteredMaintenances
+      maintenances: filteredMaintenances,
+      costPerKmTimeline,
+      timelineBranches,
     };
   }, [filters]);
 
