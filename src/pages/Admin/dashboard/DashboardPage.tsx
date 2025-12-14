@@ -1,4 +1,4 @@
-import { Activity, Fuel, Wrench, Users, Clock } from "lucide-react";
+import { Activity, Fuel, Wrench, Clock } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
 import { Skeleton } from "../../../components/ui/skeleton.tsx";
@@ -43,21 +43,10 @@ const DashboardPage = () => {
         <p className="text-muted-foreground">Resumo em tempo real de manutenção, frota e abastecimentos</p>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatsCard
-          label="Manutenções"
-          value={maintenanceStats.total}
-          icon={Wrench}
-          accent="bg-blue-500/10 text-blue-600"
-        />
-        <StatusBreakdownCard maintenances={data.maintenances} />
-        <FuelSummaryCard stats={refuelingStats} />
-        <StatsCard
-          label="Usuários"
-          value={data.users.length}
-          icon={Users}
-          accent="bg-purple-500/10 text-purple-600"
-        />
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <CompactMaintCard stats={maintenanceStats} />
+        <CompactPendenciesCard maintenances={data.maintenances} stats={maintenanceStats} />
+        <CompactFuelCard stats={refuelingStats} monthlyCosts={data.monthlyCosts} />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -178,6 +167,124 @@ const StatsCard = ({ label, value, icon: Icon, accent }: {
     </CardHeader>
   </Card>
 );
+
+const Sparkline = ({ values }: { values: number[] }) => {
+  if (!values || values.length === 0) return <div className="h-6" />;
+  const width = 80;
+  const height = 24;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = Math.max(1, max - min);
+  const points = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * width;
+    const y = height - ((v - min) / range) * height;
+    return `${x},${y}`;
+  }).join(" ");
+
+  return (
+    <svg className="inline-block" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <polyline fill="none" stroke="#10b981" strokeWidth={2} points={points} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
+
+const CompactMaintCard = ({ stats }: { stats: any }) => (
+  <Card>
+    <CardHeader>
+      <div>
+        <CardDescription>Resumo</CardDescription>
+        <CardTitle>Manutenções</CardTitle>
+      </div>
+    </CardHeader>
+    <CardContent>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-4xl font-semibold">{stats.total}</p>
+          <p className="text-sm text-muted-foreground">Total de solicitações</p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <a className="inline-flex items-center gap-2 rounded-full bg-[#fde4cf] px-3 py-1 text-xs font-semibold text-[#b45309]" href="/admin/maintenance?status=pending">Pendentes {stats.pending}</a>
+            <a className="inline-flex items-center gap-2 rounded-full bg-[#e0e7ff] px-3 py-1 text-xs font-semibold text-[#4338ca]" href="/admin/maintenance?status=in_review">Análise {stats.inReview}</a>
+          </div>
+          <div className="flex gap-2">
+            <a className="inline-flex items-center gap-2 rounded-full bg-[#cffafe] px-3 py-1 text-xs font-semibold text-[#0f766e]" href="/admin/maintenance?status=scheduled">Agendadas {stats.scheduled}</a>
+            <a className="inline-flex items-center gap-2 rounded-full bg-[#dcfce7] px-3 py-1 text-xs font-semibold text-[#15803d]" href="/admin/maintenance?status=done">Finalizadas {stats.done}</a>
+          </div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+const CompactPendenciesCard = ({ maintenances, stats }: { maintenances: Maintenance[]; stats: any }) => {
+  const total = stats.total || Math.max(1, maintenances.length);
+  const counts = maintenances.reduce<Record<string, number>>((acc, cur) => {
+    acc[cur.status] = (acc[cur.status] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  return (
+    <Card>
+      <CardHeader>
+        <div>
+          <CardDescription>Status das solicitações</CardDescription>
+          <CardTitle>Pendências</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        {STATUS_ORDER.map((status) => {
+          const count = counts[status] || 0;
+          const pct = Math.round((count / Math.max(1, total)) * 100);
+          return (
+            <div key={status} className="flex items-center gap-3">
+              <div className="w-36 text-sm text-gray-600">{STATUS_LABELS[status]}</div>
+              <div className="flex-1">
+                <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+                  <div className={`h-full rounded-full ${status === 'pending' ? 'bg-[#fde4cf]' : status === 'in_review' ? 'bg-[#e0e7ff]' : status === 'scheduled' ? 'bg-[#cffafe]' : 'bg-[#dcfce7]'}`} style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+              <div className="w-10 text-right font-semibold">{count}</div>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+};
+
+const CompactFuelCard = ({ stats, monthlyCosts }: { stats: DashboardData['refuelingStats']; monthlyCosts: { month: string; maintenance: number; fuel: number }[] }) => {
+  const sparkValues = monthlyCosts.map((m) => m.fuel + m.maintenance);
+
+  const rows = [
+    { label: 'Consumo', value: `${stats.averageConsumption.toFixed(1)} km/L` },
+    { label: 'Litros', value: `${stats.totalLiters.toFixed(2)} L` },
+    { label: 'Gasto', value: `R$ ${stats.monthlyTotal.toFixed(2)}` },
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="flex items-center justify-between">
+        <div>
+          <CardDescription>Performance de consumo</CardDescription>
+          <CardTitle className="text-lg flex items-center gap-2"><Fuel className="h-5 w-5 text-emerald-600"/>Combustível</CardTitle>
+        </div>
+        <div className="text-sm text-muted-foreground"><Sparkline values={sparkValues} /></div>
+      </CardHeader>
+      <CardContent className="grid grid-cols-2 gap-2 text-sm">
+        {rows.map(r => (
+          <div key={r.label} className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
+            <span className="text-gray-600">{r.label}</span>
+            <span className="font-semibold text-gray-900">{r.value}</span>
+          </div>
+        ))}
+        <div className="col-span-2 text-right">
+          <a href="/admin/refueling" className="text-sm text-blue-600">Ver detalhes</a>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const ChartPlaceholder = ({ data }: { data: { month: string; maintenance: number; fuel: number }[] }) => (
   <div className="space-y-4">
