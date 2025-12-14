@@ -123,10 +123,10 @@ export const updateMaintenanceStatus = async (
     const data = snap.data() as any;
     const vehicleId = data?.vehicleId;
     if (vehicleId) {
-      if (status === "in_review" || status === "scheduled") {
-        updateVehicle(vehicleId, { status: "in_maintenance" }).catch(() => {});
-      } else if (status === "done") {
-        updateVehicle(vehicleId, { status: "operational" }).catch(() => {});
+        if (status === "in_review" || status === "scheduled") {
+          updateVehicle(vehicleId, { status: "in_maintenance" } as any).catch(() => {});
+        } else if (status === "done") {
+          updateVehicle(vehicleId, { status: "operational" } as any).catch(() => {});
       }
     }
   } catch (e) {

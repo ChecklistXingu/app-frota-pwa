@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Skeleton } from "../../../components/ui/skeleton.tsx";
 import { cn } from "../../../lib/utils";
 import { useDashboardData } from "./hooks/useDashboardData";
-import type { Maintenance, MaintenanceStatus } from "../../../services/maintenanceService";
+// types used elsewhere as needed
 import type { DashboardData } from "./types/dashboard.types";
 
 const DashboardPage = () => {
@@ -45,7 +45,7 @@ const DashboardPage = () => {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <CompactMaintCard stats={maintenanceStats} />
-        <CompactAnalysisCard analysis={data.analysisStats} maintenances={data.maintenances} />
+        <CompactAnalysisCard analysis={data.analysisStats} />
         <CompactFuelCard stats={refuelingStats} monthlyCosts={data.monthlyCosts} />
       </section>
 
@@ -202,7 +202,7 @@ const CompactMaintCard = ({ stats }: { stats: any }) => (
   </Card>
 );
 
-const CompactAnalysisCard = ({ analysis, maintenances }: { analysis?: any; maintenances: Maintenance[] }) => {
+const CompactAnalysisCard = ({ analysis }: { analysis?: any }) => {
   const stats = analysis ?? { averageAnalysisTime: '—', averageResolutionTime: '—', slaBreachPercent: 0, topCriticals: [] };
 
   return (
@@ -308,13 +308,7 @@ const ChartPlaceholder = ({ data }: { data: { month: string; maintenance: number
   </div>
 );
 
-const STATUS_ORDER: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
-const STATUS_LABELS: Record<MaintenanceStatus, string> = {
-  pending: "Pendentes",
-  in_review: "Em análise",
-  scheduled: "Agendadas",
-  done: "Finalizadas",
-};
+// STATUS constants removed - replaced by CompactAnalysisCard
 
 /* Removed legacy StatusBreakdownCard (replaced by CompactPendenciesCard) */
 
