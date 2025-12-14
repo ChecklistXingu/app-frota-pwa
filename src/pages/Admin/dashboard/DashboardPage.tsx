@@ -151,22 +151,7 @@ const DashboardPage = () => {
   );
 };
 
-const StatsCard = ({ label, value, icon: Icon, accent }: {
-  label: string;
-  value: number;
-  icon: typeof Activity;
-  accent: string;
-}) => (
-  <Card className="relative overflow-hidden">
-    <CardHeader className="pb-2">
-      <div className={cn("mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl", accent)}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <CardDescription>{label}</CardDescription>
-      <CardTitle className="text-3xl">{value}</CardTitle>
-    </CardHeader>
-  </Card>
-);
+/* Removed legacy StatsCard (replaced by CompactMaintCard) */
 
 const Sparkline = ({ values }: { values: number[] }) => {
   if (!values || values.length === 0) return <div className="h-6" />;
@@ -315,63 +300,9 @@ const STATUS_LABELS: Record<MaintenanceStatus, string> = {
   done: "Finalizadas",
 };
 
-const StatusBreakdownCard = ({ maintenances }: { maintenances: Maintenance[] }) => {
-  const counts = maintenances.reduce<Record<MaintenanceStatus, number>>((acc, current) => {
-    const status = (current.status ?? "pending") as MaintenanceStatus;
-    acc[status] = (acc[status] || 0) + 1;
-    return acc;
-  }, Object.fromEntries(STATUS_ORDER.map((status) => [status, 0])) as Record<MaintenanceStatus, number>);
+/* Removed legacy StatusBreakdownCard (replaced by CompactPendenciesCard) */
 
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardDescription>Status das solicitações</CardDescription>
-        <CardTitle className="text-xl">Pendências</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2 text-sm">
-        {STATUS_ORDER.map((status) => (
-          <div key={status} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-1.5">
-            <span className="text-gray-600">{STATUS_LABELS[status]}</span>
-            <span className="font-semibold text-gray-900">{counts[status]}</span>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-};
-
-const FuelSummaryCard = ({ stats }: { stats: DashboardData["refuelingStats"] }) => {
-  const averagePricePerLiter = stats.totalLiters ? stats.monthlyTotal / stats.totalLiters : 0;
-
-  const rows = [
-    { label: "Consumo médio", value: `${stats.averageConsumption.toFixed(1)} km/L` },
-    { label: "Total de litros", value: `${stats.totalLiters.toFixed(2)} L` },
-    { label: "Total gasto", value: `R$ ${stats.monthlyTotal.toFixed(2)}` },
-    { label: "Valor médio por litro", value: `R$ ${averagePricePerLiter.toFixed(2)}` },
-    { label: "Média de km por abastecimento", value: `${stats.averageDistancePerRefueling.toFixed(0)} km` },
-    { label: "Custo por km", value: `R$ ${stats.costPerKm.toFixed(2)}` },
-  ];
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardDescription>Performance de consumo</CardDescription>
-        <CardTitle className="text-xl flex items-center gap-2">
-          <Fuel className="h-5 w-5 text-emerald-600" />
-          Combustível
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
-            <span className="text-gray-600">{row.label}</span>
-            <span className="font-semibold text-gray-900">{row.value}</span>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-};
+/* Removed legacy FuelSummaryCard (replaced by CompactFuelCard) */
 
 const InsightCard = ({ title, value, trend, icon: Icon }: {
   title: string;
