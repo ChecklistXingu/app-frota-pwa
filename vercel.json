@@ -1,8 +1,6 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    // Only rewrite navigation routes (no file extension). This prevents
-    // static assets (like .js/.css/.png) from being rewritten to index.html
     { "source": "/((?!.*\\.).*)", "destination": "/" }
   ],
   "headers": [
