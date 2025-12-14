@@ -15,6 +15,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'prompt',
       injectRegister: 'auto',
+      // use injectManifest so we can use a custom service worker with precise
+      // install/activate behavior and explicit cache cleanup
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      injectManifest: {
+        // path is relative to `srcDir`
+        swSrc: 'service-worker.ts',
+      },
       includeAssets: ['icons/icon-192.svg'],
       devOptions: {
         enabled: true,

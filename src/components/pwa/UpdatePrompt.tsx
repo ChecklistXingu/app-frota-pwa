@@ -48,8 +48,13 @@ const UpdatePrompt = () => {
 
   const handleUpdate = () => {
     if (waitingWorker) {
-      // Envia mensagem para o SW ativar imediatamente
-      waitingWorker.postMessage({ type: "SKIP_WAITING" });
+      // Envia mensagem para o SW ativar imediatamente (suporta string ou obj)
+      try {
+        waitingWorker.postMessage('SKIP_WAITING')
+      } catch (e) {
+        // fallback to object shape
+        waitingWorker.postMessage({ type: 'SKIP_WAITING' })
+      }
     }
     
     // Recarrega a página
