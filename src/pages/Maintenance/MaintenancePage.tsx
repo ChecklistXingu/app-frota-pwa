@@ -16,6 +16,29 @@ import { useImageUpload } from "../../hooks/useImageUpload";
 import PhotoCapture from "../../components/ui/PhotoCapture";
 import { Pencil, X } from "lucide-react";
 
+const parseDateField = (value: any): Date | null => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  if (value?.toDate) return value.toDate();
+  if (value?.seconds) return new Date(value.seconds * 1000);
+  return null;
+};
+
+const formatDateTime = (value?: Date | null) => {
+  if (!value) return "";
+  return value.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 type VehicleOption = {
   id: string;
   plate: string;
@@ -43,6 +66,10 @@ type MaintenanceRecord = {
   items: { name: string; status: boolean }[];
   notes?: string;
   photos?: string[];
+  workshopName?: string;
+  scheduledFor?: Date | null;
+  forecastedCompletion?: Date | null;
+  completedAt?: Date | null;
 };
 
 const CHECKLIST_ITEMS = [
@@ -168,15 +195,15 @@ const MaintenancePage = () => {
           vehicleId: data.vehicleId,
           type: data.type ?? "solicitacao",
           km: data.km ?? 0,
-          date: data.date
-            ? data.date.toDate
-              ? data.date.toDate()
-              : data.date
-            : null,
+          date: parseDateField(data.date),
           status: data.status ?? "pending",
           items: Array.isArray(data.items) ? data.items : [],
           notes: data.notes,
           photos: Array.isArray(data.photos) ? data.photos : [],
+          workshopName: data.workshopName || "",
+          scheduledFor: parseDateField(data.scheduledFor),
+          forecastedCompletion: parseDateField(data.forecastedCompletion),
+          completedAt: parseDateField(data.completedAt),
         };
       });
       setMaintenanceList(list);
@@ -532,6 +559,15 @@ const MaintenancePage = () => {
               <p className="text-gray-600 mb-1">
                 {typeLabels[m.type]} • {m.km.toLocaleString("pt-BR")} km
               </p>
+
+              {(m.workshopName || m.scheduledFor || m.forecastedCompletion || m.completedAt) && (
+                <div className="text-[10px] text-gray-500 mb-1 space-y-0.5">
+                  {m.workshopName && <p>Oficina: {m.workshopName}</p>}
+                  {m.scheduledFor && <p>Agendado: {formatDateTime(m.scheduledFor)}</p>}
+                  {m.forecastedCompletion && <p>Previsão: {formatDateTime(m.forecastedCompletion)}</p>}
+                  {m.completedAt && <p>Finalizado: {formatDateTime(m.completedAt)}</p>}
+                </div>
+              )}
 
               {/* Itens do checklist */}
               {m.items.some((i) => i.status) && (
