@@ -54,7 +54,7 @@ export const useDashboardData = () => {
     const forecastDeviationDurations: number[] = [];
 
     maintenances.forEach((m) => {
-      const created = toDate(m.createdAt);
+      const created = toDate(m.createdAt || (m as any).date);
       const analysisStarted = toDate((m as any).analysisStartedAt);
       const completed = toDate((m as any).completedAt);
       const scheduled = toDate((m as any).scheduledFor);
