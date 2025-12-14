@@ -30,13 +30,15 @@ const AdminMaintenancePage = () => {
     workshopName: "",
     scheduledFor: "",
     forecastedCompletion: "",
+    forecastedCost: "",
     managerNote: "",
   });
   const [savingTicket, setSavingTicket] = useState(false);
-  const [completionModal, setCompletionModal] = useState<{ open: boolean; maintenance: Maintenance | null; date: string }>({
+  const [completionModal, setCompletionModal] = useState<{ open: boolean; maintenance: Maintenance | null; date: string; cost: string }>({
     open: false,
     maintenance: null,
     date: "",
+    cost: "",
   });
   const [completing, setCompleting] = useState(false);
   const [photoModal, setPhotoModal] = useState<{ open: boolean; photos: string[]; maintenance: Maintenance | null }>({
@@ -61,7 +63,13 @@ const AdminMaintenancePage = () => {
       return;
     }
     if (status === "done") {
-      setCompletionModal({ open: true, maintenance, date: toInputDateTime(new Date()) });
+      const seedCost = typeof maintenance.finalCost === "number" ? maintenance.finalCost : maintenance.forecastedCost;
+      setCompletionModal({
+        open: true,
+        maintenance,
+        date: toInputDateTime(new Date()),
+        cost: seedCost ? seedCost.toString() : "",
+      });
       return;
     }
     await updateMaintenanceStatus(maintenance.id, status, {
@@ -82,13 +90,14 @@ const AdminMaintenancePage = () => {
       workshopName: maintenance.workshopName || "",
       scheduledFor: toInputDateTime(maintenance.scheduledFor) || "",
       forecastedCompletion: toInputDateTime(maintenance.forecastedCompletion) || "",
+      forecastedCost: maintenance.forecastedCost ? maintenance.forecastedCost.toString() : "",
       managerNote: maintenance.managerNote || "",
     });
   };
 
   const closeTicketModal = () => {
     setTicketModal({ open: false, maintenance: null });
-    setTicketForm({ workshopName: "", scheduledFor: "", forecastedCompletion: "", managerNote: "" });
+    setTicketForm({ workshopName: "", scheduledFor: "", forecastedCompletion: "", forecastedCost: "", managerNote: "" });
     setSavingTicket(false);
   };
 
@@ -98,10 +107,12 @@ const AdminMaintenancePage = () => {
     try {
       const scheduledDate = ticketForm.scheduledFor ? new Date(ticketForm.scheduledFor) : null;
       const forecastedDate = ticketForm.forecastedCompletion ? new Date(ticketForm.forecastedCompletion) : null;
+      const forecastedCost = ticketForm.forecastedCost ? Number(ticketForm.forecastedCost) : undefined;
       await updateMaintenanceStatus(ticketModal.maintenance.id, "scheduled", {
         workshopName: ticketForm.workshopName || undefined,
         scheduledFor: scheduledDate || undefined,
         forecastedCompletion: forecastedDate || undefined,
+        forecastedCost: forecastedCost && !Number.isNaN(forecastedCost) ? forecastedCost : undefined,
         managerNote: ticketForm.managerNote || undefined,
         managerId: profile?.id,
       });
@@ -117,11 +128,13 @@ const AdminMaintenancePage = () => {
     setCompleting(true);
     try {
       const completedDate = completionModal.date ? new Date(completionModal.date) : new Date();
+      const finalCost = completionModal.cost ? Number(completionModal.cost) : undefined;
       await updateMaintenanceStatus(completionModal.maintenance.id, "done", {
         completedAt: completedDate,
+        finalCost: finalCost && !Number.isNaN(finalCost) ? finalCost : undefined,
         managerId: profile?.id,
       });
-      setCompletionModal({ open: false, maintenance: null, date: "" });
+      setCompletionModal({ open: false, maintenance: null, date: "", cost: "" });
     } catch (error) {
       console.error("Erro ao finalizar manutenção", error);
     } finally {
@@ -259,6 +272,12 @@ const AdminMaintenancePage = () => {
                     {m.completedAt && (
                       <p className="text-xs text-gray-500">Finalizado: {formatDate(m.completedAt)}</p>
                     )}
+                    {typeof m.finalCost === "number" && (
+                      <p className="text-xs text-emerald-600 font-medium">Valor final: R$ {m.finalCost.toFixed(2)}</p>
+                    )}
+                    {typeof m.finalCost !== "number" && typeof m.forecastedCost === "number" && (
+                      <p className="text-xs text-gray-500">Previsão de valor: R$ {m.forecastedCost.toFixed(2)}</p>
+                    )}
                   </td>
                   <td className="p-3">
                     <div className="relative inline-block">
@@ -341,6 +360,22 @@ const AdminMaintenancePage = () => {
               </div>
 
               <div>
+                <label className="text-xs font-semibold text-gray-600">Previsão de valor</label>
+                <div className="mt-1 flex items-center rounded-lg border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-[#0d2d6c]">
+                  <span className="text-gray-400 mr-2">R$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={ticketForm.forecastedCost}
+                    onChange={(e) => setTicketForm((prev) => ({ ...prev, forecastedCost: e.target.value }))}
+                    className="w-full bg-transparent focus:outline-none"
+                    placeholder="0,00"
+                  />
+                </div>
+              </div>
+
+              <div>
                 <label className="text-xs font-semibold text-gray-600">Observação</label>
                 <textarea
                   value={ticketForm.managerNote}
@@ -390,12 +425,37 @@ const AdminMaintenancePage = () => {
                   className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
                 />
               </div>
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Valor final do serviço</label>
+                <div className="mt-1 flex items-center rounded-lg border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-[#0d2d6c]">
+                  <span className="text-gray-400 mr-2">R$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={completionModal.cost}
+                    onChange={(e) => setCompletionModal((prev) => ({ ...prev, cost: e.target.value }))}
+                    className="w-full bg-transparent focus:outline-none"
+                    placeholder="0,00"
+                  />
+                </div>
+                {completionModal.maintenance?.forecastedCost && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Previsão original: R$ {completionModal.maintenance?.forecastedCost?.toFixed(2)}
+                  </p>
+                )}
+                {completionModal.maintenance?.forecastedCost && completionModal.cost && (
+                  <p className="text-xs mt-1 text-gray-500">
+                    Diferença: R$ {(Number(completionModal.cost) - (completionModal.maintenance?.forecastedCost || 0)).toFixed(2)}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setCompletionModal({ open: false, maintenance: null, date: "" })}
+                onClick={() => setCompletionModal({ open: false, maintenance: null, date: "", cost: "" })}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600"
                 disabled={completing}
               >

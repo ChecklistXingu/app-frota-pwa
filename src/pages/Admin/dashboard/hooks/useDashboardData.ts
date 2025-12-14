@@ -247,7 +247,9 @@ export const useDashboardData = (filters?: DashboardFilters) => {
       const key = ensureMonthEntry(date);
       if (!key) return;
       const entry = monthMap.get(key)!;
-      const maintenanceCost = Number((m as any).cost || (m as any).totalCost || 0);
+      const maintenanceCost = Number(
+        (m as any).finalCost ?? m.finalCost ?? (m as any).cost ?? (m as any).totalCost ?? m.forecastedCost ?? 0
+      );
       entry.maintenance += maintenanceCost;
     });
 
