@@ -20,9 +20,10 @@ export const useDashboardData = () => {
     const maintenanceStats = {
       total: maintenances.length,
       pending: maintenances.filter(m => m.status === 'pending').length,
-      inProgress: maintenances.filter(m => m.status === 'in_progress').length,
-      completed: maintenances.filter(m => m.status === 'completed').length,
-      averageResolutionTime: '2d 5h' // Exemplo simplificado
+      inReview: maintenances.filter(m => m.status === 'in_review').length,
+      scheduled: maintenances.filter(m => m.status === 'scheduled').length,
+      done: maintenances.filter(m => m.status === 'done').length,
+      averageResolutionTime: '2d 5h'
     };
 
     // Processar dados de veículos

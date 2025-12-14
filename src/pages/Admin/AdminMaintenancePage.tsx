@@ -4,25 +4,12 @@ import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { ChevronDown, Wrench } from "lucide-react";
 
-const statusOptions: MaintenanceStatus[] = [
-  "pending",
-  "in_progress",
-  "in_review",
-  "approved",
-  "rejected",
-  "scheduled",
-  "completed",
-  "done",
-];
+const statusOptions: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
 
 const statusLabels: Record<string, string> = {
   pending: "Pendente",
-  in_progress: "Em andamento",
   in_review: "Em análise",
-  approved: "Aprovado",
-  rejected: "Rejeitado",
   scheduled: "Agendado",
-  completed: "Concluído",
   done: "Finalizado",
   all: "Todas",
 };
@@ -175,17 +162,13 @@ const AdminMaintenancePage = () => {
 };
 
 const StatusBadge = ({ status }: { status: MaintenanceStatus }) => {
-  const map: Record<string, string> = {
+  const map: Record<MaintenanceStatus, string> = {
     pending: "bg-orange-100 text-orange-800",
-    in_progress: "bg-blue-100 text-blue-800",
     in_review: "bg-blue-100 text-blue-800",
-    approved: "bg-emerald-100 text-emerald-800",
-    rejected: "bg-red-100 text-red-800",
     scheduled: "bg-purple-100 text-purple-800",
-    completed: "bg-gray-100 text-gray-800",
-    done: "bg-gray-100 text-gray-800",
+    done: "bg-emerald-100 text-emerald-800",
   };
-  return <span className={`px-2 py-1 rounded-md text-xs font-medium ${map[status]}`}>{statusLabels[status] || status}</span>;
+  return <span className={`px-2 py-1 rounded-md text-xs font-medium ${map[status]}`}>{statusLabels[status]}</span>;
 };
 
 export default AdminMaintenancePage;

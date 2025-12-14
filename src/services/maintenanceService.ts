@@ -1,15 +1,21 @@
 import { collection, doc, onSnapshot, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
-export type MaintenanceStatus =
-  | "pending"
-  | "in_progress"
-  | "in_review"
-  | "approved"
-  | "rejected"
-  | "scheduled"
-  | "completed"
-  | "done";
+export type MaintenanceStatus = "pending" | "in_review" | "scheduled" | "done";
+
+export const normalizeMaintenanceStatus = (status?: string): MaintenanceStatus => {
+  const map: Record<string, MaintenanceStatus> = {
+    pending: "pending",
+    in_progress: "in_review",
+    in_review: "in_review",
+    approved: "in_review",
+    rejected: "in_review",
+    scheduled: "scheduled",
+    completed: "done",
+    done: "done",
+  };
+  return map[status || "pending"] ?? "pending";
+};
 
 export type Maintenance = {
   id: string;
@@ -56,7 +62,7 @@ export const listenMaintenances = (
         console.warn("⚠️ Document without vehicleId:", d.id);
       }
       
-      return { id: d.id, ...data };
+      return { id: d.id, ...data, status: normalizeMaintenanceStatus(data.status) };
     });
     
     // Ordena localmente por createdAt

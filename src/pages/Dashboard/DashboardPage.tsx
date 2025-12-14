@@ -9,6 +9,7 @@ import {
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { Car, Fuel, Wrench } from "lucide-react";
+import { normalizeMaintenanceStatus, type MaintenanceStatus } from "../../services/maintenanceService";
 
 type RefuelingRecord = {
   id: string;
@@ -22,7 +23,7 @@ type MaintenanceRecord = {
   id: string;
   vehicleId: string;
   type: "preventiva" | "corretiva" | "solicitacao";
-  status: "pending" | "in_progress" | "completed";
+  status: MaintenanceStatus;
   date: Date | null;
 };
 
@@ -119,7 +120,7 @@ const DashboardPage = () => {
         id: docSnap.id,
         vehicleId: data.vehicleId,
         type: data.type ?? "solicitacao",
-        status: data.status ?? "pending",
+        status: normalizeMaintenanceStatus(data.status),
         date: data.date
           ? data.date.toDate
             ? data.date.toDate()

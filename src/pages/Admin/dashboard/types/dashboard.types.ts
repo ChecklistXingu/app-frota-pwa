@@ -6,8 +6,9 @@ export type DashboardData = {
   maintenanceStats: {
     total: number;
     pending: number;
-    inProgress: number;
-    completed: number;
+    inReview: number;
+    scheduled: number;
+    done: number;
     averageResolutionTime: string;
   };
   vehicleStats: {

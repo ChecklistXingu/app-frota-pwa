@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Skeleton } from "../../../components/ui/skeleton.tsx";
 import { cn } from "../../../lib/utils";
 import { useDashboardData } from "./hooks/useDashboardData";
-import type { Maintenance } from "../../../services/maintenanceService";
+import type { Maintenance, MaintenanceStatus } from "../../../services/maintenanceService";
 import type { DashboardData } from "./types/dashboard.types";
 
 const DashboardPage = () => {
@@ -200,32 +200,20 @@ const ChartPlaceholder = ({ data }: { data: { month: string; maintenance: number
   </div>
 );
 
-const STATUS_LABELS: Record<Maintenance["status"], string> = {
+const STATUS_ORDER: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
+const STATUS_LABELS: Record<MaintenanceStatus, string> = {
   pending: "Pendentes",
-  in_progress: "Em andamento",
   in_review: "Em análise",
-  approved: "Aprovadas",
-  rejected: "Rejeitadas",
   scheduled: "Agendadas",
-  completed: "Concluídas",
   done: "Finalizadas",
 };
 
 const StatusBreakdownCard = ({ maintenances }: { maintenances: Maintenance[] }) => {
-  const counts = maintenances.reduce<Record<Maintenance["status"], number>>((acc, current) => {
-    const status = current.status ?? "pending";
+  const counts = maintenances.reduce<Record<MaintenanceStatus, number>>((acc, current) => {
+    const status = (current.status ?? "pending") as MaintenanceStatus;
     acc[status] = (acc[status] || 0) + 1;
     return acc;
-  }, {
-    pending: 0,
-    in_progress: 0,
-    in_review: 0,
-    approved: 0,
-    rejected: 0,
-    scheduled: 0,
-    completed: 0,
-    done: 0,
-  });
+  }, Object.fromEntries(STATUS_ORDER.map((status) => [status, 0])) as Record<MaintenanceStatus, number>);
 
   return (
     <Card>
@@ -234,10 +222,10 @@ const StatusBreakdownCard = ({ maintenances }: { maintenances: Maintenance[] }) 
         <CardTitle className="text-xl">Pendências</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
-        {Object.entries(STATUS_LABELS).map(([status, label]) => (
+        {STATUS_ORDER.map((status) => (
           <div key={status} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-1.5">
-            <span className="text-gray-600">{label}</span>
-            <span className="font-semibold text-gray-900">{counts[status as Maintenance["status"]] ?? 0}</span>
+            <span className="text-gray-600">{STATUS_LABELS[status]}</span>
+            <span className="font-semibold text-gray-900">{counts[status]}</span>
           </div>
         ))}
       </CardContent>
