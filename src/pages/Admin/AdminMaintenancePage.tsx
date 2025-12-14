@@ -231,6 +231,9 @@ const AdminMaintenancePage = () => {
                     {m.forecastedCompletion && (
                       <p className="text-xs text-gray-500">Previsão: {formatDate(m.forecastedCompletion)}</p>
                     )}
+                    {m.completedAt && (
+                      <p className="text-xs text-gray-500">Finalizado: {formatDate(m.completedAt)}</p>
+                    )}
                   </td>
                   <td className="p-3">
                     <div className="relative inline-block">
