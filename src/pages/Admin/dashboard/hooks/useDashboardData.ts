@@ -223,6 +223,7 @@ export const useDashboardData = (filters?: DashboardFilters) => {
     ];
 
     const monthMap = new Map<string, { label: string; order: number; maintenance: number; fuel: number }>();
+    const branchMap = new Map<string, { branch: string; maintenance: number; fuel: number }>();
 
     const ensureMonthEntry = (date: Date | null | undefined) => {
       if (!date) return null;
@@ -234,12 +235,23 @@ export const useDashboardData = (filters?: DashboardFilters) => {
       return key;
     };
 
+    const ensureBranchEntry = (branch: string) => {
+      if (!branchMap.has(branch)) {
+        branchMap.set(branch, { branch, maintenance: 0, fuel: 0 });
+      }
+      return branchMap.get(branch)!;
+    };
+
     filteredRefuelings.forEach((r) => {
       const date = r.date?.toDate ? r.date.toDate() : r.date ? new Date(r.date) : null;
       const key = ensureMonthEntry(date);
       if (!key) return;
       const entry = monthMap.get(key)!;
       entry.fuel += Number(r.value) || 0;
+
+      const branch = userBranchMap.get(r.userId) || "--";
+      const branchEntry = ensureBranchEntry(branch);
+      branchEntry.fuel += Number(r.value) || 0;
     });
 
     filteredMaintenances.forEach((m) => {
@@ -251,12 +263,18 @@ export const useDashboardData = (filters?: DashboardFilters) => {
         (m as any).finalCost ?? m.finalCost ?? (m as any).cost ?? (m as any).totalCost ?? m.forecastedCost ?? 0
       );
       entry.maintenance += maintenanceCost;
+
+      const branch = userBranchMap.get(m.userId) || "--";
+      const branchEntry = ensureBranchEntry(branch);
+      branchEntry.maintenance += maintenanceCost;
     });
 
     const monthlyCosts = Array.from(monthMap.values())
       .sort((a, b) => a.order - b.order)
       .slice(-6)
       .map(({ label, maintenance, fuel }) => ({ month: label, maintenance, fuel }));
+
+    const costsByBranch = Array.from(branchMap.values()).sort((a, b) => b.maintenance + b.fuel - (a.maintenance + a.fuel));
 
     return {
       maintenanceStats,
@@ -265,6 +283,7 @@ export const useDashboardData = (filters?: DashboardFilters) => {
       recentActivities,
       maintenanceByType,
       monthlyCosts,
+      costsByBranch,
       vehicles,
       users,
       maintenances: filteredMaintenances

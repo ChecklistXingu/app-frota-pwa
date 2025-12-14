@@ -44,6 +44,7 @@ export type DashboardData = {
   }>;
   maintenanceByType: Array<{ type: string; count: number }>;
   monthlyCosts: Array<{ month: string; maintenance: number; fuel: number }>;
+  costsByBranch: Array<{ branch: string; maintenance: number; fuel: number }>;
   vehicles: Vehicle[];
   users: AppUser[];
   maintenances: Maintenance[];

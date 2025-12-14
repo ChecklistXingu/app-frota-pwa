@@ -1,12 +1,20 @@
-import { Activity, Fuel, Wrench, Clock, Filter } from "lucide-react";
+import { Fuel, Filter, AlertTriangle } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
 import { Skeleton } from "../../../components/ui/skeleton.tsx";
-import { cn } from "../../../lib/utils";
 import { useDashboardData } from "./hooks/useDashboardData";
 import type { Maintenance } from "../../../services/maintenanceService";
 import type { DashboardData, DashboardFilters } from "./types/dashboard.types";
 import { useState } from "react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from "recharts";
 
 const BRANCHES = [
   { label: "Todas", value: "all" },
@@ -47,7 +55,10 @@ const DashboardPage = () => {
     );
   }
 
-  const { maintenanceStats, refuelingStats, recentActivities, maintenanceByType, monthlyCosts } = data;
+  const { maintenanceStats, refuelingStats, monthlyCosts, costsByBranch } = data;
+  const branchSummary = costsByBranch.length
+    ? costsByBranch.reduce((max, current) => (current.maintenance > max.maintenance ? current : max), costsByBranch[0])
+    : null;
 
   const handleFilterChange = (key: keyof DashboardFilters, value: string) => {
     setFilters((prev) => ({
@@ -111,8 +122,8 @@ const DashboardPage = () => {
         <CompactFuelCard stats={refuelingStats} monthlyCosts={data.monthlyCosts} />
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>Custo mensal</CardTitle>
@@ -126,86 +137,57 @@ const DashboardPage = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Manutenções por tipo</CardTitle>
-            <CardDescription>Distribuição dos últimos 90 dias</CardDescription>
+          <CardHeader className="space-y-1">
+            <CardTitle>Combustível x Manutenção por loja</CardTitle>
+            <CardDescription>Diagnóstico por filial (stacked)</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {maintenanceByType.map((item) => (
-                <div key={item.type} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{item.type}</p>
-                    <p className="text-sm text-muted-foreground">{((item.count / Math.max(1, maintenanceStats.total)) * 100).toFixed(0)}%</p>
+            {costsByBranch.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem dados suficientes para exibir o comparativo.</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="w-full h-72">
+                  <ResponsiveContainer>
+                    <BarChart data={costsByBranch.map((item) => ({
+                      loja: item.branch,
+                      combustivel: item.fuel,
+                      manutencao: item.maintenance,
+                    }))}>
+                      <XAxis dataKey="loja" tick={{ fontSize: 12 }} />
+                      <YAxis
+                        tickFormatter={(value) =>
+                          value.toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                            maximumFractionDigits: 0,
+                          })
+                        }
+                        width={80}
+                      />
+                      <Tooltip
+                        formatter={(value: number) =>
+                          value.toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          })
+                        }
+                      />
+                      <Legend />
+                      <Bar dataKey="combustivel" name="Combustível" stackId="custo" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="manutencao" name="Manutenção" stackId="custo" fill="#f97316" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                {branchSummary && (
+                  <div className="flex items-start gap-3 rounded-xl border border-orange-100 bg-orange-50/50 p-3 text-sm text-orange-900">
+                    <AlertTriangle className="h-4 w-4 mt-0.5" />
+                    <p>
+                      <strong>{branchSummary.branch}</strong> lidera o custo de manutenção no período, indicando possível excesso de falhas ou frota envelhecida.
+                    </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-semibold">{item.count}</span>
-                    <span className="h-2.5 w-20 rounded-full bg-muted" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Fluxo recente</CardTitle>
-              <CardDescription>Últimas atividades registradas</CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" asChild>
-              <a href="/admin/maintenance">Ver tudo</a>
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {recentActivities.length === 0 && (
-              <p className="text-sm text-muted-foreground">Nenhuma atividade nos últimos dias.</p>
-            )}
-            {recentActivities.map((activity) => (
-              <div key={activity.id} className="flex items-center gap-3 rounded-xl border p-3">
-                <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", activity.type === "maintenance" ? "bg-blue-500/10 text-blue-600" : "bg-emerald-500/10 text-emerald-600") }>
-                  {activity.type === "maintenance" ? <Wrench className="h-5 w-5" /> : <Fuel className="h-5 w-5" />}
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold leading-none">{activity.title}</p>
-                  <p className="text-sm text-muted-foreground">{activity.description}</p>
-                </div>
-                <div className="text-right text-xs text-muted-foreground">
-                  <p>{activity.date.toLocaleDateString()}</p>
-                  <p>{activity.vehicleId}</p>
-                </div>
+                )}
               </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Indicadores operacionais</CardTitle>
-            <CardDescription>Resumo dos últimos 30 dias</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <InsightCard
-              title="Tempo médio de resolução"
-              value={maintenanceStats.averageResolutionTime}
-              icon={Clock}
-              trend="-12% vs mês anterior"
-            />
-            <InsightCard
-              title="Consumo médio"
-              value={`${refuelingStats.averageConsumption} km/L`}
-              icon={Fuel}
-              trend="+5% eficiência"
-            />
-            <InsightCard
-              title="Custo por km"
-              value={`R$ ${refuelingStats.costPerKm.toFixed(2)}`}
-              icon={Activity}
-              trend="-3% custo"
-            />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -349,23 +331,4 @@ const ChartPlaceholder = ({ data }: { data: { month: string; maintenance: number
     ))}
   </div>
 );
-
-const InsightCard = ({ title, value, trend, icon: Icon }: {
-  title: string;
-  value: string;
-  trend: string;
-  icon: typeof Activity;
-}) => (
-  <div className="flex items-center gap-4 rounded-2xl border p-4">
-    <div className="rounded-2xl bg-muted p-3">
-      <Icon className="h-5 w-5" />
-    </div>
-    <div className="flex-1">
-      <p className="text-sm text-muted-foreground">{title}</p>
-      <p className="text-2xl font-semibold leading-tight">{value}</p>
-      <p className="text-sm text-emerald-600">{trend}</p>
-    </div>
-  </div>
-);
-
 export default DashboardPage;
