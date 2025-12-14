@@ -1,5 +1,6 @@
-import { collection, doc, onSnapshot, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, onSnapshot, query, serverTimestamp, updateDoc, arrayUnion, getDoc } from "firebase/firestore";
 import { db } from "./firebase";
+import { updateVehicle } from "./vehiclesService";
 
 export type MaintenanceStatus = "pending" | "in_review" | "scheduled" | "done";
 
@@ -29,6 +30,11 @@ export type Maintenance = {
   updatedAt?: any;
   managerId?: string;
   managerNote?: string;
+  assignedAt?: any;
+  scheduledAt?: any;
+  closedAt?: any;
+  workshop?: string;
+  statusHistory?: Array<{ status: string; timestamp?: any; userId?: string; note?: string }>;
 };
 
 export const listenMaintenances = (
@@ -82,8 +88,57 @@ export const listenMaintenances = (
 export const updateMaintenanceStatus = async (
   id: string,
   status: MaintenanceStatus,
+  options: { managerId?: string; note?: string; scheduledAt?: any; workshop?: string } = {},
   payload: Partial<Maintenance> = {}
 ) => {
   const ref = doc(db, "maintenance", id);
-  await updateDoc(ref, { status, updatedAt: serverTimestamp(), ...payload });
+
+  // Build update object
+  const updates: any = { status, updatedAt: serverTimestamp(), ...payload };
+
+  // Set timestamps depending on status
+  if (status === "in_review") {
+    updates.assignedAt = serverTimestamp();
+  }
+  if (status === "scheduled") {
+    updates.scheduledAt = options.scheduledAt ?? serverTimestamp();
+    updates.assignedAt = updates.assignedAt ?? serverTimestamp();
+  }
+  if (status === "done") {
+    updates.closedAt = serverTimestamp();
+  }
+
+  if (options.workshop) updates.workshop = options.workshop;
+  if (options.managerId) updates.managerId = options.managerId;
+  if (options.note) updates.managerNote = options.note;
+
+  // Push to statusHistory
+  updates.statusHistory = arrayUnion({ status, timestamp: serverTimestamp(), userId: options.managerId, note: options.note });
+
+  await updateDoc(ref, updates);
+
+  // Try to update vehicle status for visibility in the vehicles list
+  try {
+    const snap = await getDoc(ref);
+    const data = snap.data() as any;
+    const vehicleId = data?.vehicleId;
+    if (vehicleId) {
+      if (status === "in_review" || status === "scheduled") {
+        updateVehicle(vehicleId, { status: "in_maintenance" }).catch(() => {});
+      } else if (status === "done") {
+        updateVehicle(vehicleId, { status: "operational" }).catch(() => {});
+      }
+    }
+  } catch (e) {
+    console.warn("Could not update vehicle status", e);
+  }
+};
+
+export const openMaintenanceTicket = async (
+  id: string,
+  managerId?: string,
+  opts: { scheduledAt?: any; workshop?: string; note?: string } = {}
+) => {
+  const statusToSet: MaintenanceStatus = opts.scheduledAt ? "scheduled" : "in_review";
+  return updateMaintenanceStatus(id, statusToSet, { managerId, scheduledAt: opts.scheduledAt, workshop: opts.workshop, note: opts.note });
 };

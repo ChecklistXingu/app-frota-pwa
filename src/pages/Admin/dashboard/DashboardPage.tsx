@@ -45,7 +45,7 @@ const DashboardPage = () => {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <CompactMaintCard stats={maintenanceStats} />
-        <CompactPendenciesCard maintenances={data.maintenances} stats={maintenanceStats} />
+        <CompactAnalysisCard analysis={data.analysisStats} maintenances={data.maintenances} />
         <CompactFuelCard stats={refuelingStats} monthlyCosts={data.monthlyCosts} />
       </section>
 
@@ -202,37 +202,52 @@ const CompactMaintCard = ({ stats }: { stats: any }) => (
   </Card>
 );
 
-const CompactPendenciesCard = ({ maintenances, stats }: { maintenances: Maintenance[]; stats: any }) => {
-  const total = stats.total || Math.max(1, maintenances.length);
-  const counts = maintenances.reduce<Record<string, number>>((acc, cur) => {
-    acc[cur.status] = (acc[cur.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+const CompactAnalysisCard = ({ analysis, maintenances }: { analysis?: any; maintenances: Maintenance[] }) => {
+  const stats = analysis ?? { averageAnalysisTime: '—', averageResolutionTime: '—', slaBreachPercent: 0, topCriticals: [] };
 
   return (
     <Card>
       <CardHeader>
         <div>
-          <CardDescription>Status das solicitações</CardDescription>
-          <CardTitle>Pendências</CardTitle>
+          <CardDescription>Análise & Entrega</CardDescription>
+          <CardTitle>Tempo de ciclo</CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="space-y-2 text-sm">
-        {STATUS_ORDER.map((status) => {
-          const count = counts[status] || 0;
-          const pct = Math.round((count / Math.max(1, total)) * 100);
-          return (
-            <div key={status} className="flex items-center gap-3">
-              <div className="w-36 text-sm text-gray-600">{STATUS_LABELS[status]}</div>
-              <div className="flex-1">
-                <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
-                  <div className={`h-full rounded-full ${status === 'pending' ? 'bg-[#fde4cf]' : status === 'in_review' ? 'bg-[#e0e7ff]' : status === 'scheduled' ? 'bg-[#cffafe]' : 'bg-[#dcfce7]'}`} style={{ width: `${pct}%` }} />
+      <CardContent className="space-y-3 text-sm">
+        <div className="flex items-center gap-4">
+          <div>
+            <p className="text-xs text-gray-600">Até análise</p>
+            <p className="text-lg font-semibold">{stats.averageAnalysisTime}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-600">Até finalização</p>
+            <p className="text-lg font-semibold">{stats.averageResolutionTime}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-600">SLA viol.</p>
+            <p className="text-lg font-semibold text-rose-600">{stats.slaBreachPercent}%</p>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-sm text-gray-700 font-medium">Top críticos</p>
+          <div className="space-y-2 mt-2">
+            {stats.topCriticals.map((c: any) => (
+              <div key={c.id} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                <div>
+                  <p className="font-medium">{c.vehicleId} • {c.title}</p>
+                  <p className="text-xs text-gray-500">Aberto há {c.daysOpen} dias • {c.status}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a href={`/admin/maintenance?id=${c.id}`} className="text-sm text-blue-600">Ver</a>
                 </div>
               </div>
-              <div className="w-10 text-right font-semibold">{count}</div>
-            </div>
-          );
-        })}
+            ))}
+            {stats.topCriticals.length === 0 && (
+              <p className="text-sm text-gray-500">Nenhum item crítico no momento.</p>
+            )}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -245,6 +260,7 @@ const CompactFuelCard = ({ stats, monthlyCosts }: { stats: DashboardData['refuel
     { label: 'Consumo', value: `${stats.averageConsumption.toFixed(1)} km/L` },
     { label: 'Litros', value: `${stats.totalLiters.toFixed(2)} L` },
     { label: 'Gasto', value: `R$ ${stats.monthlyTotal.toFixed(2)}` },
+    { label: 'Custo por km', value: `R$ ${stats.costPerKm.toFixed(2)}` },
   ];
 
   return (

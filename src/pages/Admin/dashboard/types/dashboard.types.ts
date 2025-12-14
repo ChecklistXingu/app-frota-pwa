@@ -24,6 +24,12 @@ export type DashboardData = {
     costPerKm: number;
     averageDistancePerRefueling: number;
   };
+  analysisStats?: {
+    averageAnalysisTime: string;
+    averageResolutionTime: string;
+    slaBreachPercent: number;
+    topCriticals: Array<{ id: string; vehicleId?: string; title: string; daysOpen: number; status: string }>;
+  };
   recentActivities: Array<{
     id: string;
     type: 'maintenance' | 'refueling' | 'alert';

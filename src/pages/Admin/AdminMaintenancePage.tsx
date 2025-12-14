@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { listenMaintenances, updateMaintenanceStatus, type Maintenance, type MaintenanceStatus } from "../../services/maintenanceService";
+import { listenMaintenances, updateMaintenanceStatus, openMaintenanceTicket, type Maintenance, type MaintenanceStatus } from "../../services/maintenanceService";
 import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { ChevronDown, Wrench } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 
 const statusOptions: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
 
@@ -32,6 +33,27 @@ const AdminMaintenancePage = () => {
 
   const onChangeStatus = async (id: string, status: MaintenanceStatus) => {
     await updateMaintenanceStatus(id, status);
+  };
+
+  // Open ticket modal
+  const { profile } = useAuth();
+  const [ticketOpen, setTicketOpen] = useState(false);
+  const [ticketMaintenanceId, setTicketMaintenanceId] = useState<string | null>(null);
+  const [ticketScheduledAt, setTicketScheduledAt] = useState<string | null>(null);
+  const [ticketWorkshop, setTicketWorkshop] = useState<string>("");
+
+  const openTicket = (m: Maintenance) => {
+    setTicketMaintenanceId(m.id);
+    setTicketScheduledAt(null);
+    setTicketWorkshop("");
+    setTicketOpen(true);
+  };
+
+  const confirmOpenTicket = async () => {
+    if (!ticketMaintenanceId) return;
+    const scheduled = ticketScheduledAt ? new Date(ticketScheduledAt) : undefined;
+    await openMaintenanceTicket(ticketMaintenanceId, profile?.id, { scheduledAt: scheduled, workshop: ticketWorkshop });
+    setTicketOpen(false);
   };
 
   // Função para obter o nome do usuário pelo ID
@@ -132,6 +154,10 @@ const AdminMaintenancePage = () => {
                 <td className="p-3">{getVehicleInfo(m.vehicleId)}</td>
                 <td className="p-3">
                   <StatusBadge status={m.status || "pending"} />
+                  <div className="mt-2 text-xs text-gray-500">
+                    {m.assignedAt && <div>Assumido: {formatDate(m.assignedAt)}</div>}
+                    {m.scheduledAt && <div>Agendado: {formatDate(m.scheduledAt)}</div>}
+                  </div>
                 </td>
                 <td className="p-3">
                   <div className="relative inline-block">
@@ -146,6 +172,11 @@ const AdminMaintenancePage = () => {
                     </select>
                     <ChevronDown size={16} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                   </div>
+                  {m.status === 'pending' && (
+                    <div className="mt-2">
+                      <button onClick={() => openTicket(m)} className="text-sm bg-blue-600 text-white px-3 py-1 rounded-lg">Abrir ticket</button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
@@ -157,6 +188,32 @@ const AdminMaintenancePage = () => {
           </tbody>
         </table>
       </div>
+      {/* Modal Abrir Ticket */}
+      {ticketOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md p-5 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-800">Abrir ticket de manutenção</h3>
+              <button onClick={() => setTicketOpen(false)} className="text-gray-400 hover:text-gray-700">Fechar</button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-600">Data e hora agendada (opcional)</label>
+                <input type="datetime-local" value={ticketScheduledAt ?? ""} onChange={(e) => setTicketScheduledAt(e.target.value)} className="w-full rounded-md border px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Oficina / Observação</label>
+                <input type="text" value={ticketWorkshop} onChange={(e) => setTicketWorkshop(e.target.value)} className="w-full rounded-md border px-3 py-2 text-sm" />
+              </div>
+              <div className="flex items-center gap-2 justify-end">
+                <button onClick={() => setTicketOpen(false)} className="px-3 py-2 rounded border">Cancelar</button>
+                <button onClick={confirmOpenTicket} className="px-3 py-2 rounded bg-blue-600 text-white">Confirmar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

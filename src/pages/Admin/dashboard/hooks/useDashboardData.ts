@@ -121,6 +121,71 @@ export const useDashboardData = () => {
       { month: 'Jun', maintenance: 10300, fuel: 17600 }
     ];
 
+    // Analysis metrics (assignedAt / closedAt)
+    const toMillis = (v: any) => {
+      if (!v) return 0;
+      if (typeof v.toMillis === "function") return v.toMillis();
+      if (typeof v.toDate === "function") return v.toDate().getTime();
+      if (typeof v.seconds === "number") return v.seconds * 1000;
+      if (v instanceof Date) return v.getTime();
+      const parsed = new Date(v);
+      return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+    };
+
+    const analysisDurations: number[] = maintenances
+      .map((m) => {
+        const created = toMillis(m.createdAt);
+        const assigned = toMillis(m.assignedAt);
+        return assigned && created ? assigned - created : null;
+      })
+      .filter(Boolean) as number[];
+
+    const resolutionDurations: number[] = maintenances
+      .map((m) => {
+        const created = toMillis(m.createdAt);
+        const closed = toMillis(m.closedAt);
+        return closed && created ? closed - created : null;
+      })
+      .filter(Boolean) as number[];
+
+    const avg = (arr: number[]) => (arr.length === 0 ? 0 : Math.round(arr.reduce((s, n) => s + n, 0) / arr.length));
+
+    const formatMs = (ms: number) => {
+      if (!ms) return "—";
+      const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      return `${days}d ${hours}h`;
+    };
+
+    const avgAnalysisMs = avg(analysisDurations);
+    const avgResolutionMs = avg(resolutionDurations);
+
+    const SLA_ANALYSIS_MS = 48 * 60 * 60 * 1000; // 48 hours
+    const slaBreaches = maintenances.filter((m) => {
+      const created = toMillis(m.createdAt);
+      const assigned = toMillis(m.assignedAt);
+      const now = Date.now();
+      if (assigned) {
+        return assigned - created > SLA_ANALYSIS_MS;
+      }
+      // not assigned yet -> breach if created older than SLA
+      return now - created > SLA_ANALYSIS_MS;
+    }).length;
+
+    const slaBreachPercent = maintenances.length ? Math.round((slaBreaches / maintenances.length) * 100) : 0;
+
+    const topCriticals = [...maintenances]
+      .map((m) => ({
+        id: m.id,
+        vehicleId: m.vehicleId,
+        title: m.description || "Checklist",
+        daysOpen: Math.floor((Date.now() - toMillis(m.createdAt)) / (1000 * 60 * 60 * 24)),
+        status: m.status,
+      }))
+      .sort((a, b) => b.daysOpen - a.daysOpen)
+      .slice(0, 3);
+
+
     return {
       maintenanceStats,
       vehicleStats,
@@ -128,6 +193,12 @@ export const useDashboardData = () => {
       recentActivities,
       maintenanceByType,
       monthlyCosts,
+      analysisStats: {
+        averageAnalysisTime: formatMs(avgAnalysisMs),
+        averageResolutionTime: formatMs(avgResolutionMs),
+        slaBreachPercent,
+        topCriticals,
+      },
       vehicles,
       users,
       maintenances
