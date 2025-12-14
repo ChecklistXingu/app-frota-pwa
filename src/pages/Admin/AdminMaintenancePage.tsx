@@ -39,6 +39,11 @@ const AdminMaintenancePage = () => {
     date: "",
   });
   const [completing, setCompleting] = useState(false);
+  const [photoModal, setPhotoModal] = useState<{ open: boolean; photos: string[]; maintenance: Maintenance | null }>({
+    open: false,
+    photos: [],
+    maintenance: null,
+  });
 
   useEffect(() => {
     const unsub1 = listenMaintenances(
@@ -275,6 +280,15 @@ const AdminMaintenancePage = () => {
                     >
                       {m.status === "scheduled" ? "Editar ticket" : "Abrir ticket"}
                     </button>
+                    {m.photos?.length ? (
+                      <button
+                        type="button"
+                        onClick={() => setPhotoModal({ open: true, photos: m.photos || [], maintenance: m })}
+                        className="mt-2 ml-0 inline-flex items-center rounded-md border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                      >
+                        Ver fotos ({m.photos.length})
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -396,6 +410,51 @@ const AdminMaintenancePage = () => {
                 {completing ? "Finalizando..." : "Confirmar"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {photoModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">Fotos da manutenção</h3>
+                {photoModal.maintenance && (
+                  <p className="text-sm text-gray-500">{getMaintenanceItems(photoModal.maintenance)}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPhotoModal({ open: false, photos: [], maintenance: null })}
+                className="rounded-md border border-gray-200 px-3 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Fechar
+              </button>
+            </div>
+
+            {photoModal.photos.length ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {photoModal.photos.map((url, idx) => (
+                  <a
+                    key={`${url}-${idx}`}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-lg border bg-gray-50 p-2 hover:border-[#0d2d6c]"
+                  >
+                    <img
+                      src={url}
+                      alt={`Foto ${idx + 1}`}
+                      className="w-full h-40 object-contain"
+                    />
+                    <p className="mt-2 text-xs text-gray-500 text-center">Abrir em nova aba</p>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Nenhuma foto disponível.</p>
+            )}
           </div>
         </div>
       )}
