@@ -16,14 +16,68 @@ export const useDashboardData = () => {
       users: any[] = [],
       refuelings: any[] = []
     ): DashboardData => {
-    // Processar dados de manutenção
+    const toDate = (value: any): Date | null => {
+      if (!value) return null;
+      if (value.toDate) return value.toDate();
+      if (value.seconds) return new Date(value.seconds * 1000);
+      if (value instanceof Date) return value;
+      if (typeof value === "string") {
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+      return null;
+    };
+
+    const getAverageDuration = (values: number[]): number => {
+      if (!values.length) return 0;
+      return values.reduce((sum, v) => sum + v, 0) / values.length;
+    };
+
+    const formatDuration = (ms: number): string => {
+      if (!ms || ms <= 0) return "--";
+      const totalMinutes = Math.round(ms / 60000);
+      const days = Math.floor(totalMinutes / (60 * 24));
+      const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+      const minutes = totalMinutes % 60;
+
+      if (days > 0) {
+        return `${days}d ${hours}h`;
+      }
+      if (hours > 0) {
+        return minutes > 0 ? `${hours}h ${minutes}min` : `${hours}h`;
+      }
+      return `${minutes}min`;
+    };
+
+    const analysisDurations: number[] = [];
+    const resolutionDurations: number[] = [];
+
+    maintenances.forEach((m) => {
+      const created = toDate(m.createdAt);
+      const analysisStarted = toDate((m as any).analysisStartedAt);
+      const completed = toDate((m as any).completedAt);
+
+      if (created && analysisStarted && analysisStarted > created) {
+        analysisDurations.push(analysisStarted.getTime() - created.getTime());
+      }
+
+      if (created && completed && completed > created) {
+        resolutionDurations.push(completed.getTime() - created.getTime());
+      }
+    });
+
+    const avgAnalysisMs = getAverageDuration(analysisDurations);
+    const avgResolutionMs = getAverageDuration(resolutionDurations);
+
     const maintenanceStats = {
       total: maintenances.length,
       pending: maintenances.filter(m => m.status === 'pending').length,
       inReview: maintenances.filter(m => m.status === 'in_review').length,
       scheduled: maintenances.filter(m => m.status === 'scheduled').length,
       done: maintenances.filter(m => m.status === 'done').length,
-      averageResolutionTime: '2d 5h'
+      averageResolutionTime: formatDuration(avgResolutionMs),
+      avgAnalysisTime: formatDuration(avgAnalysisMs),
+      avgCompletionTime: formatDuration(avgResolutionMs),
     };
 
     // Processar dados de veículos

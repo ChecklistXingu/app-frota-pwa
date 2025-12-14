@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Skeleton } from "../../../components/ui/skeleton.tsx";
 import { cn } from "../../../lib/utils";
 import { useDashboardData } from "./hooks/useDashboardData";
-import type { Maintenance, MaintenanceStatus } from "../../../services/maintenanceService";
+import type { Maintenance } from "../../../services/maintenanceService";
 import type { DashboardData } from "./types/dashboard.types";
 
 const DashboardPage = () => {
@@ -202,37 +202,32 @@ const CompactMaintCard = ({ stats }: { stats: any }) => (
   </Card>
 );
 
-const CompactPendenciesCard = ({ maintenances, stats }: { maintenances: Maintenance[]; stats: any }) => {
-  const total = stats.total || Math.max(1, maintenances.length);
-  const counts = maintenances.reduce<Record<string, number>>((acc, cur) => {
-    acc[cur.status] = (acc[cur.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
+const CompactPendenciesCard = ({ stats }: { maintenances: Maintenance[]; stats: any }) => {
   return (
     <Card>
       <CardHeader>
         <div>
-          <CardDescription>Status das solicitações</CardDescription>
-          <CardTitle>Pendências</CardTitle>
+          <CardDescription>Tempo das manutenções</CardDescription>
+          <CardTitle>Processo</CardTitle>
         </div>
       </CardHeader>
-      <CardContent className="space-y-2 text-sm">
-        {STATUS_ORDER.map((status) => {
-          const count = counts[status] || 0;
-          const pct = Math.round((count / Math.max(1, total)) * 100);
-          return (
-            <div key={status} className="flex items-center gap-3">
-              <div className="w-36 text-sm text-gray-600">{STATUS_LABELS[status]}</div>
-              <div className="flex-1">
-                <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
-                  <div className={`h-full rounded-full ${status === 'pending' ? 'bg-[#fde4cf]' : status === 'in_review' ? 'bg-[#e0e7ff]' : status === 'scheduled' ? 'bg-[#cffafe]' : 'bg-[#dcfce7]'}`} style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-              <div className="w-10 text-right font-semibold">{count}</div>
-            </div>
-          );
-        })}
+      <CardContent className="grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-xl bg-gray-50 px-3 py-2 flex flex-col gap-1">
+          <span className="text-gray-600">Média até análise</span>
+          <span className="text-lg font-semibold">{stats.avgAnalysisTime}</span>
+          <span className="text-xs text-gray-400">De pendente até em análise/agendada</span>
+        </div>
+        <div className="rounded-xl bg-gray-50 px-3 py-2 flex flex-col gap-1">
+          <span className="text-gray-600">Média até finalização</span>
+          <span className="text-lg font-semibold">{stats.avgCompletionTime}</span>
+          <span className="text-xs text-gray-400">Do pedido até finalizada</span>
+        </div>
+        <div className="col-span-2 flex items-center justify-between text-xs text-gray-600 mt-1">
+          <span>Pendentes: <strong>{stats.pending}</strong></span>
+          <span>Em análise: <strong>{stats.inReview}</strong></span>
+          <span>Agendadas: <strong>{stats.scheduled}</strong></span>
+          <span>Finalizadas: <strong>{stats.done}</strong></span>
+        </div>
       </CardContent>
     </Card>
   );
@@ -291,18 +286,6 @@ const ChartPlaceholder = ({ data }: { data: { month: string; maintenance: number
     ))}
   </div>
 );
-
-const STATUS_ORDER: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
-const STATUS_LABELS: Record<MaintenanceStatus, string> = {
-  pending: "Pendentes",
-  in_review: "Em análise",
-  scheduled: "Agendadas",
-  done: "Finalizadas",
-};
-
-/* Removed legacy StatusBreakdownCard (replaced by CompactPendenciesCard) */
-
-/* Removed legacy FuelSummaryCard (replaced by CompactFuelCard) */
 
 const InsightCard = ({ title, value, trend, icon: Icon }: {
   title: string;

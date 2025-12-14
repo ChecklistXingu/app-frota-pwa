@@ -10,6 +10,8 @@ export type DashboardData = {
     scheduled: number;
     done: number;
     averageResolutionTime: string;
+    avgAnalysisTime: string;
+    avgCompletionTime: string;
   };
   vehicleStats: {
     total: number;

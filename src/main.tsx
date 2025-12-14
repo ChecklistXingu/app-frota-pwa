@@ -7,7 +7,6 @@ import AppRouter from './router/AppRouter'
 import { AuthProvider } from './contexts/AuthContext'
 import InstallPrompt from './components/pwa/InstallPrompt'
 import OfflineIndicator from './components/pwa/OfflineIndicator'
-import UpdatePrompt from './components/pwa/UpdatePrompt'
 import { startAutoSync } from './services/syncService'
 
 createRoot(document.getElementById('root')!).render(
@@ -17,7 +16,6 @@ createRoot(document.getElementById('root')!).render(
         <OfflineIndicator />
         <AppRouter />
         <InstallPrompt />
-        <UpdatePrompt />
       </BrowserRouter>
     </AuthProvider>
   </StrictMode>,

@@ -1,4 +1,4 @@
-import { collection, doc, onSnapshot, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
 export type MaintenanceStatus = "pending" | "in_review" | "scheduled" | "done";
@@ -29,6 +29,8 @@ export type Maintenance = {
   updatedAt?: any;
   managerId?: string;
   managerNote?: string;
+  analysisStartedAt?: any;
+  completedAt?: any;
 };
 
 export const listenMaintenances = (
@@ -85,5 +87,24 @@ export const updateMaintenanceStatus = async (
   payload: Partial<Maintenance> = {}
 ) => {
   const ref = doc(db, "maintenance", id);
-  await updateDoc(ref, { status, updatedAt: serverTimestamp(), ...payload });
+  const snap = await getDoc(ref);
+  const data = snap.exists() ? (snap.data() as any) : {};
+
+  const updates: Partial<Maintenance> & { status: MaintenanceStatus; updatedAt: any } = {
+    status,
+    updatedAt: serverTimestamp(),
+    ...payload,
+  };
+
+  const currentStatus = normalizeMaintenanceStatus(data.status);
+
+  if (!data.analysisStartedAt && (status === "in_review" || status === "scheduled")) {
+    updates.analysisStartedAt = serverTimestamp();
+  }
+
+  if (!data.completedAt && status === "done" && currentStatus !== "done") {
+    updates.completedAt = serverTimestamp();
+  }
+
+  await updateDoc(ref, updates as any);
 };
