@@ -239,6 +239,7 @@ const CompactFuelCard = ({ stats, monthlyCosts }: { stats: DashboardData['refuel
   const rows = [
     { label: 'Consumo', value: `${stats.averageConsumption.toFixed(1)} km/L` },
     { label: 'Litros', value: `${stats.totalLiters.toFixed(2)} L` },
+    { label: 'Custo/km', value: `R$ ${stats.costPerKm.toFixed(2)}` },
     { label: 'Gasto', value: `R$ ${stats.monthlyTotal.toFixed(2)}` },
   ];
 
