@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { listenMaintenances, updateMaintenanceStatus, type Maintenance, type MaintenanceStatus } from "../../services/maintenanceService";
 import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
@@ -173,6 +173,19 @@ const AdminMaintenancePage = () => {
     return (m as any).notes || m.managerNote || "";
   };
 
+  const getSortTime = (m: Maintenance) => {
+    const source = m.createdAt || (m as any).date || m.updatedAt;
+    if (!source) return 0;
+    if ((source as any).seconds) return (source as any).seconds * 1000;
+    if ((source as any).toDate) return (source as any).toDate().getTime();
+    const date = new Date(source as any);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+  };
+
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => getSortTime(b) - getSortTime(a));
+  }, [items]);
+
   return (
     <>
       <div className="space-y-4">
@@ -204,7 +217,7 @@ const AdminMaintenancePage = () => {
               </tr>
             </thead>
             <tbody>
-              {items.map((m) => (
+              {sortedItems.map((m) => (
                 <tr key={m.id} className="border-t">
                   <td className="p-3">
                     <div className="flex items-center gap-2">

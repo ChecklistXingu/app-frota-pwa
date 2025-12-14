@@ -64,10 +64,13 @@ let updateSW = registerSW({
     const laterButton = document.createElement('button');
     laterButton.textContent = 'Depois';
     laterButton.style.padding = '8px 16px';
-    laterButton.style.backgroundColor = '#f0f0f0';
-    laterButton.style.border = '1px solid #ddd';
+    laterButton.style.backgroundColor = '#ffffff';
+    laterButton.style.color = '#0d2d6c';
+    laterButton.style.fontWeight = '600';
+    laterButton.style.border = '1px solid rgba(13,45,108,0.2)';
     laterButton.style.borderRadius = '4px';
     laterButton.style.cursor = 'pointer';
+    laterButton.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.6)';
     
     // Adiciona os elementos ao toast
     buttonContainer.appendChild(laterButton);

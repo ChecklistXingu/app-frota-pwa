@@ -555,33 +555,32 @@ const MaintenancePage = () => {
                 </div>
               </div>
 
-              {/* Detalhes */}
-              <p className="text-gray-600 mb-1">
-                {typeLabels[m.type]} • {m.km.toLocaleString("pt-BR")} km
-              </p>
+              {/* Detalhes do motorista */}
+              <div className="text-[11px] text-gray-700 mb-2 space-y-0.5">
+                <p className="font-semibold">
+                  {typeLabels[m.type]} • {m.km.toLocaleString("pt-BR")} km
+                </p>
+                {m.items.some((i) => i.status) && (
+                  <p>
+                    <span className="font-medium">Itens:</span>{" "}
+                    {m.items.filter((i) => i.status).map((i) => i.name).join(", ")}
+                  </p>
+                )}
+                {m.notes && (
+                  <p>
+                    <span className="font-medium">Obs:</span> {m.notes}
+                  </p>
+                )}
+              </div>
 
+              {/* Dados do gerente */}
               {(m.workshopName || m.scheduledFor || m.forecastedCompletion || m.completedAt) && (
-                <div className="text-[10px] text-gray-500 mb-1 space-y-0.5">
+                <div className="text-[10px] text-gray-500 mb-2 space-y-0.5 border-t border-gray-100 pt-2">
                   {m.workshopName && <p>Oficina: {m.workshopName}</p>}
                   {m.scheduledFor && <p>Agendado: {formatDateTime(m.scheduledFor)}</p>}
                   {m.forecastedCompletion && <p>Previsão: {formatDateTime(m.forecastedCompletion)}</p>}
                   {m.completedAt && <p>Finalizado: {formatDateTime(m.completedAt)}</p>}
                 </div>
-              )}
-
-              {/* Itens do checklist */}
-              {m.items.some((i) => i.status) && (
-                <p className="text-[10px] text-gray-500 mb-1">
-                  <span className="font-medium">Itens:</span>{" "}
-                  {m.items.filter((i) => i.status).map((i) => i.name).join(", ")}
-                </p>
-              )}
-
-              {/* Observações */}
-              {m.notes && (
-                <p className="text-[10px] text-gray-500 mb-2">
-                  <span className="font-medium">Obs:</span> {m.notes}
-                </p>
               )}
 
               {/* Fotos */}
@@ -598,7 +597,7 @@ const MaintenancePage = () => {
                       <img
                         src={url}
                         alt={`Foto ${idx + 1}`}
-                        className="w-16 h-16 object-cover rounded-lg border"
+                        className="w-16 h-16 object-contain rounded-lg border bg-white p-1"
                       />
                     </a>
                   ))}
