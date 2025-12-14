@@ -3,9 +3,19 @@ import { listenMaintenances } from "../../../../services/maintenanceService";
 import { listenVehicles } from "../../../../services/vehiclesService";
 import { listenUsers } from "../../../../services/usersService";
 import { getRefuelingTimestamp, listenRefuelings } from "../../../../services/refuelingService";
-import type { DashboardData } from "../types/dashboard.types";
+import type { DashboardData, DashboardFilters } from "../types/dashboard.types";
 
-export const useDashboardData = () => {
+const parseInputDate = (value?: string | null, endOfDay = false): Date | null => {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  if (endOfDay) {
+    return new Date(year, month - 1, day, 23, 59, 59, 999);
+  }
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
+};
+
+export const useDashboardData = (filters?: DashboardFilters) => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -16,6 +26,11 @@ export const useDashboardData = () => {
       users: any[] = [],
       refuelings: any[] = []
     ): DashboardData => {
+    const branchFilter = filters?.branch && filters.branch !== "all" ? filters.branch : null;
+    const startDate = parseInputDate(filters?.startDate, false);
+    const endDate = parseInputDate(filters?.endDate, true);
+    const isDateFilterActive = Boolean(startDate || endDate);
+
     const toDate = (value: any): Date | null => {
       if (!value) return null;
       if (value.toDate) return value.toDate();
@@ -53,7 +68,32 @@ export const useDashboardData = () => {
     const resolutionDurations: number[] = [];
     const forecastDeviationDurations: number[] = [];
 
-    maintenances.forEach((m) => {
+    const userBranchMap = new Map(users.map((u: any) => [u.id, u.filial || "--"]));
+
+    const isBranchAllowed = (userId: string) => {
+      if (!branchFilter) return true;
+      return userBranchMap.get(userId) === branchFilter;
+    };
+
+    const isDateAllowed = (date: Date | null) => {
+      if (!isDateFilterActive) return true;
+      if (!date) return false;
+      if (startDate && date < startDate) return false;
+      if (endDate && date > endDate) return false;
+      return true;
+    };
+
+    const filteredMaintenances = maintenances.filter((m) => {
+      const created = toDate(m.createdAt || (m as any).date);
+      return isBranchAllowed(m.userId) && isDateAllowed(created);
+    });
+
+    const filteredRefuelings = refuelings.filter((r) => {
+      const dateValue = r.date?.toDate ? r.date.toDate() : r.date ? new Date(r.date) : null;
+      return isBranchAllowed(r.userId) && isDateAllowed(dateValue);
+    });
+
+    filteredMaintenances.forEach((m) => {
       const created = toDate(m.createdAt || (m as any).date);
       const analysisStarted = toDate((m as any).analysisStartedAt);
       const completed = toDate((m as any).completedAt);
@@ -82,11 +122,11 @@ export const useDashboardData = () => {
     const avgForecastDeltaMs = getAverageDuration(forecastDeviationDurations);
 
     const maintenanceStats = {
-      total: maintenances.length,
-      pending: maintenances.filter(m => m.status === 'pending').length,
-      inReview: maintenances.filter(m => m.status === 'in_review').length,
-      scheduled: maintenances.filter(m => m.status === 'scheduled').length,
-      done: maintenances.filter(m => m.status === 'done').length,
+      total: filteredMaintenances.length,
+      pending: filteredMaintenances.filter(m => m.status === 'pending').length,
+      inReview: filteredMaintenances.filter(m => m.status === 'in_review').length,
+      scheduled: filteredMaintenances.filter(m => m.status === 'scheduled').length,
+      done: filteredMaintenances.filter(m => m.status === 'done').length,
       averageResolutionTime: formatDuration(avgResolutionMs),
       avgAnalysisTime: formatDuration(avgAnalysisMs),
       avgCompletionTime: formatDuration(avgResolutionMs),
@@ -102,19 +142,22 @@ export const useDashboardData = () => {
     };
 
     // Processar dados de abastecimento
-    const monthlyRefuelings = refuelings.filter(r => {
+    const fallbackWindowStart = new Date();
+    fallbackWindowStart.setMonth(fallbackWindowStart.getMonth() - 1);
+
+    const monthlyRefuelings = (isDateFilterActive ? filteredRefuelings : refuelings.filter((r) => {
       const timestamp = r.date?.toDate ? r.date.toDate() : r.date;
       if (!timestamp) return false;
       const refuelingDate = timestamp instanceof Date ? timestamp : new Date(timestamp);
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-      return refuelingDate > oneMonthAgo;
-    });
+      return refuelingDate >= fallbackWindowStart;
+    })).filter((r) => !branchFilter || isBranchAllowed(r.userId));
 
-    const monthlyTotal = monthlyRefuelings.reduce((sum, r) => sum + (Number(r.value) || 0), 0);
-    const totalLiters = monthlyRefuelings.reduce((sum, r) => sum + (Number(r.liters) || 0), 0);
+    const effectiveRefuelings = isDateFilterActive ? filteredRefuelings : monthlyRefuelings;
 
-    const sortedByDate = [...monthlyRefuelings].sort(
+    const monthlyTotal = effectiveRefuelings.reduce((sum, r) => sum + (Number(r.value) || 0), 0);
+    const totalLiters = effectiveRefuelings.reduce((sum, r) => sum + (Number(r.liters) || 0), 0);
+
+    const sortedByDate = [...effectiveRefuelings].sort(
       (a, b) => getRefuelingTimestamp(a.date) - getRefuelingTimestamp(b.date)
     );
 
@@ -151,21 +194,21 @@ export const useDashboardData = () => {
 
     // Atividades recentes
     const recentActivities = [
-      ...maintenances.slice(0, 5).map(m => ({
+      ...filteredMaintenances.slice(0, 5).map(m => ({
         id: m.id,
         type: 'maintenance' as const,
         title: `Manutenção ${m.id.slice(0, 6)}`,
         description: m.description || 'Sem descrição',
-        date: m.createdAt?.toDate() || new Date(),
+        date: m.createdAt?.toDate ? m.createdAt.toDate() : toDate(m.createdAt || (m as any).date) || new Date(),
         status: m.status,
         vehicleId: m.vehicleId
       })),
-      ...refuelings.slice(0, 3).map(r => ({
+      ...filteredRefuelings.slice(0, 3).map(r => ({
         id: r.id,
         type: 'refueling' as const,
         title: `Abastecimento ${r.id.slice(0, 6)}`,
         description: `${r.liters}L - R$ ${r.value.toFixed(2)}`,
-        date: r.date?.toDate() || new Date(),
+        date: r.date?.toDate ? r.date.toDate() : new Date(),
         status: 'completed',
         vehicleId: r.vehicleId
       }))
@@ -173,20 +216,45 @@ export const useDashboardData = () => {
 
     // Dados para gráficos
     const maintenanceByType = [
-      { type: 'Preventiva', count: maintenances.filter(m => m.type === 'preventive').length },
-      { type: 'Corretiva', count: maintenances.filter(m => m.type === 'corrective').length },
-      { type: 'Pneus', count: maintenances.filter(m => m.type === 'tires').length },
-      { type: 'Outros', count: maintenances.filter(m => !['preventive', 'corrective', 'tires'].includes(m.type)).length }
+      { type: 'Preventiva', count: filteredMaintenances.filter(m => m.type === 'preventive').length },
+      { type: 'Corretiva', count: filteredMaintenances.filter(m => m.type === 'corrective').length },
+      { type: 'Pneus', count: filteredMaintenances.filter(m => m.type === 'tires').length },
+      { type: 'Outros', count: filteredMaintenances.filter(m => !['preventive', 'corrective', 'tires'].includes(m.type)).length }
     ];
 
-    const monthlyCosts = [
-      { month: 'Jan', maintenance: 12500, fuel: 18700 },
-      { month: 'Fev', maintenance: 9800, fuel: 17500 },
-      { month: 'Mar', maintenance: 14700, fuel: 19200 },
-      { month: 'Abr', maintenance: 11200, fuel: 16800 },
-      { month: 'Mai', maintenance: 8900, fuel: 15400 },
-      { month: 'Jun', maintenance: 10300, fuel: 17600 }
-    ];
+    const monthMap = new Map<string, { label: string; order: number; maintenance: number; fuel: number }>();
+
+    const ensureMonthEntry = (date: Date | null | undefined) => {
+      if (!date) return null;
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (!monthMap.has(key)) {
+        const label = date.toLocaleString('pt-BR', { month: 'short' });
+        monthMap.set(key, { label, order: Number(`${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`), maintenance: 0, fuel: 0 });
+      }
+      return key;
+    };
+
+    filteredRefuelings.forEach((r) => {
+      const date = r.date?.toDate ? r.date.toDate() : r.date ? new Date(r.date) : null;
+      const key = ensureMonthEntry(date);
+      if (!key) return;
+      const entry = monthMap.get(key)!;
+      entry.fuel += Number(r.value) || 0;
+    });
+
+    filteredMaintenances.forEach((m) => {
+      const date = toDate(m.createdAt || (m as any).date);
+      const key = ensureMonthEntry(date);
+      if (!key) return;
+      const entry = monthMap.get(key)!;
+      const maintenanceCost = Number((m as any).cost || (m as any).totalCost || 0);
+      entry.maintenance += maintenanceCost;
+    });
+
+    const monthlyCosts = Array.from(monthMap.values())
+      .sort((a, b) => a.order - b.order)
+      .slice(-6)
+      .map(({ label, maintenance, fuel }) => ({ month: label, maintenance, fuel }));
 
     return {
       maintenanceStats,
@@ -197,9 +265,9 @@ export const useDashboardData = () => {
       monthlyCosts,
       vehicles,
       users,
-      maintenances
+      maintenances: filteredMaintenances
     };
-  }, []);
+  }, [filters]);
 
   useEffect(() => {
     setLoading(true);

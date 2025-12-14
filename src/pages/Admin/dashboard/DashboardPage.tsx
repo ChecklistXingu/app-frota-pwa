@@ -1,14 +1,28 @@
-import { Activity, Fuel, Wrench, Clock } from "lucide-react";
+import { Activity, Fuel, Wrench, Clock, Filter } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
 import { Skeleton } from "../../../components/ui/skeleton.tsx";
 import { cn } from "../../../lib/utils";
 import { useDashboardData } from "./hooks/useDashboardData";
 import type { Maintenance } from "../../../services/maintenanceService";
-import type { DashboardData } from "./types/dashboard.types";
+import type { DashboardData, DashboardFilters } from "./types/dashboard.types";
+import { useState } from "react";
+
+const BRANCHES = [
+  { label: "Todas", value: "all" },
+  { label: "Água Boa", value: "Água Boa" },
+  { label: "Querência", value: "Querência" },
+  { label: "Canarana", value: "Canarana" },
+  { label: "Confresa", value: "Confresa" },
+];
 
 const DashboardPage = () => {
-  const { data, loading } = useDashboardData();
+  const [filters, setFilters] = useState<DashboardFilters>({
+    branch: "all",
+    startDate: undefined,
+    endDate: undefined,
+  });
+  const { data, loading } = useDashboardData(filters);
 
   if (loading || !data) {
     return (
@@ -35,6 +49,13 @@ const DashboardPage = () => {
 
   const { maintenanceStats, refuelingStats, recentActivities, maintenanceByType, monthlyCosts } = data;
 
+  const handleFilterChange = (key: keyof DashboardFilters, value: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value === "" ? undefined : value,
+    }));
+  };
+
   return (
     <div className="space-y-6">
       <header className="space-y-1">
@@ -42,6 +63,47 @@ const DashboardPage = () => {
         <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Resumo em tempo real de manutenção, frota e abastecimentos</p>
       </header>
+
+      <section className="rounded-2xl border bg-white/50 p-4 shadow-sm">
+        <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+          <Filter className="w-4 h-4" />
+          Filtros
+        </div>
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-500">Período inicial</label>
+            <input
+              type="date"
+              value={filters.startDate ?? ""}
+              onChange={(e) => handleFilterChange("startDate", e.target.value)}
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-500">Período final</label>
+            <input
+              type="date"
+              value={filters.endDate ?? ""}
+              onChange={(e) => handleFilterChange("endDate", e.target.value)}
+              className="rounded-lg border px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex flex-col gap-1 md:col-span-2">
+            <label className="text-xs text-gray-500">Filial</label>
+            <select
+              value={filters.branch ?? "all"}
+              onChange={(e) => handleFilterChange("branch", e.target.value)}
+              className="rounded-lg border px-3 py-2 text-sm"
+            >
+              {BRANCHES.map((branch) => (
+                <option key={branch.value} value={branch.value}>
+                  {branch.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <CompactMaintCard stats={maintenanceStats} />

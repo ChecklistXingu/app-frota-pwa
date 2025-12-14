@@ -2,6 +2,12 @@ import type { Maintenance } from "../../../../services/maintenanceService";
 import type { Vehicle } from "../../../../services/vehiclesService";
 import type { AppUser } from "../../../../services/usersService";
 
+export type DashboardFilters = {
+  startDate?: string;
+  endDate?: string;
+  branch?: string;
+};
+
 export type DashboardData = {
   maintenanceStats: {
     total: number;
