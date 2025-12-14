@@ -130,6 +130,11 @@ const AdminMaintenancePage = () => {
     return user?.name || userId;
   };
 
+  const getUserBranch = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    return user?.filial || "--";
+  };
+
   // Função para obter placa e modelo do veículo pelo ID
   const getVehicleInfo = (vehicleId: string) => {
     const vehicle = vehicles.find(v => v.id === vehicleId);
@@ -211,6 +216,7 @@ const AdminMaintenancePage = () => {
               <tr>
                 <th className="p-3">Solicitação</th>
                 <th className="p-3">Motorista</th>
+                <th className="p-3">Filial</th>
                 <th className="p-3">Veículo</th>
                 <th className="p-3">Status</th>
                 <th className="p-3 w-40">Ações</th>
@@ -232,6 +238,7 @@ const AdminMaintenancePage = () => {
                     </div>
                   </td>
                   <td className="p-3">{getUserName(m.userId)}</td>
+                  <td className="p-3">{getUserBranch(m.userId)}</td>
                   <td className="p-3">{getVehicleInfo(m.vehicleId)}</td>
                   <td className="p-3">
                     <StatusBadge status={m.status || "pending"} />

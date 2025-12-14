@@ -23,6 +23,11 @@ const AdminRefuelingPage = () => {
     return user?.name || "Não informado";
   };
 
+  const getDriverBranch = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    return user?.filial || "--";
+  };
+
   // Função para obter placa e modelo do veículo pelo ID
   const getVehicleInfo = (vehicleId: string) => {
     const vehicle = vehicles.find(v => v.id === vehicleId);
@@ -102,6 +107,7 @@ const AdminRefuelingPage = () => {
             <tr>
               <th className="p-3">Data</th>
               <th className="p-3">Motorista</th>
+              <th className="p-3">Filial</th>
               <th className="p-3">Veículo</th>
               <th className="p-3">KM</th>
               <th className="p-3">Litros</th>
@@ -129,6 +135,7 @@ const AdminRefuelingPage = () => {
                       </div>
                     </td>
                     <td className="p-3">{getDriverName(latest?.userId || "")}</td>
+                    <td className="p-3">{getDriverBranch(latest?.userId || "")}</td>
                     <td className="p-3">{getVehicleInfo(vehicleId)}</td>
                     <td className="p-3">{latest?.km?.toLocaleString("pt-BR") ?? "-"} km</td>
                     <td className="p-3">{latest?.liters?.toFixed(2)} L</td>
@@ -161,6 +168,7 @@ const AdminRefuelingPage = () => {
                           </div>
                         </td>
                         <td className="p-3 text-sm text-slate-600">{getDriverName(refueling.userId)}</td>
+                        <td className="p-3 text-sm text-slate-600">{getDriverBranch(refueling.userId)}</td>
                         <td className="p-3 text-sm text-slate-600">{getVehicleInfo(vehicleId)}</td>
                         <td className="p-3 text-sm text-slate-600">{refueling.km?.toLocaleString("pt-BR") ?? "-"} km</td>
                         <td className="p-3 text-sm text-slate-600">{refueling.liters?.toFixed(2)} L</td>
