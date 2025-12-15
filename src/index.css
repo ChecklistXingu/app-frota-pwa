@@ -30,6 +30,23 @@
   .btn-primary {
     @apply inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold text-[color:var(--color-primary)] bg-[color:var(--color-accent)] shadow-sm hover:brightness-95 active:brightness-90 transition;
   }
+  
+  /* Estilos para a barra de navegação móvel */
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
+  
+  /* Estilo para a navegação fixa na parte inferior */
+  @media (max-width: 1024px) {
+    body {
+      padding-bottom: 70px; /* Altura da barra de navegação */
+    }
+  }
 }
 
 /* Animações */

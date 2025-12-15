@@ -72,13 +72,25 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
         </main>
       </div>
 
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-[#e4e7ec]">
-        <div className="max-w-md mx-auto flex justify-between px-4 py-2 text-xs text-[#00205b]">
-          <NavItem to="/admin" icon={<LayoutDashboard size={18} />} label="Home" />
-          <NavItem to="/admin/maintenance" icon={<Wrench size={18} />} label="Manut." />
-          <NavItem to="/admin/refueling" icon={<Fuel size={18} />} label="Abast." />
-          <NavItem to="/admin/vehicles" icon={<Car size={18} />} label="Veículos" />
-          <NavItem to="/admin/users" icon={<Users size={18} />} label="Usuários" />
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-[#e4e7ec] shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+        <div className="w-full overflow-x-auto no-scrollbar">
+          <div className="min-w-max flex justify-start px-2 py-2 text-xs text-[#00205b]">
+            <div className="px-2">
+              <NavItem to="/admin" icon={<LayoutDashboard size={20} />} label="Home" />
+            </div>
+            <div className="px-2">
+              <NavItem to="/admin/maintenance" icon={<Wrench size={20} />} label="Manutenções" />
+            </div>
+            <div className="px-2">
+              <NavItem to="/admin/refueling" icon={<Fuel size={20} />} label="Abastecimentos" />
+            </div>
+            <div className="px-2">
+              <NavItem to="/admin/vehicles" icon={<Car size={20} />} label="Veículos" />
+            </div>
+            <div className="px-2">
+              <NavItem to="/admin/users" icon={<Users size={20} />} label="Usuários" />
+            </div>
+          </div>
         </div>
       </nav>
     </div>
@@ -90,7 +102,7 @@ const NavItem = ({ to, icon, label }: { to: string; icon: ReactNode; label: stri
     to={to}
     className={({ isActive }) =>
       [
-        "flex items-center gap-3 rounded-2xl px-3 py-2 transition",
+        "flex flex-col items-center justify-center gap-1 rounded-xl p-2 transition w-16 text-center",
         isActive
           ? "bg-[#00205b]/10 text-[#00205b] font-semibold shadow-sm"
           : "text-gray-500 hover:bg-[#f3f6ff]",
@@ -98,8 +110,8 @@ const NavItem = ({ to, icon, label }: { to: string; icon: ReactNode; label: stri
     }
     end
   >
-    {icon}
-    <span>{label}</span>
+    <div className="flex-shrink-0">{icon}</div>
+    <span className="text-xs leading-tight">{label}</span>
   </NavLink>
 );
 
