@@ -112,15 +112,15 @@ const AdminVehiclesPage = () => {
 
               <div className="pt-2 border-t">
                 <div className="flex items-center gap-2 text-sm">
-                  {v.active ? (
-                    <>
-                      <CheckCircle size={16} className="text-green-500" />
-                      <span className="text-gray-600">Veículo ativo na frota</span>
-                    </>
-                  ) : (
+                  {v.active === false ? (
                     <>
                       <XCircle size={16} className="text-red-500" />
                       <span className="text-gray-600">Veículo inativo</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={16} className="text-green-500" />
+                      <span className="text-gray-600">Veículo ativo na frota</span>
                     </>
                   )}
                 </div>

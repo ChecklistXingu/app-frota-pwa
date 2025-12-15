@@ -79,16 +79,16 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
               <BottomNavItem to="/admin" icon={<LayoutDashboard size={20} />} label="Home" />
             </div>
             <div className="px-2">
-              <BottomNavItem to="/admin/maintenance" icon={<Wrench size={20} />} label="Manutenções" />
+              <BottomNavItem to="/admin/maintenance" icon={<Wrench size={20} />} label="Manut." />
             </div>
             <div className="px-2">
-              <BottomNavItem to="/admin/refueling" icon={<Fuel size={20} />} label="Abastecimentos" />
+              <BottomNavItem to="/admin/refueling" icon={<Fuel size={20} />} label="Abast." />
             </div>
             <div className="px-2">
-              <BottomNavItem to="/admin/vehicles" icon={<Car size={20} />} label="Veículos" />
+              <BottomNavItem to="/admin/vehicles" icon={<Car size={20} />} label="Veíc." />
             </div>
             <div className="px-2">
-              <BottomNavItem to="/admin/users" icon={<Users size={20} />} label="Usuários" />
+              <BottomNavItem to="/admin/users" icon={<Users size={20} />} label="Usuár." />
             </div>
           </div>
         </div>
