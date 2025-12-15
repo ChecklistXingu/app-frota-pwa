@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Wrench, Car, Users, LogOut, Fuel, RefreshCw } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import FolhaAzul from "../../assets/folha azul.png";
+import LogoApp from "../../assets/logo app (2).png";
 
 const AdminLayout = ({ children }: { children: ReactNode }) => {
   const { logout, profile } = useAuth();
@@ -13,7 +13,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
         <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-4 px-4 lg:px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center gap-2">
-              <img src={FolhaAzul} alt="Logotipo Xingu" className="h-9 w-9 object-contain" />
+              <img src={LogoApp} alt="Logotipo Xingu" className="h-9 w-9 object-contain rounded-full" />
               <div className="text-xs uppercase tracking-[0.2em] text-white/70">Sistema de Gestão</div>
             </div>
             <div>
@@ -43,7 +43,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
       <div className="max-w-[1400px] mx-auto px-4 lg:px-6 pt-6 pb-20 lg:pb-6 flex flex-col gap-6 lg:flex-row">
         <aside className="hidden lg:flex w-64 flex-shrink-0 flex-col rounded-3xl bg-white pt-8 pb-6 shadow-[0_20px_45px_rgba(0,32,91,0.12)] border border-[#e4e7ec]">
           <div className="flex flex-col items-center px-6 text-center gap-3 pb-6 border-b border-[#edf0f6]">
-            <img src={FolhaAzul} alt="Logotipo Xingu" className="h-12 w-12 object-contain" />
+            <img src={LogoApp} alt="Logotipo Xingu" className="h-12 w-12 object-contain rounded-full" />
             <div>
               <p className="text-sm font-semibold text-[#00205b]">Xingu Máquinas</p>
               <p className="text-xs text-gray-500">Gestão de Frotas</p>

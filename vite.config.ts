@@ -23,7 +23,7 @@ export default defineConfig({
         // path is relative to `srcDir`
         swSrc: 'service-worker.ts',
       },
-      includeAssets: ['icons/icon-192.svg'],
+      includeAssets: ['icons/icon-192.png'],
       devOptions: {
         enabled: true,
         type: 'module',
@@ -41,16 +41,16 @@ export default defineConfig({
         theme_color: '#0d2d6c',
         icons: [
           {
-            src: '/icons/icon-192.svg',
+            src: '/icons/icon-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
-            purpose: 'any',
+            type: 'image/png',
+            purpose: 'any maskable',
           },
           {
-            src: '/icons/icon-192.svg',
+            src: '/icons/icon-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable',
+            type: 'image/png',
+            purpose: 'maskable',
           },
         ],
       },
