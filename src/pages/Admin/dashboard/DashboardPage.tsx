@@ -116,12 +116,12 @@ const DashboardPage = () => {
     <div className="space-y-6">
       <header className="space-y-1">
         <p className="text-sm uppercase tracking-widest text-muted-foreground">Painel de gestão</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Resumo em tempo real de manutenção, frota e abastecimentos</p>
       </header>
 
       <section className="rounded-2xl border bg-white/50 p-4 shadow-sm">
-        <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
           <Filter className="w-4 h-4" />
           Filtros
         </div>
