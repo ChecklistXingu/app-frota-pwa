@@ -226,14 +226,13 @@ const AdminMaintenancePage = () => {
   };
 
   const filteredItems = useMemo(() => {
-    if (branchFilter === "all") {
-      return items;
-    }
     return items.filter((maintenance) => {
-      const branch = userBranchMap.get(maintenance.userId) || "--";
-      return branch === branchFilter;
+      const branchMatches =
+        branchFilter === "all" || (userBranchMap.get(maintenance.userId) || "--") === branchFilter;
+      const statusMatches = filter === "all" || (maintenance.status || "pending") === filter;
+      return branchMatches && statusMatches;
     });
-  }, [items, branchFilter, userBranchMap]);
+  }, [items, branchFilter, userBranchMap, filter]);
 
   const sortedItems = useMemo(() => {
     return [...filteredItems].sort((a, b) => getSortTime(b) - getSortTime(a));
