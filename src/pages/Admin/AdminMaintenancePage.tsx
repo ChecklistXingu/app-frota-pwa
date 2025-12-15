@@ -20,6 +20,7 @@ const AdminMaintenancePage = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filter, setFilter] = useState<MaintenanceStatus | "all">("all");
+  const [branchFilter, setBranchFilter] = useState<string>("all");
   const { profile } = useAuth();
 
   const [ticketModal, setTicketModal] = useState<{ open: boolean; maintenance: Maintenance | null }>({
@@ -143,14 +144,33 @@ const AdminMaintenancePage = () => {
   };
 
   // Função para obter o nome do usuário pelo ID
+  const userBranchMap = useMemo(() => {
+    const map = new Map<string, string>();
+    users.forEach((user) => {
+      const normalized = (user.filial || "").trim();
+      map.set(user.id, normalized || "--");
+    });
+    return map;
+  }, [users]);
+
+  const branchOptions = useMemo(() => {
+    const unique = new Set<string>();
+    users.forEach((user) => {
+      const branch = (user.filial || "").trim();
+      if (branch) {
+        unique.add(branch);
+      }
+    });
+    return Array.from(unique).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
+  }, [users]);
+
   const getUserName = (userId: string) => {
     const user = users.find(u => u.id === userId);
     return user?.name || userId;
   };
 
   const getUserBranch = (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    return user?.filial || "--";
+    return userBranchMap.get(userId) || "--";
   };
 
   // Função para obter placa e modelo do veículo pelo ID
@@ -205,16 +225,36 @@ const AdminMaintenancePage = () => {
     return Number.isNaN(date.getTime()) ? 0 : date.getTime();
   };
 
+  const filteredItems = useMemo(() => {
+    if (branchFilter === "all") {
+      return items;
+    }
+    return items.filter((maintenance) => {
+      const branch = userBranchMap.get(maintenance.userId) || "--";
+      return branch === branchFilter;
+    });
+  }, [items, branchFilter, userBranchMap]);
+
   const sortedItems = useMemo(() => {
-    return [...items].sort((a, b) => getSortTime(b) - getSortTime(a));
-  }, [items]);
+    return [...filteredItems].sort((a, b) => getSortTime(b) - getSortTime(a));
+  }, [filteredItems]);
 
   return (
     <>
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-2xl font-bold">Manutenções</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              className="border rounded-lg px-3 py-2 text-sm"
+              value={branchFilter}
+              onChange={(e) => setBranchFilter(e.target.value)}
+            >
+              <option value="all">Todas as filiais</option>
+              {branchOptions.map((branch) => (
+                <option key={branch} value={branch}>{branch}</option>
+              ))}
+            </select>
             <select
               className="border rounded-lg px-3 py-2 text-sm"
               value={filter}
