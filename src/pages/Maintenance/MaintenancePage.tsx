@@ -13,8 +13,10 @@ import {
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useImageUpload } from "../../hooks/useImageUpload";
+import { useAudioRecorder } from "../../hooks/useAudioRecorder";
+import { useAudioUpload } from "../../hooks/useAudioUpload";
 import PhotoCapture from "../../components/ui/PhotoCapture";
-import { Pencil, X } from "lucide-react";
+import { Pencil, X, Mic, PauseCircle, PlayCircle, Square, RotateCcw } from "lucide-react";
 
 const parseDateField = (value: any): Date | null => {
   if (!value) return null;
@@ -37,6 +39,14 @@ const formatDateTime = (value?: Date | null) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const formatDuration = (value?: number | null) => {
+  if (value == null || Number.isNaN(value)) return "";
+  const totalSeconds = Math.max(0, Math.round(value));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 };
 
 type VehicleOption = {
@@ -66,6 +76,8 @@ type MaintenanceRecord = {
   items: { name: string; status: boolean }[];
   notes?: string;
   photos?: string[];
+  audioUrl?: string | null;
+  audioDurationSeconds?: number | null;
   workshopName?: string;
   scheduledFor?: Date | null;
   forecastedCompletion?: Date | null;
@@ -101,6 +113,20 @@ const MaintenancePage = () => {
   );
   const [photos, setPhotos] = useState<File[]>([]);
   const { uploadWithOfflineSupport, uploading: uploadingPhotos } = useImageUpload();
+  const {
+    status: recorderStatus,
+    error: recorderError,
+    durationSeconds: recorderDuration,
+    audioBlob,
+    audioUrl: recorderPreviewUrl,
+    startRecording,
+    pauseRecording,
+    resumeRecording,
+    stopRecording,
+    resetRecording,
+  } = useAudioRecorder();
+  const { uploadAudio, uploading: uploadingAudio, error: audioUploadError } = useAudioUpload();
+  const [audioDraft, setAudioDraft] = useState<{ blob: Blob; previewUrl: string; duration: number } | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   // Estado para edição
@@ -133,6 +159,8 @@ const MaintenancePage = () => {
     },
   });
 
+  const isSaving = isSubmitting || uploadingAudio;
+
   // inicializa checklist com false
   useEffect(() => {
     const initial: Record<string, boolean> = {};
@@ -141,6 +169,14 @@ const MaintenancePage = () => {
     });
     setChecklistState(initial);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (audioDraft) {
+        URL.revokeObjectURL(audioDraft.previewUrl);
+      }
+    };
+  }, [audioDraft]);
 
   // Carrega veículos
   useEffect(() => {
@@ -200,6 +236,8 @@ const MaintenancePage = () => {
           items: Array.isArray(data.items) ? data.items : [],
           notes: data.notes,
           photos: Array.isArray(data.photos) ? data.photos : [],
+          audioUrl: typeof data.audioUrl === "string" ? data.audioUrl : null,
+          audioDurationSeconds: typeof data.audioDurationSeconds === "number" ? data.audioDurationSeconds : null,
           workshopName: data.workshopName || "",
           scheduledFor: parseDateField(data.scheduledFor),
           forecastedCompletion: parseDateField(data.forecastedCompletion),
@@ -218,6 +256,36 @@ const MaintenancePage = () => {
       ...prev,
       [name]: !prev[name],
     }));
+  };
+
+  const handleSaveAudioDraft = () => {
+    if (!audioBlob) return;
+    const persistedBlob = new Blob([audioBlob], { type: audioBlob.type || "audio/webm" });
+    const previewUrl = URL.createObjectURL(persistedBlob);
+    setAudioDraft((prev) => {
+      if (prev) {
+        URL.revokeObjectURL(prev.previewUrl);
+      }
+      return {
+        blob: persistedBlob,
+        previewUrl,
+        duration: recorderDuration,
+      };
+    });
+    resetRecording();
+  };
+
+  const handleDiscardRecording = () => {
+    resetRecording();
+  };
+
+  const handleRemoveSavedAudio = () => {
+    setAudioDraft((prev) => {
+      if (prev) {
+        URL.revokeObjectURL(prev.previewUrl);
+      }
+      return null;
+    });
   };
 
   const onSubmit = async (data: MaintenanceForm) => {
@@ -242,6 +310,7 @@ const MaintenancePage = () => {
       notes: data.notes || "",
       photos: [],
       status: "pending" as MaintenanceStatus,
+      audioDurationSeconds: audioDraft ? audioDraft.duration : null,
     };
 
     // Função para limpar o formulário
@@ -259,48 +328,49 @@ const MaintenancePage = () => {
       });
       setChecklistState(initial);
       setPhotos([]);
+      handleRemoveSavedAudio();
+      resetRecording();
     };
 
-    // Se está OFFLINE: salva localmente e libera o formulário imediatamente
-    if (isOffline) {
-      // Firestore vai salvar localmente e sincronizar depois
-      const docRef = addDoc(collection(db, "maintenance"), maintenanceData);
-      
-      // Salva fotos offline
+    const docRef = await addDoc(collection(db, "maintenance"), maintenanceData);
+
+    const uploadPhotos = async () => {
+      const uploadedUrls: string[] = [];
       for (const photo of photos) {
-        // Gera um ID temporário para o documento
-        docRef.then((ref) => {
-          uploadWithOfflineSupport(photo, "maintenance", user.uid, ref.id);
+        const result = await uploadWithOfflineSupport(photo, "maintenance", user.uid, docRef.id);
+        if (result && result.url && !result.isOffline) {
+          uploadedUrls.push(result.url);
+        }
+      }
+      if (uploadedUrls.length > 0) {
+        await updateDoc(doc(db, "maintenance", docRef.id), { photos: uploadedUrls });
+      }
+    };
+
+    const uploadAudioDraft = async () => {
+      if (!audioDraft) return;
+      const result = await uploadAudio(audioDraft.blob, "maintenance", user.uid, docRef.id, {
+        extraData: { audioDurationSeconds: audioDraft.duration },
+      });
+      if (result && !result.isOffline) {
+        await updateDoc(doc(db, "maintenance", docRef.id), {
+          audioUrl: result.url,
+          audioDurationSeconds: audioDraft.duration,
         });
       }
+    };
 
+    if (isOffline) {
+      await uploadPhotos();
+      await uploadAudioDraft();
       setMessageType("offline");
       setMessage("Salvo offline! Será enviado quando houver conexão.");
       clearForm();
       return;
     }
 
-    // Se está ONLINE: fluxo normal com await
-    const docRef = await addDoc(collection(db, "maintenance"), maintenanceData);
-
-    // Faz upload das fotos
-    const photoUrls: string[] = [];
-    for (const photo of photos) {
-      const result = await uploadWithOfflineSupport(
-        photo,
-        "maintenance",
-        user.uid,
-        docRef.id
-      );
-      if (result) {
-        photoUrls.push(result.url);
-      }
-    }
-
-    // Atualiza documento com URLs das fotos
-    if (photoUrls.length > 0) {
-      await updateDoc(doc(db, "maintenance", docRef.id), { photos: photoUrls });
-    }
+    await uploadPhotos();
+    await uploadAudioDraft();
 
     setMessageType("success");
     setMessage("Manutenção registrada com sucesso!");
@@ -476,6 +546,126 @@ const MaintenancePage = () => {
             </div>
 
             <div className="space-y-1">
+              <label className="text-xs font-medium">Relato por áudio</label>
+              <div className="space-y-3 rounded-md border bg-white px-3 py-3 text-xs">
+                <div className="flex items-center justify-between text-[11px] text-gray-600">
+                  <span className="font-semibold text-gray-700">
+                    {recorderStatus === "recording"
+                      ? "Gravando..."
+                      : recorderStatus === "paused"
+                      ? "Gravação pausada"
+                      : recorderStatus === "finalized"
+                      ? "Gravação pronta"
+                      : recorderStatus === "unsupported"
+                      ? "Recurso não suportado"
+                      : recorderStatus === "error"
+                      ? "Erro na gravação"
+                      : audioDraft
+                      ? "Áudio salvo"
+                      : "Pronto para gravar"}
+                  </span>
+                  {audioDraft?.duration != null && (
+                    <span className="text-gray-500">Duração: {formatDuration(audioDraft.duration)}</span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={startRecording}
+                    disabled={recorderStatus === "recording" || recorderStatus === "unsupported"}
+                    className={`inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-semibold transition ${
+                      recorderStatus === "recording" || recorderStatus === "unsupported"
+                        ? "cursor-not-allowed border-gray-200 text-gray-400"
+                        : "border-[#0d2d6c] text-[#0d2d6c] hover:bg-[#0d2d6c]/10"
+                    }`}
+                  >
+                    <Mic size={14} /> Gravar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={pauseRecording}
+                    disabled={recorderStatus !== "recording"}
+                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                  >
+                    <PauseCircle size={14} /> Pausar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resumeRecording}
+                    disabled={recorderStatus !== "paused"}
+                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                  >
+                    <PlayCircle size={14} /> Retomar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={stopRecording}
+                    disabled={recorderStatus !== "recording" && recorderStatus !== "paused"}
+                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                  >
+                    <Square size={14} /> Parar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetRecording}
+                    disabled={recorderStatus === "idle"}
+                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                  >
+                    <RotateCcw size={14} /> Limpar
+                  </button>
+                </div>
+
+                {recorderStatus === "finalized" && audioBlob && recorderPreviewUrl && (
+                  <div className="space-y-2">
+                    <audio controls src={recorderPreviewUrl} className="w-full" />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSaveAudioDraft}
+                        className="flex-1 rounded-md bg-[#0d2d6c] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0b2559]"
+                      >
+                        Salvar áudio
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDiscardRecording}
+                        className="flex-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                      >
+                        Descartar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {audioDraft && (
+                  <div className="space-y-2">
+                    <audio controls src={audioDraft.previewUrl} className="w-full" preload="none" />
+                    <div className="flex items-center justify-between text-[11px] text-gray-600">
+                      <span>Duração: {formatDuration(audioDraft.duration)}</span>
+                      <button
+                        type="button"
+                        onClick={handleRemoveSavedAudio}
+                        className="text-red-500 hover:underline"
+                      >
+                        Remover áudio
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {recorderError && <p className="text-xs text-red-600">{recorderError}</p>}
+                {audioUploadError && <p className="text-xs text-red-600">{audioUploadError}</p>}
+                {uploadingAudio && <p className="text-xs text-blue-600">Enviando áudio...</p>}
+                {recorderStatus === "unsupported" && !recorderError && (
+                  <p className="text-xs text-orange-600">
+                    Seu dispositivo ou navegador não permite gravação direta de áudio. Utilize o campo de observações caso necessário.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1">
               <label className="text-xs font-medium">Observações</label>
               <textarea
                 rows={2}
@@ -500,9 +690,9 @@ const MaintenancePage = () => {
             <button
               type="submit"
               className="btn-primary w-full"
-              disabled={isSubmitting}
+              disabled={isSaving}
             >
-              {isSubmitting ? "Salvando..." : "Registrar manutenção"}
+              {isSaving ? "Salvando..." : "Registrar manutenção"}
             </button>
           </form>
         )}
@@ -603,6 +793,16 @@ const MaintenancePage = () => {
                   ))}
                 </div>
               )}
+              {m.audioUrl ? (
+                <div className="mt-2 space-y-1">
+                  <audio controls src={m.audioUrl} className="w-full" preload="none" />
+                  {typeof m.audioDurationSeconds === "number" && (
+                    <p className="text-[10px] text-gray-500">Duração: {formatDuration(m.audioDurationSeconds)}</p>
+                  )}
+                </div>
+              ) : m.audioDurationSeconds ? (
+                <p className="mt-2 text-[10px] text-gray-500">Áudio enviado offline. Será sincronizado quando houver conexão.</p>
+              ) : null}
             </div>
           ))}
         </div>

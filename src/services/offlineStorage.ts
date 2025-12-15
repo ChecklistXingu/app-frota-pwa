@@ -14,9 +14,12 @@ interface PendingUpload {
   id: string;
   type: "maintenance" | "refueling" | "vehicle";
   userId: string;
-  photoBlob: Blob;
+  fileBlob: Blob;
   fileName: string;
   documentId: string; // ID do documento no Firestore que precisa ser atualizado
+  field: string;
+  contentType?: string;
+  extraData?: Record<string, any>;
   createdAt: number;
 }
 
@@ -70,7 +73,9 @@ const openDB = (): Promise<IDBDatabase> => {
 // FOTOS PENDENTES DE UPLOAD
 // ============================================
 
-export const savePendingUpload = async (upload: Omit<PendingUpload, "id" | "createdAt">): Promise<string> => {
+export const savePendingUpload = async (
+  upload: Omit<PendingUpload, "id" | "createdAt">
+): Promise<string> => {
   const db = await openDB();
   const id = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   

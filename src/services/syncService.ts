@@ -36,9 +36,13 @@ const processUpload = async (upload: {
   id: string;
   type: string;
   userId: string;
-  photoBlob: Blob;
+  fileBlob?: Blob;
+  photoBlob?: Blob; // fallback para compatibilidade
   fileName: string;
   documentId: string;
+  field?: string;
+  contentType?: string;
+  extraData?: Record<string, any>;
 }): Promise<boolean> => {
   try {
     console.log("[Sync] Processando upload:", upload.id);
@@ -46,9 +50,15 @@ const processUpload = async (upload: {
     // Faz upload para o Storage
     const path = `${upload.type}/${upload.userId}/${upload.fileName}`;
     const storageRef = ref(storage, path);
-    
-    await uploadBytes(storageRef, upload.photoBlob, {
-      contentType: upload.photoBlob.type || "image/jpeg",
+    const blob = upload.fileBlob || upload.photoBlob;
+    if (!blob) {
+      console.error("[Sync] Upload sem blob:", upload.id);
+      await removePendingUpload(upload.id);
+      return false;
+    }
+
+    await uploadBytes(storageRef, blob, {
+      contentType: upload.contentType || blob.type || "application/octet-stream",
     });
 
     // Obtém URL de download
@@ -57,9 +67,18 @@ const processUpload = async (upload: {
 
     // Atualiza o documento no Firestore com a nova URL
     const docRef = doc(db, upload.type, upload.documentId);
-    await updateDoc(docRef, {
-      photos: arrayUnion(downloadUrl),
-    });
+    const field = upload.field || "photos";
+    if (field === "photos") {
+      await updateDoc(docRef, {
+        photos: arrayUnion(downloadUrl),
+        ...(upload.extraData || {}),
+      });
+    } else {
+      await updateDoc(docRef, {
+        [field]: downloadUrl,
+        ...(upload.extraData || {}),
+      } as any);
+    }
 
     console.log("[Sync] Documento atualizado:", upload.documentId);
 

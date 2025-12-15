@@ -119,9 +119,11 @@ export const useImageUpload = () => {
       await savePendingUpload({
         type: folder as "maintenance" | "refueling" | "vehicle",
         userId,
-        photoBlob: blob,
+        fileBlob: blob,
         fileName,
         documentId,
+        field: "photos",
+        contentType: blob.type,
       });
 
       // Cria URL temporária para preview
