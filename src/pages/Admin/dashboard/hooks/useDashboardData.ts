@@ -209,6 +209,23 @@ export const useDashboardData = (filters?: DashboardFilters) => {
       branchTotals.fuel += fuelValue;
     });
 
+    filteredMaintenances.forEach((m) => {
+      const date = toDate(m.createdAt || (m as any).date);
+      const key = ensureMonthEntry(date);
+      if (!key) return;
+      const entry = monthMap.get(key)!;
+      const maintenanceCost = Number(
+        (m as any).finalCost ?? m.finalCost ?? (m as any).cost ?? (m as any).totalCost ?? m.forecastedCost ?? 0
+      );
+      entry.maintenance += maintenanceCost;
+
+      const branch = userBranchMap.get(m.userId) || "--";
+      const monthEntry = ensureBranchMonthEntry(key, entry.label, branch);
+      monthEntry.maintenance += maintenanceCost;
+      const branchTotals = ensureBranchEntry(branch);
+      branchTotals.maintenance += maintenanceCost;
+    });
+
     const sortedByDate = [...effectiveRefuelings].sort(
       (a, b) => getRefuelingTimestamp(a.date) - getRefuelingTimestamp(b.date)
     );
