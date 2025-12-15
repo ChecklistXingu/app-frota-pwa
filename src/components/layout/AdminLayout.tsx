@@ -50,11 +50,11 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
             </div>
           </div>
           <nav className="flex-1 w-full px-4 py-6 space-y-1">
-            <NavItem to="/admin" icon={<LayoutDashboard size={18} />} label="Dashboard" />
-            <NavItem to="/admin/maintenance" icon={<Wrench size={18} />} label="Manutenções" />
-            <NavItem to="/admin/refueling" icon={<Fuel size={18} />} label="Abastecimentos" />
-            <NavItem to="/admin/vehicles" icon={<Car size={18} />} label="Veículos" />
-            <NavItem to="/admin/users" icon={<Users size={18} />} label="Usuários" />
+            <SideNavItem to="/admin" icon={<LayoutDashboard size={18} />} label="Dashboard" />
+            <SideNavItem to="/admin/maintenance" icon={<Wrench size={18} />} label="Manutenções" />
+            <SideNavItem to="/admin/refueling" icon={<Fuel size={18} />} label="Abastecimentos" />
+            <SideNavItem to="/admin/vehicles" icon={<Car size={18} />} label="Veículos" />
+            <SideNavItem to="/admin/users" icon={<Users size={18} />} label="Usuários" />
           </nav>
           <div className="border-t border-[#edf0f6] px-6 pt-4 text-sm text-gray-500 space-y-2">
             <p className="font-semibold text-[#00205b]">{profile?.name}</p>
@@ -76,19 +76,19 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
         <div className="w-full overflow-x-auto no-scrollbar">
           <div className="min-w-max flex justify-start px-2 py-2 text-xs text-[#00205b]">
             <div className="px-2">
-              <NavItem to="/admin" icon={<LayoutDashboard size={20} />} label="Home" />
+              <BottomNavItem to="/admin" icon={<LayoutDashboard size={20} />} label="Home" />
             </div>
             <div className="px-2">
-              <NavItem to="/admin/maintenance" icon={<Wrench size={20} />} label="Manutenções" />
+              <BottomNavItem to="/admin/maintenance" icon={<Wrench size={20} />} label="Manutenções" />
             </div>
             <div className="px-2">
-              <NavItem to="/admin/refueling" icon={<Fuel size={20} />} label="Abastecimentos" />
+              <BottomNavItem to="/admin/refueling" icon={<Fuel size={20} />} label="Abastecimentos" />
             </div>
             <div className="px-2">
-              <NavItem to="/admin/vehicles" icon={<Car size={20} />} label="Veículos" />
+              <BottomNavItem to="/admin/vehicles" icon={<Car size={20} />} label="Veículos" />
             </div>
             <div className="px-2">
-              <NavItem to="/admin/users" icon={<Users size={20} />} label="Usuários" />
+              <BottomNavItem to="/admin/users" icon={<Users size={20} />} label="Usuários" />
             </div>
           </div>
         </div>
@@ -96,8 +96,27 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
     </div>
   );
 };
+const SideNavItem = ({ to, icon, label }: { to: string; icon: ReactNode; label: string }) => (
+  <NavLink
+    to={to}
+    className={({ isActive }) =>
+      [
+        "flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition w-full",
+        isActive
+          ? "bg-[#00205b]/10 text-[#00205b] font-semibold shadow-sm"
+          : "text-gray-600 hover:bg-[#f5f7fb]",
+      ].join(" ")
+    }
+    end
+  >
+    <span className="flex items-center gap-3">
+      <span className="text-[#00205b]">{icon}</span>
+      <span>{label}</span>
+    </span>
+  </NavLink>
+);
 
-const NavItem = ({ to, icon, label }: { to: string; icon: ReactNode; label: string }) => (
+const BottomNavItem = ({ to, icon, label }: { to: string; icon: ReactNode; label: string }) => (
   <NavLink
     to={to}
     className={({ isActive }) =>
