@@ -6,34 +6,16 @@ import { precacheAndRoute } from 'workbox-precaching'
 // @ts-ignore
 precacheAndRoute(self.__WB_MANIFEST || [])
 
-const CACHE_NAME = 'frota-pwa-v' + new Date().toISOString()
-
-// Install: we don't call skipWaiting here to allow the worker to enter 'waiting'
-// until the user chooses to update (we handle SKIP_WAITING via message)
+// Install: ativar imediatamente a nova versão do service worker
 self.addEventListener('install', (event: any) => {
-  // Optionally warm the cache or do lightweight installs here
-  console.log('[SW] install')
-  // ensure the event waits for install completion
-  event.waitUntil(Promise.resolve())
+  console.log('[SW] install - skipWaiting')
+  event.waitUntil((self as any).skipWaiting())
 })
 
-// Activation: clean up old caches
+// Activate: assumir controle das abas/janelas já abertas
 self.addEventListener('activate', (event: any) => {
-  console.log('[SW] activate')
-  event.waitUntil(
-    caches.keys().then((keys: string[]) =>
-      Promise.all(
-        keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)),
-      ),
-    ).then(() => (self as any).clients.claim()),
-  )
-})
-
-// Fetch: default network-first for non-precached, and cache fallback
-self.addEventListener('fetch', (event: any) => {
-  event.respondWith(
-    caches.match(event.request).then(res => res || fetch(event.request)),
-  )
+  console.log('[SW] activate - clients.claim')
+  event.waitUntil((self as any).clients.claim())
 })
 
 // Message: handle SKIP_WAITING (support string or object messages)
@@ -48,10 +30,4 @@ self.addEventListener('message', (event: any) => {
     console.error('[SW] Error handling message', e)
   }
 })
-
-// Cleanup outdated caches at runtime as a safety net
-self.addEventListener('periodicsync' as any, () => {
-  // noop: placeholder if you want to schedule cache maintenance
-})
-
 export {}

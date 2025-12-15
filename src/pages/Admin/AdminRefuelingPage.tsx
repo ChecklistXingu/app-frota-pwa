@@ -85,11 +85,17 @@ const AdminRefuelingPage = () => {
     }));
   };
 
+  const sortedRefuelingsList = useMemo(() => {
+    return [...items].sort(
+      (a, b) => getRefuelingTimestamp(b.date) - getRefuelingTimestamp(a.date),
+    );
+  }, [items]);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-2xl font-bold">Abastecimentos</h2>
-        <div className="flex gap-4 text-sm">
+        <div className="flex flex-wrap gap-3 text-sm">
           <div className="bg-blue-50 px-3 py-1 rounded-lg">
             <span className="text-gray-600">Total Litros:</span>{" "}
             <span className="font-semibold text-blue-700">{totalLiters.toFixed(2)} L</span>
@@ -102,6 +108,7 @@ const AdminRefuelingPage = () => {
       </div>
 
       <div className="bg-white border rounded-xl overflow-hidden">
+        <div className="overflow-x-auto hidden md:block">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-left">
             <tr>
@@ -194,6 +201,58 @@ const AdminRefuelingPage = () => {
             )}
           </tbody>
         </table>
+        </div>
+      </div>
+
+      {/* Layout mobile */}
+      <div className="md:hidden space-y-3">
+        {sortedRefuelingsList.length === 0 && (
+          <p className="p-6 text-center text-gray-500 border rounded-xl bg-white">Nenhum abastecimento encontrado</p>
+        )}
+        {sortedRefuelingsList.map((refueling) => {
+          const pricePerLiter = refueling.liters ? refueling.value / refueling.liters : 0;
+          return (
+            <div key={refueling.id} className="bg-white border rounded-2xl p-4 space-y-3 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#ffd300]/25 flex items-center justify-center text-[#0d2d6c]">
+                  <Fuel size={18} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-[#0d2d6c]">{getVehicleInfo(refueling.vehicleId || "")}</p>
+                  <p className="text-xs text-gray-500">{formatDate(refueling.date)}</p>
+                </div>
+                <span className="px-2 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">R$ {pricePerLiter.toFixed(2)}</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
+                <div>
+                  <p className="font-semibold text-gray-500">Motorista</p>
+                  <p className="text-sm text-gray-800 leading-tight">{getDriverName(refueling.userId)}</p>
+                  <p className="text-[11px] text-gray-400">Filial: {getDriverBranch(refueling.userId)}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-500">Quilometragem</p>
+                  <p className="text-sm text-gray-800">{refueling.km?.toLocaleString("pt-BR") ?? "-"} km</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-xl bg-blue-50 py-2">
+                  <p className="text-[11px] uppercase text-blue-700 font-semibold">Litros</p>
+                  <p className="text-sm font-bold text-[#0d2d6c]">{refueling.liters?.toFixed(2) ?? "0"} L</p>
+                </div>
+                <div className="rounded-xl bg-green-50 py-2">
+                  <p className="text-[11px] uppercase text-green-700 font-semibold">Valor</p>
+                  <p className="text-sm font-bold text-[#0d2d6c]">R$ {refueling.value?.toFixed(2) ?? "0"}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 py-2">
+                  <p className="text-[11px] uppercase text-slate-600 font-semibold">R$/L</p>
+                  <p className="text-sm font-bold text-[#0d2d6c]">R$ {pricePerLiter.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -229,7 +229,8 @@ const AdminMaintenancePage = () => {
         </div>
 
         <div className="bg-white border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto hidden md:block">
+            <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left">
               <tr>
                 <th className="p-3">Solicitação</th>
@@ -317,7 +318,90 @@ const AdminMaintenancePage = () => {
                 </tr>
               )}
             </tbody>
-          </table>
+            </table>
+          </div>
+
+          {/* Layout mobile */}
+          <div className="md:hidden divide-y border-t">
+            {sortedItems.length === 0 && (
+              <p className="p-6 text-center text-gray-500">Nenhuma solicitação encontrada</p>
+            )}
+            {sortedItems.map((m) => (
+              <div key={`card-${m.id}`} className="p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#ffd300]/30 flex items-center justify-center text-[#0d2d6c]">
+                    <Wrench size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-[#0d2d6c] leading-tight">{getMaintenanceItems(m)}</p>
+                    {getNotes(m) && (
+                      <p className="text-xs text-gray-600 truncate">Obs: {getNotes(m)}</p>
+                    )}
+                    <p className="text-[11px] text-gray-400">{formatDate(m.createdAt || (m as any).date)}</p>
+                  </div>
+                  <StatusBadge status={m.status || "pending"} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
+                  <div>
+                    <p className="font-semibold text-gray-500">Motorista</p>
+                    <p className="text-sm text-gray-800">{getUserName(m.userId)}</p>
+                    <p className="text-[11px] text-gray-400">Filial: {getUserBranch(m.userId)}</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-500">Veículo</p>
+                    <p className="text-sm text-gray-800 leading-tight">{getVehicleInfo(m.vehicleId)}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1 text-xs text-gray-600">
+                  {m.workshopName && <p>Oficina: <strong>{m.workshopName}</strong></p>}
+                  {m.scheduledFor && <p>Agendado: {formatDate(m.scheduledFor)}</p>}
+                  {m.forecastedCompletion && <p>Previsão: {formatDate(m.forecastedCompletion)}</p>}
+                  {m.completedAt && <p>Finalizado: {formatDate(m.completedAt)}</p>}
+                  {typeof m.finalCost === "number" && (
+                    <p className="text-emerald-600 font-semibold">Valor final: R$ {m.finalCost.toFixed(2)}</p>
+                  )}
+                  {typeof m.finalCost !== "number" && typeof m.forecastedCost === "number" && (
+                    <p>Previsão de valor: R$ {m.forecastedCost.toFixed(2)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="relative">
+                    <select
+                      value={m.status || "pending"}
+                      onChange={(e) => onChangeStatus(m, e.target.value as MaintenanceStatus)}
+                      className="w-full appearance-none border rounded-lg px-3 py-2 pr-9 text-sm"
+                    >
+                      {statusOptions.map((s) => (
+                        <option key={s} value={s}>{statusLabels[s]}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openTicketModal(m)}
+                      className="flex-1 inline-flex items-center justify-center rounded-md border border-[#0d2d6c] px-3 py-2 text-xs font-semibold text-[#0d2d6c] hover:bg-[#0d2d6c]/10"
+                    >
+                      {m.status === "scheduled" ? "Editar ticket" : "Abrir ticket"}
+                    </button>
+                    {m.photos?.length ? (
+                      <button
+                        type="button"
+                        onClick={() => setPhotoModal({ open: true, photos: m.photos || [], maintenance: m })}
+                        className="flex-1 inline-flex items-center justify-center rounded-md border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                      >
+                        Ver fotos ({m.photos.length})
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

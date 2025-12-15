@@ -13,7 +13,7 @@ export default defineConfig({
       },
     }),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       injectRegister: 'auto',
       // use injectManifest so we can use a custom service worker with precise
       // install/activate behavior and explicit cache cleanup
