@@ -8,6 +8,7 @@ import {
   where,
   updateDoc,
   doc,
+  arrayUnion,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../services/firebase";
@@ -134,6 +135,8 @@ const MaintenancePage = () => {
   const [editForm, setEditForm] = useState({ km: 0, dateTime: "", notes: "" });
   const [editChecklist, setEditChecklist] = useState<Record<string, boolean>>({});
   const [savingEdit, setSavingEdit] = useState(false);
+  const [showEditRecorder, setShowEditRecorder] = useState(false);
+  const [editAudioDraft, setEditAudioDraft] = useState<{ blob: Blob; previewUrl: string; duration: number } | null>(null);
 
   // Monitora status de conexão
   useEffect(() => {
@@ -279,6 +282,29 @@ const MaintenancePage = () => {
     resetRecording();
   };
 
+  const handleSaveEditAudioDraft = () => {
+    if (!audioBlob) return;
+    const persistedBlob = new Blob([audioBlob], { type: audioBlob.type || "audio/webm" });
+    const previewUrl = URL.createObjectURL(persistedBlob);
+    setEditAudioDraft((prev) => {
+      if (prev) {
+        URL.revokeObjectURL(prev.previewUrl);
+      }
+      return {
+        blob: persistedBlob,
+        previewUrl,
+        duration: recorderDuration,
+      };
+    });
+    resetRecording();
+    setShowEditRecorder(false);
+  };
+
+  const handleDiscardEditRecording = () => {
+    resetRecording();
+    setShowEditRecorder(false);
+  };
+
   const handleRemoveSavedAudio = () => {
     setAudioDraft((prev) => {
       if (prev) {
@@ -413,6 +439,11 @@ const MaintenancePage = () => {
     if (!editingRecord) return;
     setSavingEdit(true);
 
+    if (!user) {
+      setMessage("Usuário não autenticado.");
+      setSavingEdit(false);
+      return;
+    }
     try {
       const date = editForm.dateTime ? new Date(editForm.dateTime) : new Date();
       
@@ -428,6 +459,37 @@ const MaintenancePage = () => {
         notes: editForm.notes,
         items,
       });
+
+      // Se houver áudio editado, processa substituição
+      if (editAudioDraft) {
+        const oldUrl = editingRecord.audioUrl || null;
+
+        const result = await uploadAudio(
+          editAudioDraft.blob,
+          "maintenance",
+          user.uid,
+          editingRecord.id,
+          { extraData: { audioDurationSeconds: editAudioDraft.duration, audioHistoryUnion: oldUrl } },
+        );
+
+        if (result && !result.isOffline) {
+          // Atualiza documento com nova URL e adiciona o histórico do áudio antigo
+          const updates: any = {
+            audioUrl: result.url,
+            audioDurationSeconds: editAudioDraft.duration,
+          };
+          if (oldUrl) {
+            updates.audioHistory = arrayUnion(oldUrl);
+          }
+          await updateDoc(doc(db, "maintenance", editingRecord.id), updates);
+        }
+
+        // Limpa rascunho de edição
+        if (editAudioDraft) {
+          URL.revokeObjectURL(editAudioDraft.previewUrl);
+          setEditAudioDraft(null);
+        }
+      }
 
       setEditingRecord(null);
       setMessageType("success");
@@ -885,6 +947,142 @@ const MaintenancePage = () => {
                   onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                   className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />
+              </div>
+
+              {/* Áudio (editar) */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Áudio</label>
+
+                {editingRecord?.audioUrl ? (
+                  <div className="space-y-2">
+                    <audio controls src={editingRecord.audioUrl} className="w-full" preload="none" />
+                    <div className="flex items-center justify-between text-[11px] text-gray-600">
+                      <span>Duração: {formatDuration(editingRecord.audioDurationSeconds)}</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowEditRecorder(true)}
+                        className="text-sm text-blue-600 hover:underline"
+                      >
+                        Substituir áudio
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500">Sem áudio</div>
+                )}
+
+                {showEditRecorder && (
+                  <div className="space-y-3 rounded-md border bg-white px-3 py-3 text-xs">
+                    <div className="flex items-center justify-between text-[11px] text-gray-600">
+                      <span className="font-semibold text-gray-700">
+                        {recorderStatus === "recording"
+                          ? "Gravando..."
+                          : recorderStatus === "paused"
+                          ? "Gravação pausada"
+                          : recorderStatus === "finalized"
+                          ? "Gravação pronta"
+                          : recorderStatus === "unsupported"
+                          ? "Recurso não suportado"
+                          : recorderStatus === "error"
+                          ? "Erro na gravação"
+                          : "Pronto para gravar"}
+                      </span>
+                      {recorderStatus === "finalized" && audioBlob && (
+                        <span className="text-gray-500">Duração: {formatDuration(recorderDuration)}</span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={startRecording}
+                        disabled={recorderStatus === "recording" || recorderStatus === "unsupported"}
+                        className={`inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-semibold transition ${
+                          recorderStatus === "recording" || recorderStatus === "unsupported"
+                            ? "cursor-not-allowed border-gray-200 text-gray-400"
+                            : "border-[#0d2d6c] text-[#0d2d6c] hover:bg-[#0d2d6c]/10"
+                        }`}
+                      >
+                        <Mic size={14} /> Gravar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={pauseRecording}
+                        disabled={recorderStatus !== "recording"}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                      >
+                        <PauseCircle size={14} /> Pausar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resumeRecording}
+                        disabled={recorderStatus !== "paused"}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                      >
+                        <PlayCircle size={14} /> Retomar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={stopRecording}
+                        disabled={recorderStatus !== "recording" && recorderStatus !== "paused"}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                      >
+                        <Square size={14} /> Parar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resetRecording}
+                        disabled={recorderStatus === "idle"}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                      >
+                        <RotateCcw size={14} /> Limpar
+                      </button>
+                    </div>
+
+                    {recorderStatus === "finalized" && audioBlob && recorderPreviewUrl && (
+                      <div className="space-y-2">
+                        <audio controls src={recorderPreviewUrl} className="w-full" />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSaveEditAudioDraft}
+                            className="flex-1 rounded-md bg-[#0d2d6c] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0b2559]"
+                          >
+                            Salvar áudio
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDiscardEditRecording}
+                            className="flex-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                          >
+                            Descartar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {editAudioDraft && (
+                      <div className="space-y-2">
+                        <audio controls src={editAudioDraft.previewUrl} className="w-full" preload="none" />
+                        <div className="flex items-center justify-between text-[11px] text-gray-600">
+                          <span>Duração: {formatDuration(editAudioDraft.duration)}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              URL.revokeObjectURL(editAudioDraft.previewUrl);
+                              setEditAudioDraft(null);
+                            }}
+                            className="text-red-500 hover:underline"
+                          >
+                            Remover áudio
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {recorderError && <p className="text-xs text-red-600">{recorderError}</p>}
+                  </div>
+                )}
               </div>
 
               <button

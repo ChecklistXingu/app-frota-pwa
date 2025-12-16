@@ -74,10 +74,33 @@ const processUpload = async (upload: {
         ...(upload.extraData || {}),
       });
     } else {
-      await updateDoc(docRef, {
-        [field]: downloadUrl,
-        ...(upload.extraData || {}),
-      } as any);
+      // Para uploads que não são 'photos', aplicamos atualizações de forma segura.
+      const extra = upload.extraData || {};
+
+      // Caso haja necessidade de aplicar arrayUnion no histórico de áudios
+      const audioHistoryUnion = extra.audioHistoryUnion;
+
+      // Remove chave especial para não sobrescrever diretamente
+      if (audioHistoryUnion) {
+        const { audioHistoryUnion: _, ...rest } = extra as any;
+        // Atualiza o campo principal (ex: audioUrl = downloadUrl) e demais dados
+        await updateDoc(docRef, {
+          [field]: downloadUrl,
+          ...(rest || {}),
+        } as any);
+
+        // Adiciona o item antigo ao array de histórico
+        if (audioHistoryUnion) {
+          await updateDoc(docRef, {
+            audioHistory: arrayUnion(audioHistoryUnion),
+          });
+        }
+      } else {
+        await updateDoc(docRef, {
+          [field]: downloadUrl,
+          ...(extra || {}),
+        } as any);
+      }
     }
 
     console.log("[Sync] Documento atualizado:", upload.documentId);
