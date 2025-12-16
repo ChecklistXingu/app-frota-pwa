@@ -7,9 +7,11 @@ import { precacheAndRoute } from 'workbox-precaching'
 precacheAndRoute(self.__WB_MANIFEST || [])
 
 // Install: ativar imediatamente a nova versão do service worker
-self.addEventListener('install', (event: any) => {
-  console.log('[SW] install - skipWaiting')
-  event.waitUntil((self as any).skipWaiting())
+self.addEventListener('install', () => {
+  // Do NOT call skipWaiting() here so the newly installed worker stays in
+  // 'waiting' state. This allows the UI to show an update prompt and give
+  // the user control to apply the update (via SKIP_WAITING message).
+  console.log('[SW] install - installed (waiting for activation)')
 })
 
 // Activate: assumir controle das abas/janelas já abertas

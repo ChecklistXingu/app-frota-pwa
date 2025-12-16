@@ -140,15 +140,8 @@ let updateSW = registerSW({
       clearInterval(updateInterval)
     })
 
-    // Se já existir um worker em waiting, aplicamos update automático após 5s
-    if (registration.waiting) {
-      console.log('[PWA] worker already waiting - will attempt auto-apply in 5s')
-      setTimeout(() => {
-        updateSW(true).then(() => {
-          console.log('[PWA] auto-apply update requested')
-        }).catch((e) => console.error('[PWA] failed to auto-apply update', e))
-      }, 5000)
-    }
+    // If a worker is already waiting, we intentionally DO NOT auto-apply here
+    // so that the UpdatePrompt can surface and the user can choose to update.
   },
   onRegisterError(error) {
     console.error('[PWA] Erro ao registrar SW:', error)
