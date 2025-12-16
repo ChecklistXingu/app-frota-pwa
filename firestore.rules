@@ -21,8 +21,11 @@ service cloud.firestore {
 
     // Admin via documento do Firestore: users/{uid}.role == 'admin'
     function isAdmin() {
-      return isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Admin se o documento users/uid.role == 'admin' OU se houver uma claim 'admin' no token (fallback)
+      return isAuthenticated() && (
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        || (request.auth.token.admin == true)
+      );
     }
 
     // ============================================

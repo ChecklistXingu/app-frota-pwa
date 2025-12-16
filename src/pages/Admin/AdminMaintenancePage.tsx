@@ -86,12 +86,16 @@ const AdminMaintenancePage = () => {
       await updateMaintenanceStatus(maintenance.id, status, {
         managerId: profile?.id,
       });
-    } catch (err) {
+    } catch (err: any) {
       // Revert on failure
       console.error("Erro ao atualizar status:", err);
       setItems(previous);
-      // opcional: avisar o usuário (alert temporário)
-      alert("Erro ao atualizar status. Verifique a conexão ou as permissões e tente novamente.");
+      // Mensagem específica para permissão negada
+      if (err && err.code === 'permission-denied') {
+        alert("Permissão negada: verifique se seu usuário tem role 'admin' na coleção users do Firestore.");
+      } else {
+        alert("Erro ao atualizar status. Verifique a conexão ou as permissões e tente novamente.");
+      }
     }
   };
 
