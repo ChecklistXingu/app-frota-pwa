@@ -112,7 +112,7 @@ const MaintenancePage = () => {
   const [loadingVehicles, setLoadingVehicles] = useState(true);
   const [loadingMaintenance, setLoadingMaintenance] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
-  const [messageType, setMessageType] = useState<"success" | "offline">("success");
+  const [messageType, setMessageType] = useState<"success" | "offline" | "error">("success");
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>(
     {},
   );
@@ -329,96 +329,111 @@ const MaintenancePage = () => {
   const onSubmit = async (data: MaintenanceForm) => {
     if (!user) return;
 
-    const items = CHECKLIST_ITEMS.map((name) => ({
-      name,
-      status: !!checklistState[name],
-    }));
+    try {
+      const items = CHECKLIST_ITEMS.map((name) => ({
+        name,
+        status: !!checklistState[name],
+      }));
 
-    // Corrige fuso horário: input date retorna YYYY-MM-DD que é interpretado como UTC
-    // Adicionamos T12:00:00 para garantir que fique no dia correto em qualquer fuso
-    const dateValue = data.dateTime ? new Date(data.dateTime) : serverTimestamp();
+      // Corrige fuso horário: input date retorna YYYY-MM-DD que é interpretado como UTC
+      // Adicionamos T12:00:00 para garantir que fique no dia correto em qualquer fuso
+      const dateValue = data.dateTime ? new Date(data.dateTime) : new Date();
 
-    const maintenanceData = {
-      userId: user.uid,
-      vehicleId: data.vehicleId,
-      date: dateValue,
-      km: Number(data.km),
-      type: data.type,
-      items,
-      notes: data.notes || "",
-      photos: [],
-      status: "pending" as MaintenanceStatus,
-      statusHistory: [{ status: "pending", by: user.uid, at: serverTimestamp() }],
-      audioDurationSeconds: audioDraft ? audioDraft.duration : null,
-    };
+      const maintenanceData = {
+        userId: user.uid,
+        vehicleId: data.vehicleId,
+        date: dateValue,
+        km: Number(data.km),
+        type: data.type,
+        items,
+        notes: data.notes || "",
+        photos: [],
+        status: "pending" as MaintenanceStatus,
+        statusHistory: [{ status: "pending", by: user.uid, at: new Date().toISOString() }],
+        audioDurationSeconds: audioDraft ? audioDraft.duration : null,
+      };
 
     // Função para limpar o formulário
-    const clearForm = () => {
-      reset({
-        vehicleId: data.vehicleId,
-        type: data.type,
-        km: undefined as any,
-        dateTime: "",
-        notes: "",
-      });
-      const initial: Record<string, boolean> = {};
-      CHECKLIST_ITEMS.forEach((item) => {
-        initial[item] = false;
-      });
-      setChecklistState(initial);
-      setPhotos([]);
-      handleRemoveSavedAudio();
-      resetRecording();
-    };
-
-    const docRef = await addDoc(collection(db, "maintenance"), maintenanceData);
-
-    const uploadPhotos = async () => {
-      const uploadedUrls: string[] = [];
-      for (const photo of photos) {
-        const result = await uploadWithOfflineSupport(photo, "maintenance", user.uid, docRef.id);
-        if (result && result.url && !result.isOffline) {
-          uploadedUrls.push(result.url);
-        }
-      }
-      if (uploadedUrls.length > 0) {
-        await updateDoc(doc(db, "maintenance", docRef.id), { photos: uploadedUrls });
-      }
-    };
-
-    const uploadAudioDraft = async () => {
-      if (!audioDraft) return;
-      const result = await uploadAudio(audioDraft.blob, "maintenance", user.uid, docRef.id, {
-        extraData: { audioDurationSeconds: audioDraft.duration, audioEvent: { uploadedBy: user.uid, duration: audioDraft.duration } },
-      });
-
-      if (result && !result.isOffline) {
-        await updateDoc(doc(db, "maintenance", docRef.id), {
-          audioUrl: result.url,
-          audioDurationSeconds: audioDraft.duration,
-        } as any);
-        // Registra evento de áudio separadamente com serverTimestamp
-        await updateDoc(doc(db, "maintenance", docRef.id), {
-          audioEvents: arrayUnion({ url: result.url, uploadedBy: user.uid, duration: audioDraft.duration, at: serverTimestamp() }),
+      const clearForm = () => {
+        reset({
+          vehicleId: data.vehicleId,
+          type: data.type,
+          km: undefined as any,
+          dateTime: "",
+          notes: "",
         });
-      }
-    };
+        const initial: Record<string, boolean> = {};
+        CHECKLIST_ITEMS.forEach((item) => {
+          initial[item] = false;
+        });
+        setChecklistState(initial);
+        setPhotos([]);
+        handleRemoveSavedAudio();
+        resetRecording();
+      };
 
-    if (isOffline) {
+      const docRef = await addDoc(collection(db, "maintenance"), maintenanceData);
+
+      const uploadPhotos = async () => {
+        const uploadedUrls: string[] = [];
+        for (const photo of photos) {
+          const result = await uploadWithOfflineSupport(photo, "maintenance", user.uid, docRef.id);
+          if (result && result.url && !result.isOffline) {
+            uploadedUrls.push(result.url);
+          }
+        }
+        if (uploadedUrls.length > 0) {
+          await updateDoc(doc(db, "maintenance", docRef.id), { photos: uploadedUrls });
+        }
+      };
+
+      const uploadAudioDraft = async () => {
+        if (!audioDraft) return;
+        const result = await uploadAudio(audioDraft.blob, "maintenance", user.uid, docRef.id, {
+          extraData: { audioDurationSeconds: audioDraft.duration, audioEvent: { uploadedBy: user.uid, duration: audioDraft.duration } },
+        });
+
+        if (result && !result.isOffline) {
+          await updateDoc(doc(db, "maintenance", docRef.id), {
+            audioUrl: result.url,
+            audioDurationSeconds: audioDraft.duration,
+          } as any);
+          // Registra evento de áudio separadamente com timestamp local
+          await updateDoc(doc(db, "maintenance", docRef.id), {
+            audioEvents: arrayUnion({ url: result.url, uploadedBy: user.uid, duration: audioDraft.duration, at: new Date().toISOString() }),
+          });
+        }
+      };
+
+      if (isOffline) {
+        await uploadPhotos();
+        await uploadAudioDraft();
+        setMessageType("offline");
+        setMessage("Salvo offline! Será enviado quando houver conexão.");
+        clearForm();
+        return;
+      }
+
       await uploadPhotos();
       await uploadAudioDraft();
-      setMessageType("offline");
-      setMessage("Salvo offline! Será enviado quando houver conexão.");
+
+      setMessageType("success");
+      setMessage("Manutenção registrada com sucesso!");
       clearForm();
-      return;
+    } catch (error: any) {
+      console.error("Erro ao registrar manutenção:", error);
+      
+      // Verifica se é erro de permissão
+      if (error && error.code === 'permission-denied') {
+        setMessage("Erro de permissão: verifique as regras de acesso do Firestore.");
+      } else if (error && error.message) {
+        setMessage(`Erro ao registrar: ${error.message}`);
+      } else {
+        setMessage("Erro ao registrar manutenção. Tente novamente.");
+      }
+      
+      setMessageType("error");
     }
-
-    await uploadPhotos();
-    await uploadAudioDraft();
-
-    setMessageType("success");
-    setMessage("Manutenção registrada com sucesso!");
-    clearForm();
   };
 
   const getVehicleLabel = (vehicleId: string) => {
@@ -769,7 +784,13 @@ const MaintenancePage = () => {
             />
 
             {message && (
-              <p className={`text-xs text-center ${messageType === "offline" ? "text-orange-600" : "text-green-600"}`}>
+              <p className={`text-xs text-center ${
+                messageType === "offline" 
+                  ? "text-orange-600" 
+                  : messageType === "error"
+                  ? "text-red-600"
+                  : "text-green-600"
+              }`}>
                 {message}
               </p>
             )}
