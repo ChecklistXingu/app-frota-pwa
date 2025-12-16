@@ -56,7 +56,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        // Prefer waiting activation so we can show a prompt and control reload behavior
+        // Permitir controle manual do skipWaiting através do service worker customizado
         skipWaiting: false,
         clientsClaim: true,
         maximumFileSizeToCacheInBytes: 5000000,

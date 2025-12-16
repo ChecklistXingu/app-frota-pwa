@@ -14,17 +14,21 @@ const UpdatePrompt = () => {
       if (registration) {
         // Verifica se já tem um worker esperando
         if (registration.waiting) {
+          console.log('[UpdatePrompt] Worker encontrado esperando ativação');
           setWaitingWorker(registration.waiting);
           setShowUpdate(true);
         }
 
         // Escuta por novas atualizações
         registration.addEventListener("updatefound", () => {
+          console.log('[UpdatePrompt] Nova atualização encontrada');
           const newWorker = registration.installing;
           
           if (newWorker) {
             newWorker.addEventListener("statechange", () => {
+              console.log('[UpdatePrompt] Worker state changed to:', newWorker.state);
               if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+                console.log('[UpdatePrompt] Novo worker instalado, mostrando prompt');
                 setWaitingWorker(newWorker);
                 setShowUpdate(true);
               }
@@ -39,7 +43,10 @@ const UpdatePrompt = () => {
     // Verifica atualizações a cada 60 segundos
     const interval = setInterval(() => {
       navigator.serviceWorker.getRegistration().then((reg) => {
-        reg?.update();
+        if (reg) {
+          console.log('[UpdatePrompt] Verificando atualizações...');
+          reg.update().catch(console.error);
+        }
       });
     }, 60000);
 
@@ -48,10 +55,12 @@ const UpdatePrompt = () => {
 
   const handleUpdate = () => {
     if (waitingWorker) {
+      console.log('[UpdatePrompt] Enviando SKIP_WAITING para o service worker');
       // Envia mensagem para o SW ativar imediatamente (suporta string ou obj)
       try {
         waitingWorker.postMessage('SKIP_WAITING')
       } catch (e) {
+        console.error('[UpdatePrompt] Erro ao enviar mensagem (string), tentando objeto:', e);
         // fallback to object shape
         waitingWorker.postMessage({ type: 'SKIP_WAITING' })
       }
