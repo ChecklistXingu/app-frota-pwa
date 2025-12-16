@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import {
   addDoc,
   collection,
@@ -17,6 +17,7 @@ import { useImageUpload } from "../../hooks/useImageUpload";
 import { useAudioRecorder } from "../../hooks/useAudioRecorder";
 import { useAudioUpload } from "../../hooks/useAudioUpload";
 import PhotoCapture from "../../components/ui/PhotoCapture";
+import MobileStyleDateTimePicker from "../../components/MobileStyleDateTimePicker";
 import { Pencil, X, Mic, PauseCircle, PlayCircle, Square, RotateCcw } from "lucide-react";
 
 const parseDateField = (value: any): Date | null => {
@@ -159,6 +160,7 @@ const MaintenancePage = () => {
     handleSubmit,
     reset,
     setValue,
+    control,
     formState: { isSubmitting },
   } = useForm<MaintenanceForm>({
     defaultValues: {
@@ -604,10 +606,17 @@ const MaintenancePage = () => {
 
               <div className="flex-1 space-y-1">
                 <label className="text-xs font-medium">Data e hora</label>
-                <input
-                  type="datetime-local"
-                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
-                  {...register("dateTime")}
+                <Controller
+                  control={control}
+                  name="dateTime"
+                  render={({ field }) => (
+                    <>
+                      <MobileStyleDateTimePicker
+                        value={field.value}
+                        onChange={(iso) => field.onChange(iso)}
+                      />
+                    </>
+                  )}
                 />
               </div>
             </div>
@@ -912,11 +921,9 @@ const MaintenancePage = () => {
             <div className="space-y-3 max-h-[70vh] overflow-y-auto">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-gray-600">Data e hora</label>
-                <input
-                  type="datetime-local"
+                <MobileStyleDateTimePicker
                   value={editForm.dateTime}
-                  onChange={(e) => setEditForm({ ...editForm, dateTime: e.target.value })}
-                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(iso) => setEditForm((prev) => ({ ...prev, dateTime: iso }))}
                 />
               </div>
 
