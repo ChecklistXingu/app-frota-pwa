@@ -340,6 +340,7 @@ const MaintenancePage = () => {
       notes: data.notes || "",
       photos: [],
       status: "pending" as MaintenanceStatus,
+      statusHistory: [{ status: "pending", by: user.uid, at: serverTimestamp() }],
       audioDurationSeconds: audioDraft ? audioDraft.duration : null,
     };
 
@@ -380,13 +381,15 @@ const MaintenancePage = () => {
     const uploadAudioDraft = async () => {
       if (!audioDraft) return;
       const result = await uploadAudio(audioDraft.blob, "maintenance", user.uid, docRef.id, {
-        extraData: { audioDurationSeconds: audioDraft.duration },
+        extraData: { audioDurationSeconds: audioDraft.duration, audioEvent: { uploadedBy: user.uid, duration: audioDraft.duration } },
       });
+
       if (result && !result.isOffline) {
         await updateDoc(doc(db, "maintenance", docRef.id), {
           audioUrl: result.url,
           audioDurationSeconds: audioDraft.duration,
-        });
+          audioEvents: arrayUnion({ url: result.url, uploadedBy: user.uid, duration: audioDraft.duration, at: serverTimestamp() }),
+        } as any);
       }
     };
 
@@ -473,7 +476,7 @@ const MaintenancePage = () => {
           "maintenance",
           user.uid,
           editingRecord.id,
-          { extraData: { audioDurationSeconds: editAudioDraft.duration, audioHistoryUnion: oldUrl } },
+          { extraData: { audioDurationSeconds: editAudioDraft.duration, audioHistoryUnion: oldUrl, audioEvent: { uploadedBy: user.uid, duration: editAudioDraft.duration } } },
         );
 
         if (result && !result.isOffline) {
@@ -485,7 +488,9 @@ const MaintenancePage = () => {
           if (oldUrl) {
             updates.audioHistory = arrayUnion(oldUrl);
           }
-          await updateDoc(doc(db, "maintenance", editingRecord.id), updates);
+            // também registra o evento de áudio no histórico
+            updates.audioEvents = arrayUnion({ url: result.url, uploadedBy: user.uid, duration: editAudioDraft.duration, at: serverTimestamp() });
+            await updateDoc(doc(db, "maintenance", editingRecord.id), updates as any);
         }
 
         // Limpa rascunho de edição

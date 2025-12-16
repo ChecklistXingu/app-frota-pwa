@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, onSnapshot, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot, query, serverTimestamp, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "./firebase";
 
 export type MaintenanceStatus = "pending" | "in_review" | "scheduled" | "done";
@@ -112,5 +112,11 @@ export const updateMaintenanceStatus = async (
     updates.completedAt = serverTimestamp();
   }
 
-  await updateDoc(ref, updates as any);
+  // Aplica atualização de status e registra histórico de alterações
+  // Inclui um registro em statusHistory com carimbo de tempo e autor (se disponível em payload)
+  const by = (payload as any).managerId || (payload as any).userId || null;
+  await updateDoc(ref, {
+    ...updates,
+    statusHistory: arrayUnion({ status, by, at: serverTimestamp() }),
+  } as any);
 };

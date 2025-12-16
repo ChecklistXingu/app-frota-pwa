@@ -31,6 +31,9 @@ type MaintenanceRecord = {
   photos?: string[];
   audioUrl?: string | null;
   audioDurationSeconds?: number | null;
+  managerNote?: string;
+  statusHistory?: Array<{ status: string; by?: string; at?: any }>;
+  audioEvents?: Array<{ url: string; uploadedBy?: string; duration?: number; at?: any }>;
 };
 
 type Vehicle = {
@@ -163,9 +166,12 @@ const DashboardPage = () => {
           km: d.data.km ?? undefined,
           items: Array.isArray(d.data.items) ? d.data.items : undefined,
           notes: d.data.notes || undefined,
+          managerNote: d.data.managerNote || undefined,
           photos: Array.isArray(d.data.photos) ? d.data.photos : undefined,
           audioUrl: typeof d.data.audioUrl === 'string' ? d.data.audioUrl : null,
           audioDurationSeconds: typeof d.data.audioDurationSeconds === 'number' ? d.data.audioDurationSeconds : null,
+          statusHistory: Array.isArray(d.data.statusHistory) ? d.data.statusHistory : [],
+          audioEvents: Array.isArray(d.data.audioEvents) ? d.data.audioEvents : [],
         }));
 
       setHistoricMaintenances(finished);
@@ -185,7 +191,30 @@ const DashboardPage = () => {
     return `${v.plate} • ${v.model}`;
   };
 
+  const formatDateField = (value: any) => {
+    if (!value) return "";
+    if (value.seconds) return new Date(value.seconds * 1000).toLocaleString("pt-BR");
+    if (value.toDate) return value.toDate().toLocaleString("pt-BR");
+    return new Date(value).toLocaleString("pt-BR");
+  };
+
+  const formatDurationSeconds = (value?: number | null) => {
+    if (value == null || Number.isNaN(value)) return "";
+    const totalSeconds = Math.max(0, Math.round(value));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
+
   const firstName = profile?.name?.split(" ")[0] ?? "";
+
+  const statusLabels: Record<string, string> = {
+    pending: "Pendente",
+    in_review: "Em análise",
+    scheduled: "Agendado",
+    done: "Finalizado",
+    all: "Todas",
+  };
 
   // Tela de seleção para usuários admin
   if (profile?.role === "admin" && !showDriverViewForAdmin) {
@@ -361,6 +390,20 @@ const DashboardPage = () => {
                       <p className="mt-1">Itens: {m.items.filter(i => i.status).map(i => i.name).join(", ")}</p>
                     )}
                     {m.notes && <p className="mt-1">Obs: {m.notes}</p>}
+                    {m.managerNote && <p className="mt-1">Obs (gestor): {m.managerNote}</p>}
+                    {m.statusHistory && m.statusHistory.length > 0 && (
+                      <div className="mt-2 text-[12px] text-gray-600">
+                        <p className="font-medium">Histórico de status:</p>
+                        <ul className="mt-1 list-disc list-inside">
+                          {m.statusHistory.map((s: any, idx: number) => (
+                            <li key={idx} className="mt-1">
+                              <span className="font-semibold">{statusLabels[s.status] || s.status}</span>
+                              {s.by ? ` • por ${s.by}` : ""} • {formatDateField(s.at)}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
 
                   {m.photos && m.photos.length > 0 && (
@@ -374,7 +417,25 @@ const DashboardPage = () => {
                   )}
 
                   <div className="mt-3 text-right">
-                    <button onClick={() => { setShowHistoricModal(false); navigate(`/maintenance?focus=${m.id}`); }} className="text-xs text-blue-600 underline">Abrir</button>
+                    <div className="flex items-center justify-end gap-3">
+                      {m.audioEvents && m.audioEvents.length > 0 && (
+                        <div className="text-left">
+                          <p className="text-[11px] font-medium">Áudios</p>
+                          <div className="mt-1 space-y-2">
+                            {m.audioEvents.map((ev: any, i: number) => (
+                              <div key={i} className="flex items-center gap-2">
+                                <audio controls src={ev.url} className="w-48" />
+                                <div className="text-[11px] text-gray-500">
+                                  <div>Duração: {formatDurationSeconds(ev.duration)}</div>
+                                  <div className="text-[10px]">Enviado por: {ev.uploadedBy || "-"} • {formatDateField(ev.at)}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <button onClick={() => { setShowHistoricModal(false); navigate(`/maintenance?focus=${m.id}`); }} className="text-xs text-blue-600 underline">Abrir</button>
+                    </div>
                   </div>
                 </div>
               ))}

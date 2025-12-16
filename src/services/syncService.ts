@@ -4,7 +4,7 @@
  */
 
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { storage, db } from "./firebase";
 import {
   getPendingUploads,
@@ -68,7 +68,7 @@ const processUpload = async (upload: {
     // Atualiza o documento no Firestore com a nova URL
     const docRef = doc(db, upload.type, upload.documentId);
     const field = upload.field || "photos";
-    if (field === "photos") {
+      if (field === "photos") {
       await updateDoc(docRef, {
         photos: arrayUnion(downloadUrl),
         ...(upload.extraData || {}),
@@ -79,10 +79,11 @@ const processUpload = async (upload: {
 
       // Caso haja necessidade de aplicar arrayUnion no histórico de áudios
       const audioHistoryUnion = extra.audioHistoryUnion;
+      const audioEvent = extra.audioEvent;
 
       // Remove chave especial para não sobrescrever diretamente
       if (audioHistoryUnion) {
-        const { audioHistoryUnion: _, ...rest } = extra as any;
+        const { audioHistoryUnion: _, audioEvent: _ev, ...rest } = extra as any;
         // Atualiza o campo principal (ex: audioUrl = downloadUrl) e demais dados
         await updateDoc(docRef, {
           [field]: downloadUrl,
@@ -90,9 +91,14 @@ const processUpload = async (upload: {
         } as any);
 
         // Adiciona o item antigo ao array de histórico
-        if (audioHistoryUnion) {
+        await updateDoc(docRef, {
+          audioHistory: arrayUnion(audioHistoryUnion),
+        });
+
+        // Se houver metadados do evento de áudio no item pendente, adiciona ao histórico de eventos
+        if (audioEvent) {
           await updateDoc(docRef, {
-            audioHistory: arrayUnion(audioHistoryUnion),
+            audioEvents: arrayUnion({ url: downloadUrl, uploadedBy: audioEvent.uploadedBy, duration: audioEvent.duration, at: serverTimestamp() }),
           });
         }
       } else {
@@ -100,6 +106,12 @@ const processUpload = async (upload: {
           [field]: downloadUrl,
           ...(extra || {}),
         } as any);
+
+        if (audioEvent) {
+          await updateDoc(docRef, {
+            audioEvents: arrayUnion({ url: downloadUrl, uploadedBy: audioEvent.uploadedBy, duration: audioEvent.duration, at: serverTimestamp() }),
+          });
+        }
       }
     }
 
