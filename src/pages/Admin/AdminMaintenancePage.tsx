@@ -47,6 +47,12 @@ const AdminMaintenancePage = () => {
     photos: [],
     maintenance: null,
   });
+  const [audioModal, setAudioModal] = useState<{ open: boolean; url: string | null; duration?: number | null; maintenance: Maintenance | null }>({
+    open: false,
+    url: null,
+    duration: null,
+    maintenance: null,
+  });
 
   useEffect(() => {
     const unsub1 = listenMaintenances(
@@ -225,6 +231,14 @@ const AdminMaintenancePage = () => {
     return Number.isNaN(date.getTime()) ? 0 : date.getTime();
   };
 
+  const formatDurationSeconds = (value?: number | null) => {
+    if (value == null || Number.isNaN(value)) return "";
+    const totalSeconds = Math.max(0, Math.round(value));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
+
   const filteredItems = useMemo(() => {
     return items.filter((maintenance) => {
       const branchMatches =
@@ -339,14 +353,25 @@ const AdminMaintenancePage = () => {
                     >
                       {m.status === "scheduled" ? "Editar ticket" : "Abrir ticket"}
                     </button>
-                    {m.photos?.length ? (
+                    { (m as any).photos?.length ? (
                       <button
                         type="button"
-                        onClick={() => setPhotoModal({ open: true, photos: m.photos || [], maintenance: m })}
+                        onClick={() => setPhotoModal({ open: true, photos: (m as any).photos || [], maintenance: m })}
                         className="mt-2 ml-0 inline-flex items-center rounded-md border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
                       >
-                        Ver fotos ({m.photos.length})
+                        Ver fotos ({(m as any).photos.length})
                       </button>
+                    ) : null}
+                    {(m as any).audioUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => setAudioModal({ open: true, url: (m as any).audioUrl || null, duration: (m as any).audioDurationSeconds ?? null, maintenance: m })}
+                        className="mt-2 ml-2 inline-flex items-center rounded-md border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                      >
+                        Ouvir áudio
+                      </button>
+                    ) : (m as any).audioDurationSeconds ? (
+                      <div className="mt-2 text-xs text-gray-500">Áudio enviado offline</div>
                     ) : null}
                   </td>
                 </tr>
@@ -359,6 +384,32 @@ const AdminMaintenancePage = () => {
             </tbody>
             </table>
           </div>
+            {/* Audio modal */}
+            {audioModal.open && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl w-full max-w-md p-5 shadow-xl">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-semibold text-gray-800">Áudio do motorista</h3>
+                    <button onClick={() => setAudioModal({ open: false, url: null, duration: null, maintenance: null })} className="p-1 text-gray-400 hover:text-gray-600"><ChevronDown size={18} /></button>
+                  </div>
+                  <div className="space-y-4">
+                    {audioModal.url ? (
+                      <div>
+                        <audio controls src={audioModal.url} className="w-full" />
+                        {typeof audioModal.duration === "number" && (
+                          <p className="text-[12px] text-gray-500 mt-2">Duração: {formatDate(audioModal.duration)}</p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-600">Áudio ainda não disponível (pendente de sincronização).</p>
+                    )}
+                    <div className="flex justify-end">
+                      <button onClick={() => setAudioModal({ open: false, url: null, duration: null, maintenance: null })} className="px-4 py-2 rounded bg-gray-200">Fechar</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
           {/* Layout mobile */}
           <div className="md:hidden divide-y border-t">
@@ -398,6 +449,16 @@ const AdminMaintenancePage = () => {
                   {m.scheduledFor && <p>Agendado: {formatDate(m.scheduledFor)}</p>}
                   {m.forecastedCompletion && <p>Previsão: {formatDate(m.forecastedCompletion)}</p>}
                   {m.completedAt && <p>Finalizado: {formatDate(m.completedAt)}</p>}
+                  {(m as any).audioUrl ? (
+                    <div className="mt-2">
+                      <audio controls src={(m as any).audioUrl} className="w-full" preload="none" />
+                      {typeof (m as any).audioDurationSeconds === "number" && (
+                        <p className="text-[10px] text-gray-500">Duração: {formatDurationSeconds((m as any).audioDurationSeconds)}</p>
+                      )}
+                    </div>
+                  ) : (m as any).audioDurationSeconds ? (
+                    <p className="mt-2 text-[10px] text-gray-500">Áudio enviado offline</p>
+                  ) : null}
                   {typeof m.finalCost === "number" && (
                     <p className="text-emerald-600 font-semibold">Valor final: R$ {m.finalCost.toFixed(2)}</p>
                   )}
