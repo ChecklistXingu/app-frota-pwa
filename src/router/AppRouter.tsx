@@ -13,6 +13,7 @@ import LoginPage from "../pages/Auth/LoginPage";
 import RegisterPage from "../pages/Auth/RegisterPage";
 import AdminDashboardPage from "../pages/Admin/dashboard/DashboardPage";
 import AdminMaintenancePage from "../pages/Admin/AdminMaintenancePage";
+import AdminMaintenanceHistoryPage from "../pages/Admin/AdminMaintenanceHistoryPage";
 import AdminVehiclesPage from "../pages/Admin/AdminVehiclesPage";
 import AdminUsersPage from "../pages/Admin/AdminUsersPage";
 import AdminRefuelingPage from "../pages/Admin/AdminRefuelingPage";
@@ -67,6 +68,7 @@ const AppRouter = () => {
               <Routes>
                 <Route path="" element={<AdminDashboardPage />} />
                 <Route path="maintenance" element={<AdminMaintenancePage />} />
+                <Route path="maintenance/history" element={<AdminMaintenanceHistoryPage />} />
                 <Route path="refueling" element={<AdminRefuelingPage />} />
                 <Route path="vehicles" element={<AdminVehiclesPage />} />
                 <Route path="users" element={<AdminUsersPage />} />

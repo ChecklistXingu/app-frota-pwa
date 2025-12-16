@@ -17,6 +17,13 @@ export const normalizeMaintenanceStatus = (status?: string): MaintenanceStatus =
   return map[status || "pending"] ?? "pending";
 };
 
+export type StatusHistoryItem = {
+  status: MaintenanceStatus;
+  at: any; // Pode ser Date, Timestamp ou string
+  by?: string;
+  note?: string;
+};
+
 export type Maintenance = {
   id: string;
   userId: string;
@@ -37,6 +44,8 @@ export type Maintenance = {
   forecastedCompletion?: any;
   forecastedCost?: number;
   finalCost?: number;
+  km?: number;
+  statusHistory?: StatusHistoryItem[];
 };
 
 export const listenMaintenances = (

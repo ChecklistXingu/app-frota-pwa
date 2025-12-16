@@ -52,6 +52,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
           <nav className="flex-1 w-full px-4 py-6 space-y-1">
             <SideNavItem to="/admin" icon={<LayoutDashboard size={18} />} label="Dashboard" />
             <SideNavItem to="/admin/maintenance" icon={<Wrench size={18} />} label="Manutenções" />
+            <SideNavItem to="/admin/maintenance/history" icon={<Wrench size={18} />} label="Histórico de Manutenções" />
             <SideNavItem to="/admin/refueling" icon={<Fuel size={18} />} label="Abastecimentos" />
             <SideNavItem to="/admin/vehicles" icon={<Car size={18} />} label="Veículos" />
             <SideNavItem to="/admin/users" icon={<Users size={18} />} label="Usuários" />
@@ -80,6 +81,9 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
             </div>
             <div className="px-2">
               <BottomNavItem to="/admin/maintenance" icon={<Wrench size={20} />} label="Manut." />
+            </div>
+            <div className="px-2">
+              <BottomNavItem to="/admin/maintenance/history" icon={<Wrench size={20} />} label="Hist." />
             </div>
             <div className="px-2">
               <BottomNavItem to="/admin/refueling" icon={<Fuel size={20} />} label="Abast." />
