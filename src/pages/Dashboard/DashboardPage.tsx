@@ -25,6 +25,12 @@ type MaintenanceRecord = {
   type: "preventiva" | "corretiva" | "solicitacao";
   status: MaintenanceStatus;
   date: Date | null;
+  km?: number;
+  items?: { name: string; status?: boolean }[];
+  notes?: string;
+  photos?: string[];
+  audioUrl?: string | null;
+  audioDurationSeconds?: number | null;
 };
 
 type Vehicle = {
@@ -44,6 +50,7 @@ const DashboardPage = () => {
   const [lastMaintenance, setLastMaintenance] =
     useState<MaintenanceRecord | null>(null);
   const [historicMaintenances, setHistoricMaintenances] = useState<MaintenanceRecord[]>([]);
+  const [showHistoricModal, setShowHistoricModal] = useState(false);
   const [showDriverViewForAdmin, setShowDriverViewForAdmin] = useState(false);
 
   useEffect(() => {
@@ -153,6 +160,12 @@ const DashboardPage = () => {
           type: d.data.type ?? "solicitacao",
           status: normalizeMaintenanceStatus(d.data.status),
           date: d.data.completedAt ? (d.data.completedAt.toDate ? d.data.completedAt.toDate() : d.data.completedAt) : null,
+          km: d.data.km ?? undefined,
+          items: Array.isArray(d.data.items) ? d.data.items : undefined,
+          notes: d.data.notes || undefined,
+          photos: Array.isArray(d.data.photos) ? d.data.photos : undefined,
+          audioUrl: typeof d.data.audioUrl === 'string' ? d.data.audioUrl : null,
+          audioDurationSeconds: typeof d.data.audioDurationSeconds === 'number' ? d.data.audioDurationSeconds : null,
         }));
 
       setHistoricMaintenances(finished);
@@ -304,31 +317,71 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Histórico de manutenções finalizadas */}
-      <div className="rounded-2xl bg-white px-4 py-3 shadow-md border">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-500">Histórico de manutenções</p>
-            {historicMaintenances.length > 0 ? (
-              <ul className="mt-2 space-y-2">
-                {historicMaintenances.map((h) => (
-                  <li key={h.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold">{getVehicleLabel(h.vehicleId)}</p>
-                      <p className="text-[11px] text-gray-600">{h.type === "preventiva" ? "Preventiva" : h.type === "corretiva" ? "Corretiva" : "Solicitação"}{h.date ? ` • ${h.date.toLocaleDateString("pt-BR")}` : ""}</p>
-                    </div>
-                    <div>
-                      <button onClick={() => navigate(`/maintenance?focus=${h.id}`)} className="text-xs text-blue-600 underline">Ver</button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-gray-500 mt-2">Nenhuma manutenção finalizada.</p>
-            )}
-          </div>
+      {/* Histórico de manutenções finalizadas - caixa compacta */}
+      <div className="rounded-2xl bg-white px-4 py-3 shadow-md border flex items-center justify-between">
+        <div>
+          <p className="text-xs text-gray-500">Histórico de manutenções</p>
+          <button
+            type="button"
+            onClick={() => setShowHistoricModal(true)}
+            className="mt-2 flex items-center gap-3 rounded-2xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+          >
+            <Wrench size={18} /> Histórico de manutenção
+          </button>
         </div>
       </div>
+
+      {/* Modal com lista detalhada de finalizados (igual ao histórico da aba de manutenção) */}
+      {showHistoricModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-lg p-5 shadow-xl max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-gray-800">Histórico de manutenções</h3>
+              <button onClick={() => setShowHistoricModal(false)} className="p-1 text-gray-400 hover:text-gray-600">Fechar</button>
+            </div>
+
+            <div className="space-y-3">
+              {historicMaintenances.length === 0 && (
+                <p className="text-sm text-gray-500">Nenhuma manutenção finalizada.</p>
+              )}
+
+              {historicMaintenances.map((m) => (
+                <div key={m.id} className="rounded-xl border bg-white px-4 py-3 shadow-sm text-sm">
+                  <div className="flex justify-between items-start gap-2 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold">{getVehicleLabel(m.vehicleId)}</p>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700`}>Finalizado</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500">{m.date ? m.date.toLocaleDateString("pt-BR") : ""}</div>
+                  </div>
+
+                  <div className="text-[11px] text-gray-700 mb-2">
+                    <p className="font-medium">{m.type === "preventiva" ? "Preventiva" : m.type === "corretiva" ? "Corretiva" : "Solicitação"} {m.km ? `• ${m.km.toLocaleString("pt-BR")} km` : ""}</p>
+                    {m.items && m.items.length > 0 && (
+                      <p className="mt-1">Itens: {m.items.filter(i => i.status).map(i => i.name).join(", ")}</p>
+                    )}
+                    {m.notes && <p className="mt-1">Obs: {m.notes}</p>}
+                  </div>
+
+                  {m.photos && m.photos.length > 0 && (
+                    <div className="flex gap-2 mt-2 overflow-x-auto">
+                      {m.photos.map((url, idx) => (
+                        <a key={idx} href={url} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                          <img src={url} alt={`Foto ${idx + 1}`} className="w-16 h-16 object-contain rounded-lg border bg-white p-1" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="mt-3 text-right">
+                    <button onClick={() => { setShowHistoricModal(false); navigate(`/maintenance?focus=${m.id}`); }} className="text-xs text-blue-600 underline">Abrir</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ações rápidas */}
       <div className="grid grid-cols-3 gap-2 text-xs">
