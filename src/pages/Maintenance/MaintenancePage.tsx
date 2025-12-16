@@ -220,15 +220,19 @@ const MaintenancePage = () => {
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      // Ordena localmente por data
-      const sortedDocs = snap.docs.sort((a, b) => {
-        const dateA = a.data().date?.toDate?.() || new Date(0);
-        const dateB = b.data().date?.toDate?.() || new Date(0);
-        return dateB.getTime() - dateA.getTime();
-      }).slice(0, 20);
+      // Ordena localmente por data e filtra para não exibir itens finalizados (done)
+      const sortedDocs = snap.docs
+        .map((d) => ({ id: d.id, data: d.data() as any }))
+        .filter((doc) => (doc.data.status ? doc.data.status !== 'done' : true))
+        .sort((a, b) => {
+          const dateA = a.data.date?.toDate?.() || new Date(0);
+          const dateB = b.data.date?.toDate?.() || new Date(0);
+          return dateB.getTime() - dateA.getTime();
+        })
+        .slice(0, 20);
       
       const list: MaintenanceRecord[] = sortedDocs.map((doc) => {
-        const data = doc.data() as any;
+        const data = doc.data as any;
         return {
           id: doc.id,
           vehicleId: data.vehicleId,

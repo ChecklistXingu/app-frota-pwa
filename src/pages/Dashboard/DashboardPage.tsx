@@ -43,6 +43,7 @@ const DashboardPage = () => {
   );
   const [lastMaintenance, setLastMaintenance] =
     useState<MaintenanceRecord | null>(null);
+  const [historicMaintenances, setHistoricMaintenances] = useState<MaintenanceRecord[]>([]);
   const [showDriverViewForAdmin, setShowDriverViewForAdmin] = useState(false);
 
   useEffect(() => {
@@ -130,10 +131,38 @@ const DashboardPage = () => {
       });
     });
 
+    // Histórico de manutenções finalizadas (últimos 5)
+    const qHistoric = query(
+      collection(db, "maintenance"),
+      where("userId", "==", user.uid),
+    );
+
+    const unsubHistoric = onSnapshot(qHistoric, (snap) => {
+      const finished = snap.docs
+        .map((d) => ({ id: d.id, data: d.data() as any }))
+        .filter((d) => d.data.status === "done")
+        .sort((a, b) => {
+          const aTime = a.data.completedAt?.toDate?.() ? a.data.completedAt.toDate().getTime() : 0;
+          const bTime = b.data.completedAt?.toDate?.() ? b.data.completedAt.toDate().getTime() : 0;
+          return bTime - aTime;
+        })
+        .slice(0, 5)
+        .map((d) => ({
+          id: d.id,
+          vehicleId: d.data.vehicleId,
+          type: d.data.type ?? "solicitacao",
+          status: normalizeMaintenanceStatus(d.data.status),
+          date: d.data.completedAt ? (d.data.completedAt.toDate ? d.data.completedAt.toDate() : d.data.completedAt) : null,
+        }));
+
+      setHistoricMaintenances(finished);
+    });
+
     return () => {
       unsubVehicles();
       unsubRefueling();
       unsubMaintenance();
+      unsubHistoric();
     };
   }, [user]);
 
@@ -272,6 +301,32 @@ const DashboardPage = () => {
         </div>
         <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-700">
           <Wrench size={20} />
+        </div>
+      </div>
+
+      {/* Histórico de manutenções finalizadas */}
+      <div className="rounded-2xl bg-white px-4 py-3 shadow-md border">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Histórico de manutenções</p>
+            {historicMaintenances.length > 0 ? (
+              <ul className="mt-2 space-y-2">
+                {historicMaintenances.map((h) => (
+                  <li key={h.id} className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold">{getVehicleLabel(h.vehicleId)}</p>
+                      <p className="text-[11px] text-gray-600">{h.type === "preventiva" ? "Preventiva" : h.type === "corretiva" ? "Corretiva" : "Solicitação"}{h.date ? ` • ${h.date.toLocaleDateString("pt-BR")}` : ""}</p>
+                    </div>
+                    <div>
+                      <button onClick={() => navigate(`/maintenance?focus=${h.id}`)} className="text-xs text-blue-600 underline">Ver</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-gray-500 mt-2">Nenhuma manutenção finalizada.</p>
+            )}
+          </div>
         </div>
       </div>
 
