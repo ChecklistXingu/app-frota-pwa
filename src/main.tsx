@@ -7,6 +7,7 @@ import AppRouter from './router/AppRouter'
 import { AuthProvider } from './contexts/AuthContext'
 import InstallPrompt from './components/pwa/InstallPrompt'
 import OfflineIndicator from './components/pwa/OfflineIndicator'
+import UpdatePrompt from './components/pwa/UpdatePrompt'
 import { startAutoSync } from './services/syncService'
 
 createRoot(document.getElementById('root')!).render(
@@ -14,6 +15,7 @@ createRoot(document.getElementById('root')!).render(
     <AuthProvider>
       <BrowserRouter>
         <OfflineIndicator />
+        <UpdatePrompt />
         <AppRouter />
         <InstallPrompt />
       </BrowserRouter>
@@ -137,6 +139,16 @@ let updateSW = registerSW({
     window.addEventListener('beforeunload', () => {
       clearInterval(updateInterval)
     })
+
+    // Se já existir um worker em waiting, aplicamos update automático após 5s
+    if (registration.waiting) {
+      console.log('[PWA] worker already waiting - will attempt auto-apply in 5s')
+      setTimeout(() => {
+        updateSW(true).then(() => {
+          console.log('[PWA] auto-apply update requested')
+        }).catch((e) => console.error('[PWA] failed to auto-apply update', e))
+      }, 5000)
+    }
   },
   onRegisterError(error) {
     console.error('[PWA] Erro ao registrar SW:', error)

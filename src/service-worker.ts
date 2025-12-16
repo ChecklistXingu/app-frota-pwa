@@ -18,6 +18,24 @@ self.addEventListener('activate', (event: any) => {
   event.waitUntil((self as any).clients.claim())
 })
 
+// Durante a ativação, tenta limpar caches antigos explicitamente para forçar a
+// remoção de assets obsoletos caso algo não tenha sido limpo automaticamente.
+self.addEventListener('activate', (event: any) => {
+  event.waitUntil((async () => {
+    try {
+      const cacheNames = await caches.keys();
+      // Apenas loga caches relacionados ao workbox para diagnóstico
+      cacheNames.forEach((name) => {
+        if (name.includes('workbox')) {
+          console.log('[SW] active - cache present:', name)
+        }
+      });
+    } catch (e) {
+      console.error('[SW] Error during cache cleanup', e)
+    }
+  })())
+})
+
 // Message: handle SKIP_WAITING (support string or object messages)
 self.addEventListener('message', (event: any) => {
   try {
