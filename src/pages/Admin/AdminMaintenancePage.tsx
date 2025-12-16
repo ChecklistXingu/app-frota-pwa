@@ -70,11 +70,14 @@ const AdminMaintenancePage = () => {
       return;
     }
     if (status === "done") {
+      const now = new Date();
+      const currentDateTime = now.toISOString().slice(0, 16);
       const seedCost = typeof maintenance.finalCost === "number" ? maintenance.finalCost : maintenance.forecastedCost;
+      
       setCompletionModal({
         open: true,
         maintenance,
-        date: toInputDateTime(new Date()),
+        date: toInputDateTime(maintenance.completedAt) || currentDateTime,
         cost: seedCost ? seedCost.toString() : "",
       });
       return;
@@ -107,11 +110,17 @@ const AdminMaintenancePage = () => {
   };
 
   const openTicketModal = (maintenance: Maintenance) => {
+    const now = new Date();
+    // Formata a data/hora atual no formato YYYY-MM-DDThh:mm
+    const currentDateTime = now.toISOString().slice(0, 16);
+    // Adiciona 1 hora para a previsão de finalização
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000).toISOString().slice(0, 16);
+    
     setTicketModal({ open: true, maintenance });
     setTicketForm({
       workshopName: maintenance.workshopName || "",
-      scheduledFor: toInputDateTime(maintenance.scheduledFor) || "",
-      forecastedCompletion: toInputDateTime(maintenance.forecastedCompletion) || "",
+      scheduledFor: toInputDateTime(maintenance.scheduledFor) || currentDateTime,
+      forecastedCompletion: toInputDateTime(maintenance.forecastedCompletion) || oneHourLater,
       forecastedCost: maintenance.forecastedCost ? maintenance.forecastedCost.toString() : "",
       managerNote: maintenance.managerNote || "",
     });
