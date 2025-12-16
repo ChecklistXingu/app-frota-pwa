@@ -553,23 +553,23 @@ const AdminMaintenancePage = () => {
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-600">Data/Hora agendada</label>
+              <div className="flex-1 space-y-1">
+                <label className="text-xs font-medium">Data/Hora agendada</label>
                 <input
                   type="datetime-local"
                   value={ticketForm.scheduledFor}
                   onChange={(e) => setTicketForm((prev) => ({ ...prev, scheduledFor: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-600">Previsão de finalização do conserto</label>
+              <div className="flex-1 space-y-1">
+                <label className="text-xs font-medium">Previsão de finalização</label>
                 <input
                   type="datetime-local"
                   value={ticketForm.forecastedCompletion}
                   onChange={(e) => setTicketForm((prev) => ({ ...prev, forecastedCompletion: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
                 />
               </div>
 
@@ -630,13 +630,13 @@ const AdminMaintenancePage = () => {
             <p className="text-sm text-gray-500 mb-4">Informe a data/hora real da finalização.</p>
 
             <div className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-gray-600">Data/Hora da finalização</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Data/Hora da finalização</label>
                 <input
                   type="datetime-local"
                   value={completionModal.date}
                   onChange={(e) => setCompletionModal((prev) => ({ ...prev, date: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
                 />
               </div>
               <div>
