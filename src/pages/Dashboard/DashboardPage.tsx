@@ -32,6 +32,10 @@ type MaintenanceRecord = {
   audioUrl?: string | null;
   audioDurationSeconds?: number | null;
   managerNote?: string;
+  managerId?: string;
+  createdAt?: any;
+  completedAtRaw?: any;
+  scheduledForRaw?: any;
   statusHistory?: Array<{ status: string; by?: string; at?: any }>;
   audioEvents?: Array<{ url: string; uploadedBy?: string; duration?: number; at?: any }>;
 };
@@ -163,6 +167,10 @@ const DashboardPage = () => {
           type: d.data.type ?? "solicitacao",
           status: normalizeMaintenanceStatus(d.data.status),
           date: d.data.completedAt ? (d.data.completedAt.toDate ? d.data.completedAt.toDate() : d.data.completedAt) : null,
+          createdAt: d.data.createdAt || null,
+          completedAtRaw: d.data.completedAt || null,
+          scheduledForRaw: d.data.scheduledFor || null,
+          managerId: d.data.managerId || null,
           km: d.data.km ?? undefined,
           items: Array.isArray(d.data.items) ? d.data.items : undefined,
           notes: d.data.notes || undefined,
@@ -391,19 +399,24 @@ const DashboardPage = () => {
                     )}
                     {m.notes && <p className="mt-1">Obs: {m.notes}</p>}
                     {m.managerNote && <p className="mt-1">Obs (gestor): {m.managerNote}</p>}
-                    {m.statusHistory && m.statusHistory.length > 0 && (
-                      <div className="mt-2 text-[12px] text-gray-600">
-                        <p className="font-medium">Histórico de status:</p>
-                        <ul className="mt-1 list-disc list-inside">
-                          {m.statusHistory.map((s: any, idx: number) => (
-                            <li key={idx} className="mt-1">
-                              <span className="font-semibold">{statusLabels[s.status] || s.status}</span>
-                              {s.by ? ` • por ${s.by}` : ""} • {formatDateField(s.at)}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                      {/* Histórico: usa statusHistory se existir, caso contrário monta uma linha inferida por timestamps */}
+                      {((m.statusHistory && m.statusHistory.length > 0) || m.createdAt || m.scheduledForRaw || m.completedAtRaw) && (
+                        <div className="mt-2 text-[12px] text-gray-600">
+                          <p className="font-medium">Histórico de status:</p>
+                          <ul className="mt-1 list-disc list-inside">
+                            {(m.statusHistory && m.statusHistory.length > 0 ? m.statusHistory : [
+                              m.createdAt ? { status: 'pending', by: m.vehicleId || undefined, at: m.createdAt } : null,
+                              m.scheduledForRaw ? { status: 'scheduled', by: m.managerId || undefined, at: m.scheduledForRaw } : null,
+                              m.completedAtRaw ? { status: 'done', by: m.managerId || undefined, at: m.completedAtRaw } : null,
+                            ].filter(Boolean)).map((s: any, idx: number) => (
+                              <li key={idx} className="mt-1">
+                                <span className="font-semibold">{statusLabels[s.status] || s.status}</span>
+                                {s.by ? ` • por ${s.by}` : ""} • {formatDateField(s.at)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                   </div>
 
                   {m.photos && m.photos.length > 0 && (
@@ -418,11 +431,11 @@ const DashboardPage = () => {
 
                   <div className="mt-3 text-right">
                     <div className="flex items-center justify-end gap-3">
-                      {m.audioEvents && m.audioEvents.length > 0 && (
-                        <div className="text-left">
-                          <p className="text-[11px] font-medium">Áudios</p>
-                          <div className="mt-1 space-y-2">
-                            {m.audioEvents.map((ev: any, i: number) => (
+                      <div className="text-left">
+                        <p className="text-[11px] font-medium">Áudios</p>
+                        <div className="mt-1 space-y-2">
+                          {m.audioEvents && m.audioEvents.length > 0 ? (
+                            m.audioEvents.map((ev: any, i: number) => (
                               <div key={i} className="flex items-center gap-2">
                                 <audio controls src={ev.url} className="w-48" />
                                 <div className="text-[11px] text-gray-500">
@@ -430,10 +443,20 @@ const DashboardPage = () => {
                                   <div className="text-[10px]">Enviado por: {ev.uploadedBy || "-"} • {formatDateField(ev.at)}</div>
                                 </div>
                               </div>
-                            ))}
-                          </div>
+                            ))
+                          ) : m.audioUrl ? (
+                            <div className="flex items-center gap-2">
+                              <audio controls src={m.audioUrl} className="w-48" />
+                              <div className="text-[11px] text-gray-500">
+                                <div>Duração: {formatDurationSeconds(m.audioDurationSeconds)}</div>
+                                <div className="text-[10px]">Enviado por: - • {m.date ? m.date.toLocaleString() : ''}</div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-gray-500">Nenhum áudio registrado.</div>
+                          )}
                         </div>
-                      )}
+                      </div>
                       <button onClick={() => { setShowHistoricModal(false); navigate(`/maintenance?focus=${m.id}`); }} className="text-xs text-blue-600 underline">Abrir</button>
                     </div>
                   </div>
