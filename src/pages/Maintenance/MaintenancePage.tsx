@@ -396,8 +396,11 @@ const MaintenancePage = () => {
         await updateDoc(doc(db, "maintenance", docRef.id), {
           audioUrl: result.url,
           audioDurationSeconds: audioDraft.duration,
-          audioEvents: arrayUnion({ url: result.url, uploadedBy: user.uid, duration: audioDraft.duration, at: serverTimestamp() }),
         } as any);
+        // Registra evento de áudio separadamente com serverTimestamp
+        await updateDoc(doc(db, "maintenance", docRef.id), {
+          audioEvents: arrayUnion({ url: result.url, uploadedBy: user.uid, duration: audioDraft.duration, at: serverTimestamp() }),
+        });
       }
     };
 
@@ -488,17 +491,22 @@ const MaintenancePage = () => {
         );
 
         if (result && !result.isOffline) {
-          // Atualiza documento com nova URL e adiciona o histórico do áudio antigo
-          const updates: any = {
+          // Atualiza documento com nova URL (e histórico de áudio antigo separadamente)
+          if (oldUrl) {
+            await updateDoc(doc(db, "maintenance", editingRecord.id), {
+              audioHistory: arrayUnion(oldUrl),
+            });
+          }
+
+          await updateDoc(doc(db, "maintenance", editingRecord.id), {
             audioUrl: result.url,
             audioDurationSeconds: editAudioDraft.duration,
-          };
-          if (oldUrl) {
-            updates.audioHistory = arrayUnion(oldUrl);
-          }
-            // também registra o evento de áudio no histórico
-            updates.audioEvents = arrayUnion({ url: result.url, uploadedBy: user.uid, duration: editAudioDraft.duration, at: serverTimestamp() });
-            await updateDoc(doc(db, "maintenance", editingRecord.id), updates as any);
+          } as any);
+
+          // também registra o evento de áudio no histórico (separado para usar serverTimestamp)
+          await updateDoc(doc(db, "maintenance", editingRecord.id), {
+            audioEvents: arrayUnion({ url: result.url, uploadedBy: user.uid, duration: editAudioDraft.duration, at: serverTimestamp() }),
+          });
         }
 
         // Limpa rascunho de edição
