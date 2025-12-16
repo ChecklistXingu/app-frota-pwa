@@ -334,45 +334,51 @@ const AdminMaintenancePage = () => {
                     )}
                   </td>
                   <td className="p-3">
-                    <div className="relative inline-block">
-                      <select
-                        value={m.status || "pending"}
-                        onChange={(e) => onChangeStatus(m, e.target.value as MaintenanceStatus)}
-                        className="appearance-none border rounded-lg px-3 py-2 pr-8 bg-white"
-                      >
-                        {statusOptions.map((s) => (
-                          <option key={s} value={s}>{statusLabels[s]}</option>
-                        ))}
-                      </select>
-                      <ChevronDown size={16} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end sm:gap-2">
+                      <div className="flex-shrink-0">
+                        <select
+                          value={m.status || "pending"}
+                          onChange={(e) => onChangeStatus(m, e.target.value as MaintenanceStatus)}
+                          className="w-36 h-10 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-700 text-xs font-semibold px-3"
+                        >
+                          {statusOptions.map((s) => (
+                            <option key={s} value={s}>{statusLabels[s]}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex gap-2 flex-wrap mt-2 sm:mt-0">
+                        <button
+                          type="button"
+                          onClick={() => openTicketModal(m)}
+                          className="w-36 h-10 rounded-lg border border-blue-600 text-blue-600 text-xs font-semibold hover:bg-blue-50"
+                        >
+                          {m.status === "scheduled" ? "Editar ticket" : "Abrir ticket"}
+                        </button>
+
+                        { (m as any).photos?.length ? (
+                          <button
+                            type="button"
+                            onClick={() => setPhotoModal({ open: true, photos: (m as any).photos || [], maintenance: m })}
+                            className="w-36 h-10 rounded-lg border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50"
+                          >
+                            Ver fotos ({(m as any).photos.length})
+                          </button>
+                        ) : null}
+
+                        {(m as any).audioUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setAudioModal({ open: true, url: (m as any).audioUrl || null, duration: (m as any).audioDurationSeconds ?? null, maintenance: m })}
+                            className="w-36 h-10 rounded-lg border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50"
+                          >
+                            Ouvir áudio
+                          </button>
+                        ) : (m as any).audioDurationSeconds ? (
+                          <div className="text-xs text-gray-500 flex items-center h-10">Áudio enviado offline</div>
+                        ) : null}
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => openTicketModal(m)}
-                      className="mt-2 inline-flex items-center rounded-md border border-[#0d2d6c] px-3 py-1 text-xs font-semibold text-[#0d2d6c] hover:bg-[#0d2d6c]/10"
-                    >
-                      {m.status === "scheduled" ? "Editar ticket" : "Abrir ticket"}
-                    </button>
-                    { (m as any).photos?.length ? (
-                      <button
-                        type="button"
-                        onClick={() => setPhotoModal({ open: true, photos: (m as any).photos || [], maintenance: m })}
-                        className="mt-2 ml-0 inline-flex items-center rounded-md border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-                      >
-                        Ver fotos ({(m as any).photos.length})
-                      </button>
-                    ) : null}
-                    {(m as any).audioUrl ? (
-                      <button
-                        type="button"
-                        onClick={() => setAudioModal({ open: true, url: (m as any).audioUrl || null, duration: (m as any).audioDurationSeconds ?? null, maintenance: m })}
-                        className="mt-2 ml-2 inline-flex items-center rounded-md border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
-                      >
-                        Ouvir áudio
-                      </button>
-                    ) : (m as any).audioDurationSeconds ? (
-                      <div className="mt-2 text-xs text-gray-500">Áudio enviado offline</div>
-                    ) : null}
                   </td>
                 </tr>
               ))}
