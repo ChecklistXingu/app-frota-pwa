@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { listenMaintenances, type Maintenance } from "../../services/maintenanceService";
 import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
+import { listenRefuelings, type Refueling } from "../../services/refuelingService";
 
 const formatDateInput = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -9,15 +10,18 @@ const AdminDashboardPage = () => {
   const [maint, setMaint] = useState<Maintenance[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [refuelings, setRefuelings] = useState<Refueling[]>([]);
 
   useEffect(() => {
     const unsub1 = listenMaintenances({}, setMaint);
     const unsub2 = listenVehicles({}, setVehicles);
     const unsub3 = listenUsers(setUsers);
+    const unsub4 = listenRefuelings(setRefuelings);
     return () => {
       unsub1();
       unsub2();
       unsub3();
+      unsub4();
     };
   }, []);
 
@@ -40,6 +44,57 @@ const AdminDashboardPage = () => {
     }),
     [maint, vehicles.length, users.length]
   );
+
+  // Calcular maiores consumidores
+  const topConsumers = useMemo(() => {
+    // Agrupar gastos por veículo para combustível
+    const fuelByVehicle = refuelings.reduce((acc, refuel) => {
+      if (!acc[refuel.vehicleId]) {
+        acc[refuel.vehicleId] = 0;
+      }
+      acc[refuel.vehicleId] += refuel.value || 0;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Agrupar gastos por veículo para manutenção
+    const maintenanceByVehicle = maint.reduce((acc, m) => {
+      if (!acc[m.vehicleId]) {
+        acc[m.vehicleId] = 0;
+      }
+      acc[m.vehicleId] += m.finalCost || m.forecastedCost || 0;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Encontrar veículo que mais gasta com combustível
+    const topFuelVehicle = Object.entries(fuelByVehicle).reduce(
+      (max, [vehicleId, value]) => (value > (max?.value || 0) ? { vehicleId, value } : max),
+      null as { vehicleId: string; value: number } | null
+    );
+
+    // Encontrar veículo que mais gasta com manutenção
+    const topMaintenanceVehicle = Object.entries(maintenanceByVehicle).reduce(
+      (max, [vehicleId, value]) => (value > (max?.value || 0) ? { vehicleId, value } : max),
+      null as { vehicleId: string; value: number } | null
+    );
+
+    return {
+      topFuelVehicle,
+      topMaintenanceVehicle,
+    };
+  }, [refuelings, maint]);
+
+  const getVehicleLabel = (vehicleId: string) => {
+    const v = vehicles.find((x) => x.id === vehicleId);
+    if (!v) return "Veículo não identificado";
+    return `${v.plate} • ${v.model}`;
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
+  };
 
   const cards = [
     {
@@ -82,6 +137,39 @@ const AdminDashboardPage = () => {
         { label: "Total", value: statusSummary.total, color: "bg-[#f1f5f9] text-[#0f172a]" },
       ],
     },
+    {
+      title: "Maior Consumo",
+      subtitle: "Top consumidores",
+      emptyState: !topConsumers.topFuelVehicle && !topConsumers.topMaintenanceVehicle,
+      metrics: [
+        { 
+          label: "Combustível", 
+          value: topConsumers.topFuelVehicle ? getVehicleLabel(topConsumers.topFuelVehicle.vehicleId).substring(0, 15) + "..." : "—",
+          color: "bg-[#fef3c7] text-[#92400e]" 
+        },
+        { 
+          label: "Manutenção", 
+          value: topConsumers.topMaintenanceVehicle ? getVehicleLabel(topConsumers.topMaintenanceVehicle.vehicleId).substring(0, 15) + "..." : "—",
+          color: "bg-[#fce7f3] text-[#9f1239]" 
+        },
+      ],
+      customContent: (
+        <div className="mt-3 pt-3 border-t border-[#e2e8f0] space-y-2">
+          {topConsumers.topFuelVehicle && (
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-[#64748b]">Combustível:</span>
+              <span className="font-semibold text-[#92400e]">{formatCurrency(topConsumers.topFuelVehicle.value)}</span>
+            </div>
+          )}
+          {topConsumers.topMaintenanceVehicle && (
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-[#64748b]">Manutenção:</span>
+              <span className="font-semibold text-[#9f1239]">{formatCurrency(topConsumers.topMaintenanceVehicle.value)}</span>
+            </div>
+          )}
+        </div>
+      ),
+    },
   ];
 
   const highlightMaint = maint.slice(0, 6);
@@ -109,6 +197,7 @@ const AdminDashboardPage = () => {
             emptyState={card.emptyState}
             from={formatDateInput(startRange)}
             to={formatDateInput(today)}
+            customContent={card.customContent}
           />
         ))}
       </div>
@@ -157,13 +246,15 @@ const SummaryCard = ({
   emptyState,
   from,
   to,
+  customContent,
 }: {
   title: string;
   subtitle: string;
-  metrics: { label: string; value: number; color: string }[];
+  metrics: { label: string; value: number | string; color: string }[];
   emptyState: boolean;
   from: string;
   to: string;
+  customContent?: React.ReactNode;
 }) => (
   <div className="rounded-3xl bg-white/90 border border-[#dfe6f2] p-4 flex flex-col gap-4 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
     <div className="flex items-center justify-between gap-3">
@@ -205,6 +296,7 @@ const SummaryCard = ({
         ))
       )}
     </div>
+    {customContent}
   </div>
 );
 
