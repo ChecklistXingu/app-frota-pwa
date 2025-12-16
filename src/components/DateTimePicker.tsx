@@ -29,6 +29,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
   disabled = false,
 }) => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isMobileNative, setIsMobileNative] = useState(false);
 
   // Atualiza a data selecionada quando a prop 'selected' muda
   useEffect(() => {
@@ -39,6 +40,16 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
       setSelectedDate(null);
     }
   }, [selected]);
+
+  useEffect(() => {
+    try {
+      const isUA = typeof navigator !== 'undefined' && /Mobi|Android/i.test(navigator.userAgent || '');
+      const isCoarse = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
+      setIsMobileNative(!!(isUA || isCoarse));
+    } catch (e) {
+      setIsMobileNative(false);
+    }
+  }, []);
 
   const handleChange = (date: Date | null) => {
     setSelectedDate(date);
@@ -53,6 +64,48 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
   const isValidDate = (date: any): date is Date => {
     return date instanceof Date && !isNaN(date.getTime());
   };
+
+  // If mobile, render native datetime-local input to use device picker (better UX on mobile)
+  if (isMobileNative) {
+    const toLocalInputValue = (d: Date | null) => {
+      if (!d) return "";
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const y = d.getFullYear();
+      const m = pad(d.getMonth() + 1);
+      const day = pad(d.getDate());
+      const hh = pad(d.getHours());
+      const mm = pad(d.getMinutes());
+      return `${y}-${m}-${day}T${hh}:${mm}`;
+    };
+
+    const minVal = minDate ? toLocalInputValue(minDate) : undefined;
+    const maxVal = maxDate ? toLocalInputValue(maxDate) : undefined;
+
+    return (
+      <div className={`relative ${className}`}>
+        <input
+          type="datetime-local"
+          value={toLocalInputValue(selectedDate)}
+          onChange={(e) => {
+            const v = e.target.value; // 'YYYY-MM-DDTHH:mm'
+            if (!v) {
+              setSelectedDate(null);
+              onChange('');
+              return;
+            }
+            const d = new Date(v);
+            setSelectedDate(d);
+            onChange(d.toISOString());
+          }}
+          min={minVal}
+          max={maxVal}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          placeholder={placeholderText}
+          disabled={disabled}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={`relative ${className}`}>
