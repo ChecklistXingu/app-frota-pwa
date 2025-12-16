@@ -79,9 +79,20 @@ const AdminMaintenancePage = () => {
       });
       return;
     }
-    await updateMaintenanceStatus(maintenance.id, status, {
-      managerId: profile?.id,
-    });
+    // Optimistic UI update
+    const previous = items;
+    try {
+      setItems((prev) => prev.map((it) => it.id === maintenance.id ? { ...it, status } : it));
+      await updateMaintenanceStatus(maintenance.id, status, {
+        managerId: profile?.id,
+      });
+    } catch (err) {
+      // Revert on failure
+      console.error("Erro ao atualizar status:", err);
+      setItems(previous);
+      // opcional: avisar o usuário (alert temporário)
+      alert("Erro ao atualizar status. Verifique a conexão ou as permissões e tente novamente.");
+    }
   };
 
   const toInputDateTime = (value: any) => {

@@ -115,8 +115,15 @@ export const updateMaintenanceStatus = async (
   // Aplica atualização de status e registra histórico de alterações
   // Inclui um registro em statusHistory com carimbo de tempo e autor (se disponível em payload)
   const by = (payload as any).managerId || (payload as any).userId || null;
-  await updateDoc(ref, {
-    ...updates,
-    statusHistory: arrayUnion({ status, by, at: serverTimestamp() }),
-  } as any);
+  try {
+    await updateDoc(ref, {
+      ...updates,
+      statusHistory: arrayUnion({ status, by, at: serverTimestamp() }),
+    } as any);
+    console.log(`✅ Maintenance ${id} status updated to ${status} by ${by}`);
+    return true;
+  } catch (err) {
+    console.error(`❌ Failed to update maintenance ${id} status to ${status}:`, err);
+    throw err;
+  }
 };
