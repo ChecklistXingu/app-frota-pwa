@@ -83,6 +83,10 @@ type MaintenanceRecord = {
   scheduledFor?: Date | null;
   forecastedCompletion?: Date | null;
   completedAt?: Date | null;
+  managerNote?: string;
+  managerId?: string;
+  statusHistory?: Array<{ status: string; by?: string; at?: any }>;
+  audioEvents?: Array<{ url: string; uploadedBy?: string; duration?: number; at?: any }>;
 };
 
 const CHECKLIST_ITEMS = [
@@ -249,6 +253,10 @@ const MaintenancePage = () => {
           scheduledFor: parseDateField(data.scheduledFor),
           forecastedCompletion: parseDateField(data.forecastedCompletion),
           completedAt: parseDateField(data.completedAt),
+          managerNote: data.managerNote || undefined,
+          managerId: data.managerId || undefined,
+          statusHistory: Array.isArray(data.statusHistory) ? data.statusHistory : [],
+          audioEvents: Array.isArray(data.audioEvents) ? data.audioEvents : [],
         };
       });
       setMaintenanceList(list);
