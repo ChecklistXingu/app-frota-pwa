@@ -18,6 +18,11 @@ service firebase.storage {
       return request.resource.contentType.matches('image/.*');
     }
     
+    // Função para verificar se é um áudio
+    function isAudio() {
+      return request.resource.contentType.matches('audio/.*');
+    }
+    
     // Função para verificar tamanho máximo (5MB)
     function isValidSize() {
       return request.resource.size < 5 * 1024 * 1024;
@@ -25,16 +30,24 @@ service firebase.storage {
     
     // ============================================
     // PASTA: maintenance/{userId}/*
-    // Fotos de manutenção/problemas dos veículos
+    // Fotos e áudios de manutenção/problemas dos veículos
     // ============================================
     match /maintenance/{userId}/{allPaths=**} {
-      // Usuário pode ler suas próprias fotos
+      // Usuário pode ler seus próprios arquivos
       allow read: if isOwner(userId);
-      
-      // Usuário pode fazer upload de suas próprias fotos
-      allow write: if isOwner(userId) && isImage() && isValidSize();
-      
-      // Usuário pode deletar suas próprias fotos
+
+      // Permite upload de imagens ou áudios do próprio usuário.
+      // Mantemos verificação de tamanho separada para áudio caso precise de limite maior.
+      function isValidAudioSize() {
+        return request.resource.size < 10 * 1024 * 1024; // 10 MB
+      }
+
+      allow write: if isOwner(userId) && (
+        (isImage() && isValidSize()) ||
+        (isAudio() && isValidAudioSize())
+      );
+
+      // Usuário pode deletar seus próprios arquivos
       allow delete: if isOwner(userId);
     }
     
