@@ -4,6 +4,7 @@ import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { ChevronDown, Wrench } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import DateTimePicker from "../../components/DateTimePicker";
 
 const statusOptions: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
 
@@ -111,16 +112,13 @@ const AdminMaintenancePage = () => {
 
   const openTicketModal = (maintenance: Maintenance) => {
     const now = new Date();
-    // Formata a data/hora atual no formato YYYY-MM-DDThh:mm
-    const currentDateTime = now.toISOString().slice(0, 16);
-    // Adiciona 1 hora para a previsão de finalização
-    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000).toISOString().slice(0, 16);
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
     
     setTicketModal({ open: true, maintenance });
     setTicketForm({
       workshopName: maintenance.workshopName || "",
-      scheduledFor: toInputDateTime(maintenance.scheduledFor) || currentDateTime,
-      forecastedCompletion: toInputDateTime(maintenance.forecastedCompletion) || oneHourLater,
+      scheduledFor: maintenance.scheduledFor || now.toISOString(),
+      forecastedCompletion: maintenance.forecastedCompletion || oneHourLater.toISOString(),
       forecastedCost: maintenance.forecastedCost ? maintenance.forecastedCost.toString() : "",
       managerNote: maintenance.managerNote || "",
     });
@@ -555,21 +553,19 @@ const AdminMaintenancePage = () => {
 
               <div className="flex-1 space-y-1">
                 <label className="text-xs font-medium">Data/Hora agendada</label>
-                <input
-                  type="datetime-local"
-                  value={ticketForm.scheduledFor}
-                  onChange={(e) => setTicketForm((prev) => ({ ...prev, scheduledFor: e.target.value }))}
-                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
+                <DateTimePicker
+                  selected={ticketForm.scheduledFor}
+                  onChange={(date) => setTicketForm(prev => ({ ...prev, scheduledFor: date }))}
+                  minDate={new Date()}
                 />
               </div>
 
               <div className="flex-1 space-y-1">
                 <label className="text-xs font-medium">Previsão de finalização</label>
-                <input
-                  type="datetime-local"
-                  value={ticketForm.forecastedCompletion}
-                  onChange={(e) => setTicketForm((prev) => ({ ...prev, forecastedCompletion: e.target.value }))}
-                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
+                <DateTimePicker
+                  selected={ticketForm.forecastedCompletion}
+                  onChange={(date) => setTicketForm(prev => ({ ...prev, forecastedCompletion: date }))}
+                  minDate={ticketForm.scheduledFor ? new Date(ticketForm.scheduledFor) : new Date()}
                 />
               </div>
 
@@ -632,11 +628,10 @@ const AdminMaintenancePage = () => {
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-medium">Data/Hora da finalização</label>
-                <input
-                  type="datetime-local"
-                  value={completionModal.date}
-                  onChange={(e) => setCompletionModal((prev) => ({ ...prev, date: e.target.value }))}
-                  className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
+                <DateTimePicker
+                  selected={completionModal.date}
+                  onChange={(date) => setCompletionModal(prev => ({ ...prev, date }))}
+                  maxDate={new Date()}
                 />
               </div>
               <div>
