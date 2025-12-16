@@ -1,6 +1,8 @@
 /// <reference lib="webworker" />
 /* eslint-disable no-restricted-globals */
 import { precacheAndRoute } from 'workbox-precaching'
+import { registerRoute } from 'workbox-routing'
+import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
 
 // Workbox will replace this with the manifest array at build time
 // @ts-ignore
@@ -51,3 +53,24 @@ self.addEventListener('message', (event: any) => {
   }
 })
 export {}
+
+// Garantir que requisições de navegação (index.html) usem NetworkFirst
+// para evitar tela branca caso algum asset importante não esteja no precache.
+try {
+  registerRoute(
+    // Trata apenas requests de navegação (SPA)
+    ({ request }) => request.mode === 'navigate',
+    new NetworkFirst({
+      cacheName: 'html-cache',
+      networkTimeoutSeconds: 3,
+    })
+  )
+
+  // Estratégia para JS/CSS (usar StaleWhileRevalidate para performance)
+  registerRoute(
+    ({ request }) => request.destination === 'script' || request.destination === 'style',
+    new StaleWhileRevalidate({ cacheName: 'static-resources' }),
+  )
+} catch (e) {
+  console.error('[SW] Error registering runtime routes', e)
+}

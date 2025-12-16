@@ -174,6 +174,9 @@ if (navigator.serviceWorker) {
     if (refreshing) return
     refreshing = true
     console.log('[PWA] controllerchange detected - reloading to activate new SW')
-    window.location.reload()
+    // Pequeno delay para garantir que o novo SW já tenha registrado seus caches
+    setTimeout(() => {
+      window.location.reload()
+    }, 300)
   })
 }

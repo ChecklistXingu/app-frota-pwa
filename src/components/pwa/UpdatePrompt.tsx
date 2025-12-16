@@ -56,9 +56,9 @@ const UpdatePrompt = () => {
         waitingWorker.postMessage({ type: 'SKIP_WAITING' })
       }
     }
-    
-    // Recarrega a página
-    window.location.reload();
+    // Não recarregamos imediatamente aqui — esperamos o evento 'controllerchange'
+    // global para recarregar a página quando o novo SW assumir o controle.
+    setShowUpdate(false);
   };
 
   if (!showUpdate) return null;
