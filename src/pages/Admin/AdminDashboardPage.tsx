@@ -167,6 +167,11 @@ const AdminDashboardPage = () => {
               <span className="font-semibold text-[#9f1239]">{formatCurrency(topConsumers.topMaintenanceVehicle.value)}</span>
             </div>
           )}
+          {(!topConsumers.topFuelVehicle && !topConsumers.topMaintenanceVehicle) && (
+            <div className="text-xs text-[#94a3b8] text-center py-2">
+              Sem dados de consumo disponíveis
+            </div>
+          )}
         </div>
       ),
     },
