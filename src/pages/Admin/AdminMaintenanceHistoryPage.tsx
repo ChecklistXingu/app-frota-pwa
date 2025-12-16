@@ -65,11 +65,11 @@ const AdminMaintenanceHistoryPage = () => {
   }, [items, vehicleFilter]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold flex items-center gap-3"><Wrench size={20} /> Histórico de Manutenções</h2>
-        <div className="flex items-center gap-2">
-          <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
+    <div className="space-y-4 px-2 sm:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-3"><Wrench size={20} /> Histórico de Manutenções</h2>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} className="border rounded-lg px-3 py-2 text-sm w-full sm:w-auto">
             <option value="all">Todos os veículos</option>
             {vehicles.map((v) => (
               <option key={v.id} value={v.id}>{`${v.plate} • ${v.model}`}</option>
@@ -78,19 +78,19 @@ const AdminMaintenanceHistoryPage = () => {
         </div>
       </div>
 
-      <div className="bg-white border rounded-xl p-4 space-y-4">
+      <div className="bg-white border rounded-xl p-3 sm:p-4 space-y-4">
         {finished.length === 0 ? (
           <p className="text-sm text-gray-500">Nenhuma manutenção finalizada.</p>
         ) : (
           <div className="space-y-3">
             {finished.map((m) => (
-              <div key={m.id} className="rounded-xl border bg-white px-4 py-3 shadow-sm text-sm">
-                <div className="flex justify-between items-start gap-2 mb-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold">{getVehicleLabel(m.vehicleId)}</p>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700`}>Finalizado</span>
+              <div key={m.id} className="rounded-xl border bg-white px-3 py-3 sm:px-4 sm:py-3 shadow-sm text-sm">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <p className="font-semibold text-sm">{getVehicleLabel(m.vehicleId)}</p>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 self-start sm:self-auto`}>Finalizado</span>
                   </div>
-                  <div className="text-[10px] text-gray-500">{m.completedAt ? formatDateField(m.completedAt) : ""}</div>
+                  <div className="text-[10px] text-gray-500 sm:text-right">{m.completedAt ? formatDateField(m.completedAt) : ""}</div>
                 </div>
 
                 <div className="text-[11px] text-gray-700 mb-2">
@@ -128,6 +128,48 @@ const AdminMaintenanceHistoryPage = () => {
                         </ul>
                       </div>
                     )}
+
+                    {/* Fotos - movido para dentro dos registros do motorista */}
+                    {(m as any).photos && (m as any).photos.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-[11px] font-medium">Fotos registradas:</p>
+                        <div className="flex gap-2 mt-1 overflow-x-auto pb-2">
+                          {(m as any).photos.map((url:string, idx:number) => (
+                            <a key={idx} href={url} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                              <img src={url} alt={`Foto ${idx + 1}`} className="w-14 h-14 sm:w-16 sm:h-16 object-contain rounded-lg border bg-white p-1" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Áudios - movido para dentro dos registros do motorista */}
+                    <div className="mt-3 text-left">
+                      <p className="text-[11px] font-medium">Áudios registrados:</p>
+                      <div className="mt-1 space-y-2">
+                        {(m as any).audioEvents && (m as any).audioEvents.length > 0 ? (
+                          (m as any).audioEvents.map((ev:any, i:number) => (
+                            <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2">
+                              <audio controls src={ev.url} className="w-full sm:w-48" />
+                              <div className="text-[11px] text-gray-500">
+                                <div>Duração: {formatDurationSeconds(ev.duration)}</div>
+                                <div className="text-[10px]">Enviado por: {ev.uploadedBy || "-"} • {formatDateField(ev.at)}</div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (m as any).audioUrl ? (
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <audio controls src={(m as any).audioUrl} className="w-full sm:w-48" />
+                            <div className="text-[11px] text-gray-500">
+                              <div>Duração: {formatDurationSeconds((m as any).audioDurationSeconds)}</div>
+                              <div className="text-[10px]">Enviado por: - • {m.completedAt ? formatDateField(m.completedAt) : ''}</div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-gray-500">Nenhum áudio registrado.</div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {((m.workshopName || m.scheduledFor || m.forecastedCompletion || m.completedAt || (m as any).managerNote) ) && (
@@ -151,37 +193,6 @@ const AdminMaintenanceHistoryPage = () => {
                       )}
                     </div>
                   )}
-                </div>
-
-                {(m as any).photos && (m as any).photos.length > 0 && (
-                  <div className="flex gap-2 mt-2 overflow-x-auto">
-                    {(m as any).photos.map((url:string, idx:number) => (
-                      <a key={idx} href={url} target="_blank" rel="noreferrer" className="flex-shrink-0">
-                        <img src={url} alt={`Foto ${idx + 1}`} className="w-16 h-16 object-contain rounded-lg border bg-white p-1" />
-                      </a>
-                    ))}
-                  </div>
-                )}
-
-                <div className="mt-3 text-left">
-                  <p className="text-[11px] font-medium">Áudios</p>
-                  <div className="mt-1 space-y-2">
-                    {(m as any).audioEvents && (m as any).audioEvents.length > 0 ? (
-                      (m as any).audioEvents.map((ev:any, i:number) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <audio controls src={ev.url} className="w-48" />
-                          <div className="text-[11px] text-gray-500"><div>Duração: {formatDurationSeconds(ev.duration)}</div><div className="text-[10px]">Enviado por: {ev.uploadedBy || "-"} • {formatDateField(ev.at)}</div></div>
-                        </div>
-                      ))
-                    ) : (m as any).audioUrl ? (
-                      <div className="flex items-center gap-2">
-                        <audio controls src={(m as any).audioUrl} className="w-48" />
-                        <div className="text-[11px] text-gray-500"><div>Duração: {formatDurationSeconds((m as any).audioDurationSeconds)}</div><div className="text-[10px]">Enviado por: - • {m.completedAt ? formatDateField(m.completedAt) : ''}</div></div>
-                      </div>
-                    ) : (
-                      <div className="text-[11px] text-gray-500">Nenhum áudio registrado.</div>
-                    )}
-                  </div>
                 </div>
               </div>
             ))}
