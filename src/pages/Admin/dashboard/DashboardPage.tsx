@@ -252,8 +252,8 @@ const DashboardPage = () => {
             <p className="text-sm text-muted-foreground">Ainda não há dados suficientes para projetar a tendência.</p>
           ) : (
             <>
-              <div className="w-full h-80">
-                <ResponsiveContainer>
+              <div className="w-full" style={{ height: '320px', minHeight: '320px' }}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <LineChart data={costPerKmTimeline} margin={{ left: 8, right: 16, top: 16, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
@@ -293,7 +293,9 @@ const DashboardPage = () => {
 /* Removed legacy StatsCard (replaced by CompactMaintCard) */
 
 const Sparkline = ({ values }: { values: number[] }) => {
-  if (!values || values.length === 0) return <div className="h-6" />;
+  if (!values || values.length === 0 || !values.every(v => typeof v === 'number' && !isNaN(v))) {
+    return <div className="h-6" />;
+  }
   const width = 80;
   const height = 24;
   const max = Math.max(...values);

@@ -97,3 +97,33 @@ registerRoute(
     networkTimeoutSeconds: 10,
   })
 )
+
+// Estratégia para recursos Firebase (evitar 404s)
+registerRoute(
+  ({ url }) => url.origin.includes('firebase') || url.origin.includes('googleapis'),
+  new NetworkFirst({
+    cacheName: `${CACHE_NAME}-firebase`,
+    networkTimeoutSeconds: 10,
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 50,
+        maxAgeSeconds: 60 * 60 * 24, // 24 horas
+      })
+    ]
+  })
+)
+
+// Fallback para recursos não encontrados
+registerRoute(
+  ({ request }) => request.destination === 'script' || request.destination === 'style',
+  async ({ request }) => {
+    try {
+      const response = await fetch(request)
+      return response
+    } catch (error) {
+      console.warn('[SW] Recurso não encontrado, tentando cache:', request.url)
+      const cached = await caches.match(request)
+      return cached || new Response('Resource not found', { status: 404 })
+    }
+  }
+)
