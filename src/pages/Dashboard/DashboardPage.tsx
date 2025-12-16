@@ -452,6 +452,48 @@ const DashboardPage = () => {
                           </ul>
                         </div>
                       )}
+
+                      {/* Fotos - movido para dentro dos registros do motorista */}
+                      {m.photos && m.photos.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-[11px] font-medium">Fotos registradas:</p>
+                          <div className="flex gap-2 mt-1 overflow-x-auto">
+                            {m.photos.map((url: string, idx: number) => (
+                              <a key={idx} href={url} target="_blank" rel="noreferrer" className="flex-shrink-0">
+                                <img src={url} alt={`Foto ${idx + 1}`} className="w-16 h-16 object-contain rounded-lg border bg-white p-1" />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Áudios - movido para dentro dos registros do motorista */}
+                      <div className="mt-3 text-left">
+                        <p className="text-[11px] font-medium">Áudios registrados:</p>
+                        <div className="mt-1 space-y-2">
+                          {m.audioEvents && m.audioEvents.length > 0 ? (
+                            m.audioEvents.map((ev: any, i: number) => (
+                              <div key={i} className="flex items-center gap-2">
+                                <audio controls src={ev.url} className="w-48" />
+                                <div className="text-[11px] text-gray-500">
+                                  <div>Duração: {formatDurationSeconds(ev.duration)}</div>
+                                  <div className="text-[10px]">Enviado por: {ev.uploadedBy || "-"} • {formatDateField(ev.at)}</div>
+                                </div>
+                              </div>
+                            ))
+                          ) : m.audioUrl ? (
+                            <div className="flex items-center gap-2">
+                              <audio controls src={m.audioUrl} className="w-48" />
+                              <div className="text-[11px] text-gray-500">
+                                <div>Duração: {formatDurationSeconds(m.audioDurationSeconds)}</div>
+                                <div className="text-[10px]">Enviado por: - • {m.date ? m.date.toLocaleString() : ''}</div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-gray-500">Nenhum áudio registrado.</div>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Registros do gestor (Painel de Gestão) */}
@@ -480,42 +522,6 @@ const DashboardPage = () => {
                         )}
                       </div>
                     )}
-                  </div>
-
-                  {m.photos && m.photos.length > 0 && (
-                    <div className="flex gap-2 mt-2 overflow-x-auto">
-                      {m.photos.map((url: string, idx: number) => (
-                        <a key={idx} href={url} target="_blank" rel="noreferrer" className="flex-shrink-0">
-                          <img src={url} alt={`Foto ${idx + 1}`} className="w-16 h-16 object-contain rounded-lg border bg-white p-1" />
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                  <div className="mt-3 text-left">
-                    <p className="text-[11px] font-medium">Áudios</p>
-                    <div className="mt-1 space-y-2">
-                      {m.audioEvents && m.audioEvents.length > 0 ? (
-                        m.audioEvents.map((ev: any, i: number) => (
-                          <div key={i} className="flex items-center gap-2">
-                            <audio controls src={ev.url} className="w-48" />
-                            <div className="text-[11px] text-gray-500">
-                              <div>Duração: {formatDurationSeconds(ev.duration)}</div>
-                              <div className="text-[10px]">Enviado por: {ev.uploadedBy || "-"} • {formatDateField(ev.at)}</div>
-                            </div>
-                          </div>
-                        ))
-                      ) : m.audioUrl ? (
-                        <div className="flex items-center gap-2">
-                          <audio controls src={m.audioUrl} className="w-48" />
-                          <div className="text-[11px] text-gray-500">
-                            <div>Duração: {formatDurationSeconds(m.audioDurationSeconds)}</div>
-                            <div className="text-[10px]">Enviado por: - • {m.date ? m.date.toLocaleString() : ''}</div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-[11px] text-gray-500">Nenhum áudio registrado.</div>
-                      )}
-                    </div>
                   </div>
                 </div>
               ))}
