@@ -4,6 +4,7 @@ import { RefreshCw } from "lucide-react";
 const UpdatePrompt = () => {
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [show, setShow] = useState(false);
+  const [hasShown, setHasShown] = useState(false); // Controle para não mostrar múltiplas vezes
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -31,10 +32,11 @@ const UpdatePrompt = () => {
         if (!registration) return;
 
         // Verifica se já tem um worker esperando
-        if (registration.waiting) {
+        if (registration.waiting && !hasShown) {
           console.log('[PWA] Worker encontrado esperando ativação');
           setWaitingWorker(registration.waiting);
           setShow(true);
+          setHasShown(true); // Marca que já mostrou
         }
 
         // Força verificação de atualizações
@@ -48,10 +50,11 @@ const UpdatePrompt = () => {
           if (worker) {
             worker.addEventListener("statechange", () => {
               console.log('[PWA] Worker state changed to:', worker.state);
-              if (worker.state === "installed" && navigator.serviceWorker.controller) {
+              if (worker.state === "installed" && navigator.serviceWorker.controller && !hasShown) {
                 console.log('[PWA] Novo worker instalado, mostrando prompt');
                 setWaitingWorker(worker);
                 setShow(true);
+                setHasShown(true); // Marca que já mostrou
               }
             });
           }
@@ -64,8 +67,8 @@ const UpdatePrompt = () => {
     // Verifica atualizações na inicialização
     checkForUpdates();
 
-    // Verifica atualizações periodicamente
-    const interval = setInterval(checkForUpdates, 5 * 60 * 1000); // 5 minutos
+    // Verifica atualizações periodicamente (reduzido para 30 minutos para não sobrecarregar)
+    const interval = setInterval(checkForUpdates, 30 * 60 * 1000); // 30 minutos
 
     return () => {
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
