@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { listenMaintenances } from "../../../../services/maintenanceService";
 import { listenVehicles } from "../../../../services/vehiclesService";
 import { listenUsers } from "../../../../services/usersService";
-import { getRefuelingTimestamp, listenRefuelings } from "../../../../services/refuelingService";
+import { listenRefuelings } from "../../../../services/refuelingService";
 import type { DashboardData, DashboardFilters } from "../types/dashboard.types";
 
 const parseInputDate = (value?: string | null, endOfDay = false): Date | null => {
@@ -226,47 +226,102 @@ export const useDashboardData = (filters?: DashboardFilters) => {
       branchTotals.maintenance += maintenanceCost;
     });
 
-    const sortedByDate = [...effectiveRefuelings].sort(
-      (a, b) => getRefuelingTimestamp(a.date) - getRefuelingTimestamp(b.date)
-    );
+    // Função para agrupar e ordenar abastecimentos por veículo
+    const groupRefuelsByVehicle = (refuels: any[]) => {
+      const vehicleMap = new Map<string, any[]>();
+      
+      refuels.forEach(refuel => {
+        if (!refuel.vehicleId) return;
+        
+        if (!vehicleMap.has(refuel.vehicleId)) {
+          vehicleMap.set(refuel.vehicleId, []);
+        }
+        vehicleMap.get(refuel.vehicleId)?.push(refuel);
+      });
 
-    const distanceByVehicle = new Map<string, number>();
+      // Ordena os abastecimentos de cada veículo por data
+      vehicleMap.forEach((vehicleRefuels) => {
+        vehicleRefuels.sort((a, b) => {
+          const aDate = a.date?.toDate?.() || a.date;
+          const bDate = b.date?.toDate?.() || b.date;
+          return new Date(aDate).getTime() - new Date(bDate).getTime();
+        });
+      });
+
+      return vehicleMap;
+    };
+
+    // Agrupa abastecimentos por veículo e ordena por data
+    const refuelsByVehicle = groupRefuelsByVehicle(effectiveRefuelings);
+    
     let totalDistance = 0;
-    let distanceSamples = 0;
+    let validSamples = 0;
+    const monthlyDistances = new Map<string, number>();
 
-    sortedByDate.forEach((refueling) => {
-      const vehicleId = refueling.vehicleId;
-      const currentKm = Number(refueling.km);
-      if (!vehicleId || Number.isNaN(currentKm)) {
-        return;
-      }
+    // Calcula a distância percorrida para cada veículo
+    refuelsByVehicle.forEach((vehicleRefuels) => {
+      // Pula se tiver menos de 2 abastecimentos
+      if (vehicleRefuels.length < 2) return;
 
-      const lastKm = distanceByVehicle.get(vehicleId);
-      if (lastKm !== undefined && currentKm > lastKm) {
-        const delta = currentKm - lastKm;
-        totalDistance += delta;
-        distanceSamples += 1;
+      // Ordena por data para garantir a ordem correta
+      vehicleRefuels.sort((a, b) => {
+        const aDate = a.date?.toDate?.() || a.date;
+        const bDate = b.date?.toDate?.() || b.date;
+        return new Date(aDate).getTime() - new Date(bDate).getTime();
+      });
 
-        const refuelDate = refueling.date?.toDate ? refueling.date.toDate() : refueling.date ? new Date(refueling.date) : null;
-        const monthKey = ensureMonthEntry(refuelDate);
-        if (monthKey) {
-          const monthEntry = ensureBranchMonthEntry(monthKey, monthMap.get(monthKey)?.label || monthKey, userBranchMap.get(refueling.userId) || "--");
-          monthEntry.distance += delta;
+      // Calcula a distância entre abastecimentos consecutivos
+      for (let i = 1; i < vehicleRefuels.length; i++) {
+        const current = vehicleRefuels[i];
+        const previous = vehicleRefuels[i - 1];
+        
+        const currentKm = Number(current.km);
+        const previousKm = Number(previous.km);
+        
+        // Apenas considera se ambas as leituras forem válidas e a atual for maior que a anterior
+        if (!isNaN(currentKm) && !isNaN(previousKm) && currentKm > previousKm) {
+          const distance = currentKm - previousKm;
+          totalDistance += distance;
+          validSamples++;
+
+          // Atualiza o registro de distância mensal
+          const refuelDate = current.date?.toDate?.() || current.date;
+          if (refuelDate) {
+            const date = refuelDate instanceof Date ? refuelDate : new Date(refuelDate);
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            const currentTotal = monthlyDistances.get(monthKey) || 0;
+            monthlyDistances.set(monthKey, currentTotal + distance);
+          }
         }
       }
-
-      distanceByVehicle.set(vehicleId, currentKm);
     });
 
-    const averageConsumption = totalLiters > 0 ? totalDistance / totalLiters : 0;
-    const costPerKm = totalDistance > 0 ? monthlyTotal / totalDistance : 0;
+    // Atualiza as distâncias mensais no monthMap
+    monthlyDistances.forEach((distance, monthKey) => {
+      const monthData = monthMap.get(monthKey);
+      if (monthData) {
+        const branch = '--'; // Usa '--' como branch padrão para distância
+        const monthEntry = ensureBranchMonthEntry(monthKey, monthData.label, branch);
+        monthEntry.distance = (monthEntry.distance || 0) + distance;
+      }
+    });
+
+    // Calcula a média de consumo (km/L)
+    const averageConsumption = validSamples > 0 && totalLiters > 0 ? 
+      totalDistance / totalLiters : 0;
+      
+    // Calcula o custo por km (R$/km)
+    const costPerKm = validSamples > 0 && totalDistance > 0 ? 
+      monthlyTotal / totalDistance : 0;
 
     const refuelingStats = {
       monthlyTotal,
       totalLiters,
       averageConsumption,
       costPerKm,
-      averageDistancePerRefueling: distanceSamples > 0 ? totalDistance / distanceSamples : 0,
+      totalDistance,
+      validSamples,
+      averageDistancePerRefueling: validSamples > 0 ? totalDistance / validSamples : 0,
     };
 
     // Atividades recentes
