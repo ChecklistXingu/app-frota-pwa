@@ -445,10 +445,14 @@ export const useDashboardData = (filters?: DashboardFilters) => {
         users = items;
         updateDashboard();
       }),
-      listenRefuelings((items) => {
-        refuelings = items;
+      // Listen to refuelings
+      listenRefuelings((refuelings) => {
+        console.log('[DEBUG] Refuelings recebidos do Firebase:', refuelings.length);
+        console.log('[DEBUG] Amostra de refuelings:', refuelings.slice(0, 3));
+        refuelings = refuelings;
         updateDashboard();
       })
+
     ];
 
     return () => {
