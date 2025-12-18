@@ -79,19 +79,40 @@ const UpdatePrompt = () => {
   }, []);
 
   const updateApp = async () => {
-    if (!waitingWorker) return;
+    if (!waitingWorker) {
+      console.log('[PWA] Nenhum worker esperando');
+      return;
+    }
 
-    console.log("[PWA] Enviando SKIP_WAITING");
+    console.log("[PWA] Enviando SKIP_WAITING para o worker:", waitingWorker);
+    console.log("[PWA] Estado do worker:", waitingWorker.state);
     setIsUpdating(true); // Inicia a animação
     
-    // Envia a mensagem para o service worker
-    waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    // Adiciona listener para resposta
+    const handleMessage = (event: MessageEvent) => {
+      console.log('[PWA] Mensagem recebida do worker:', event.data);
+      if (event.data?.type === 'SKIP_WAITING_COMPLETE') {
+        console.log('[PWA] Worker confirmou, recarregando...');
+        window.location.reload();
+      }
+    };
     
-    // Aguarda um pouco e força o reload
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    
+    try {
+      // Envia a mensagem para o service worker
+      waitingWorker.postMessage({ type: "SKIP_WAITING" });
+      console.log('[PWA] Mensagem enviada com sucesso');
+    } catch (error) {
+      console.error('[PWA] Erro ao enviar mensagem:', error);
+      setIsUpdating(false);
+    }
+    
+    // Timeout de segurança caso o worker não responda
     setTimeout(() => {
-      console.log("[PWA] Forçando reload após SKIP_WAITING");
+      console.log("[PWA] Timeout - forçando reload");
       window.location.reload();
-    }, 1000); // Aumentado para 1 segundo para dar tempo ao SW
+    }, 2000); // 2 segundos de timeout
     
     setShow(false);
   };
