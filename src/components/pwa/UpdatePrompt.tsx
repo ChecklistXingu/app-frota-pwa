@@ -5,6 +5,7 @@ const UpdatePrompt = () => {
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [show, setShow] = useState(false);
   const [hasShown, setHasShown] = useState(false); // Controle para não mostrar múltiplas vezes
+  const [isUpdating, setIsUpdating] = useState(false); // Controle para animação
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -81,6 +82,7 @@ const UpdatePrompt = () => {
     if (!waitingWorker) return;
 
     console.log("[PWA] Enviando SKIP_WAITING");
+    setIsUpdating(true); // Inicia a animação
     
     // Envia a mensagem para o service worker
     waitingWorker.postMessage({ type: "SKIP_WAITING" });
@@ -89,7 +91,7 @@ const UpdatePrompt = () => {
     setTimeout(() => {
       console.log("[PWA] Forçando reload após SKIP_WAITING");
       window.location.reload();
-    }, 500);
+    }, 1000); // Aumentado para 1 segundo para dar tempo ao SW
     
     setShow(false);
   };
@@ -101,17 +103,27 @@ const UpdatePrompt = () => {
       <div className="bg-[#0d2d6c] text-white px-4 py-3 shadow">
         <div className="max-w-md mx-auto flex items-center gap-3">
           <div className="w-10 h-10 bg-[#ffd300] rounded-full flex items-center justify-center">
-            <RefreshCw size={20} className="animate-spin text-[#0d2d6c]" />
+            <RefreshCw 
+              size={20} 
+              className={`text-[#0d2d6c] ${isUpdating ? 'animate-spin' : ''}`} 
+            />
           </div>
           <div className="flex-1">
             <p className="text-sm font-semibold">Nova versão disponível</p>
-            <p className="text-xs opacity-80">Atualize para continuar</p>
+            <p className="text-xs opacity-80">
+              {isUpdating ? 'Atualizando...' : 'Atualize para continuar'}
+            </p>
           </div>
           <button
             onClick={updateApp}
-            className="bg-[#ffd300] text-[#0d2d6c] px-4 py-2 rounded-lg text-sm font-semibold"
+            disabled={isUpdating}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              isUpdating 
+                ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                : 'bg-[#ffd300] text-[#0d2d6c] hover:bg-[#e6be00]'
+            }`}
           >
-            Atualizar
+            {isUpdating ? 'Atualizando...' : 'Atualizar'}
           </button>
         </div>
       </div>
