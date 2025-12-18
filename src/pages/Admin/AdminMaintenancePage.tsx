@@ -143,12 +143,23 @@ const AdminMaintenancePage = () => {
   };
 
   const handleTicketSubmit = async () => {
-    if (!ticketModal.maintenance) return;
+    if (!ticketModal.maintenance) {
+      console.error('[TICKET] Nenhuma manutenção selecionada');
+      return;
+    }
+    
+    console.log('[TICKET] Iniciando salvamento do ticket');
+    console.log('[TICKET] Dados do formulário:', ticketForm);
+    console.log('[TICKET] Profile ID:', profile?.id);
+    
     setSavingTicket(true);
     try {
       const scheduledDate = ticketForm.scheduledFor ? new Date(ticketForm.scheduledFor) : null;
       const forecastedDate = ticketForm.forecastedCompletion ? new Date(ticketForm.forecastedCompletion) : null;
       const forecastedCost = ticketForm.forecastedCost ? Number(ticketForm.forecastedCost) : undefined;
+      
+      console.log('[TICKET] Datas processadas:', { scheduledDate, forecastedDate, forecastedCost });
+      
       await updateMaintenanceStatus(ticketModal.maintenance.id, "scheduled", {
         workshopName: ticketForm.workshopName || undefined,
         scheduledFor: scheduledDate || undefined,
@@ -157,9 +168,23 @@ const AdminMaintenancePage = () => {
         managerNote: ticketForm.managerNote || undefined,
         managerId: profile?.id,
       });
+      
+      console.log('[TICKET] Ticket salvo com sucesso!');
       closeTicketModal();
-    } catch (error) {
-      console.error("Erro ao salvar ticket", error);
+    } catch (error: any) {
+      console.error("[TICKET] Erro ao salvar ticket:", error);
+      console.error("[TICKET] Código do erro:", error?.code);
+      console.error("[TICKET] Mensagem:", error?.message);
+      
+      // Mostra mensagem de erro específica para o usuário
+      if (error?.code === 'permission-denied') {
+        alert("❌ Permissão negada: Verifique se seu usuário tem role 'admin' no Firestore.");
+      } else if (error?.code === 'unavailable') {
+        alert("❌ Erro de conexão: Verifique sua internet e tente novamente.");
+      } else {
+        alert(`❌ Erro ao salvar ticket: ${error?.message || 'Erro desconhecido'}`);
+      }
+      
       setSavingTicket(false);
     }
   };
