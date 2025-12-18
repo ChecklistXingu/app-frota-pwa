@@ -188,6 +188,7 @@ const DashboardPage = () => {
           photos: Array.isArray(d.data.photos) ? d.data.photos : undefined,
           audioUrl: typeof d.data.audioUrl === 'string' ? d.data.audioUrl : null,
           audioDurationSeconds: typeof d.data.audioDurationSeconds === 'number' ? d.data.audioDurationSeconds : null,
+          finalCost: typeof d.data.finalCost === 'number' ? d.data.finalCost : undefined,
           statusHistory: Array.isArray(d.data.statusHistory) ? d.data.statusHistory : [],
           audioEvents: Array.isArray(d.data.audioEvents) ? d.data.audioEvents : [],
         }));
