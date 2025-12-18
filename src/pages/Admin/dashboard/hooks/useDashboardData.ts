@@ -379,7 +379,13 @@ export const useDashboardData = (filters?: DashboardFilters) => {
       .slice(-6)
       .map(({ label, maintenance, fuel }) => ({ month: label, maintenance, fuel }));
 
+    console.log('[DEBUG] monthlyCosts:', monthlyCosts);
+    console.log('[DEBUG] monthMap size:', monthMap.size);
+
     const costsByBranch = Array.from(branchMap.values()).sort((a, b) => b.maintenance + b.fuel - (a.maintenance + a.fuel));
+    
+    console.log('[DEBUG] costsByBranch:', costsByBranch);
+    console.log('[DEBUG] branchMap size:', branchMap.size);
 
     const sortedTimelineMonths = Array.from(branchMonthMap.entries())
       .sort((a, b) => ((monthMap.get(a[0])?.order || 0) - (monthMap.get(b[0])?.order || 0)))
