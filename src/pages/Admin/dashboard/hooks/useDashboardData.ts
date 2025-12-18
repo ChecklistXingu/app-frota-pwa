@@ -259,6 +259,8 @@ export const useDashboardData = (filters?: DashboardFilters) => {
     
     let totalDistance = 0;
     let validSamples = 0;
+    let skippedVehicles = 0;
+    let vehiclesWithInsufficientData = 0;
     const monthlyDistances = new Map<string, number>();
 
     // Calcula a distância percorrida para cada veículo
@@ -268,6 +270,7 @@ export const useDashboardData = (filters?: DashboardFilters) => {
       // Pula se tiver menos de 2 abastecimentos
       if (vehicleRefuels.length < 2) {
         console.log(`[DEBUG] Veículo ${vehicleId} pulado - menos de 2 abastecimentos`);
+        vehiclesWithInsufficientData++;
         return;
       }
 
@@ -304,6 +307,15 @@ export const useDashboardData = (filters?: DashboardFilters) => {
             const currentTotal = monthlyDistances.get(monthKey) || 0;
             monthlyDistances.set(monthKey, currentTotal + distance);
           }
+        } else {
+          // Registra abastecimentos com dados inválidos
+          if (isNaN(currentKm) || isNaN(previousKm)) {
+            console.log(`[DEBUG] Abastecimento ignorado - KM inválido: ${previousKm} -> ${currentKm}`);
+            skippedVehicles++;
+          } else if (currentKm <= previousKm) {
+            console.log(`[DEBUG] Abastecimento ignorado - KM não cresceu: ${previousKm} -> ${currentKm}`);
+            skippedVehicles++;
+          }
         }
       }
     });
@@ -330,9 +342,19 @@ export const useDashboardData = (filters?: DashboardFilters) => {
     console.log('  - totalDistance:', totalDistance);
     console.log('  - totalLiters:', totalLiters);
     console.log('  - validSamples:', validSamples);
+    console.log('  - vehiclesWithInsufficientData:', vehiclesWithInsufficientData);
+    console.log('  - skippedVehicles:', skippedVehicles);
     console.log('  - monthlyTotal:', monthlyTotal);
     console.log('  - averageConsumption:', averageConsumption);
     console.log('  - costPerKm:', costPerKm);
+    
+    // Aviso se não houver dados suficientes
+    if (totalDistance === 0 && effectiveRefuelings.length > 0) {
+      console.warn('[DEBUG] AVISO: Nenhuma distância calculada!');
+      console.warn(`  - ${vehiclesWithInsufficientData} veículo(s) com menos de 2 abastecimentos`);
+      console.warn(`  - ${skippedVehicles} abastecimento(s) ignorado(s) por dados inválidos`);
+      console.warn('  - Certifique-se de que os abastecimentos têm o campo KM preenchido corretamente');
+    }
 
     const refuelingStats = {
       monthlyTotal,
@@ -341,6 +363,8 @@ export const useDashboardData = (filters?: DashboardFilters) => {
       costPerKm,
       totalDistance,
       validSamples,
+      vehiclesWithInsufficientData,
+      skippedVehicles,
       averageDistancePerRefueling: validSamples > 0 ? totalDistance / validSamples : 0,
     };
 

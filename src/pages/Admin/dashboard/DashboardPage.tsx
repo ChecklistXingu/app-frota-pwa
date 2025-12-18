@@ -376,6 +376,7 @@ const CompactPendenciesCard = ({ stats }: { maintenances: Maintenance[]; stats: 
 
 const CompactFuelCard = ({ stats, monthlyCosts }: { stats: DashboardData['refuelingStats']; monthlyCosts: { month: string; maintenance: number; fuel: number }[] }) => {
   const sparkValues = monthlyCosts.map((m) => m.fuel + m.maintenance);
+  const hasInsufficientData = stats.totalDistance === 0 && stats.totalLiters > 0;
 
   const rows = [
     { label: 'Consumo', value: `${stats.averageConsumption.toFixed(1)} km/L` },
@@ -393,15 +394,32 @@ const CompactFuelCard = ({ stats, monthlyCosts }: { stats: DashboardData['refuel
         </div>
         <div className="text-sm text-muted-foreground"><Sparkline values={sparkValues} /></div>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-2 text-sm">
-        {rows.map(r => (
-          <div key={r.label} className="rounded-xl bg-gray-50 px-3 py-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{r.label}</p>
-            <p className="text-base font-semibold text-gray-900 whitespace-nowrap">{r.value}</p>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          {rows.map(r => (
+            <div key={r.label} className="rounded-xl bg-gray-50 px-3 py-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{r.label}</p>
+              <p className="text-base font-semibold text-gray-900 whitespace-nowrap">{r.value}</p>
+            </div>
+          ))}
+        </div>
+        
+        {hasInsufficientData && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-xs text-amber-900">
+            <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold mb-1">Dados insuficientes para calcular consumo</p>
+              <p className="text-amber-800">
+                {stats.vehiclesWithInsufficientData > 0 && `${stats.vehiclesWithInsufficientData} veículo(s) com menos de 2 abastecimentos. `}
+                {stats.skippedVehicles > 0 && `${stats.skippedVehicles} registro(s) sem quilometragem válida. `}
+                Preencha o campo KM em cada abastecimento para calcular o consumo médio.
+              </p>
+            </div>
           </div>
-        ))}
-        <div className="col-span-2 text-right">
-          <a href="/admin/refueling" className="text-sm text-blue-600">Ver detalhes</a>
+        )}
+        
+        <div className="text-right">
+          <a href="/admin/refueling" className="text-sm text-blue-600 hover:underline">Ver detalhes</a>
         </div>
       </CardContent>
     </Card>

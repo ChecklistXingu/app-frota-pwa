@@ -31,6 +31,10 @@ export type DashboardData = {
     averageConsumption: number;
     totalLiters: number;
     costPerKm: number;
+    totalDistance: number;
+    validSamples: number;
+    vehiclesWithInsufficientData: number;
+    skippedVehicles: number;
     averageDistancePerRefueling: number;
   };
   recentActivities: Array<{
