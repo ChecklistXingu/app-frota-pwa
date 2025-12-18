@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { RefreshCw } from "lucide-react";
 
-// Chave para persistir no sessionStorage
+// Chaves para persistir no localStorage
 const SW_UPDATE_DISMISSED_KEY = 'sw_update_dismissed';
+const SW_UPDATE_PROCESSING_KEY = 'sw_update_processing';
 
 const UpdatePrompt = () => {
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
@@ -10,37 +11,82 @@ const UpdatePrompt = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const hasProcessedRef = useRef(false); // Evita processamento duplicado
 
+  // Obtém a versão atual do SW (scriptURL como identificador)
+  const getCurrentSWVersion = useCallback(() => {
+    try {
+      if (navigator.serviceWorker.controller) {
+        return navigator.serviceWorker.controller.scriptURL;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   // Verifica se o prompt foi dispensado para esta versão do SW
   const wasUpdateDismissed = useCallback(() => {
     try {
-      return sessionStorage.getItem(SW_UPDATE_DISMISSED_KEY) === 'true';
+      const dismissedVersion = localStorage.getItem(SW_UPDATE_DISMISSED_KEY);
+      const currentVersion = getCurrentSWVersion();
+      return dismissedVersion === currentVersion;
+    } catch {
+      return false;
+    }
+  }, [getCurrentSWVersion]);
+
+  // Marca que o prompt foi dispensado para esta versão
+  const markUpdateDismissed = useCallback(() => {
+    try {
+      const currentVersion = getCurrentSWVersion();
+      if (currentVersion) {
+        localStorage.setItem(SW_UPDATE_DISMISSED_KEY, currentVersion);
+      }
+    } catch {
+      // Ignora erros de storage
+    }
+  }, [getCurrentSWVersion]);
+
+  // Limpa o flag de dismissal (quando uma nova versão é detectada)
+  const clearUpdateDismissed = useCallback(() => {
+    try {
+      localStorage.removeItem(SW_UPDATE_DISMISSED_KEY);
+    } catch {
+      // Ignora erros de storage
+    }
+  }, []);
+
+  // Marca que está processando atualização
+  const markProcessing = useCallback(() => {
+    try {
+      localStorage.setItem(SW_UPDATE_PROCESSING_KEY, Date.now().toString());
+    } catch {
+      // Ignora erros
+    }
+  }, []);
+
+  // Verifica se está processando recentemente (últimos 10 segundos)
+  const isRecentlyProcessing = useCallback(() => {
+    try {
+      const processingTime = localStorage.getItem(SW_UPDATE_PROCESSING_KEY);
+      if (!processingTime) return false;
+      
+      const elapsed = Date.now() - parseInt(processingTime);
+      // Se passou menos de 10 segundos, ainda está processando
+      if (elapsed < 10000) {
+        return true;
+      }
+      // Limpa se passou muito tempo
+      localStorage.removeItem(SW_UPDATE_PROCESSING_KEY);
+      return false;
     } catch {
       return false;
     }
   }, []);
 
-  // Marca que o prompt foi dispensado
-  const markUpdateDismissed = useCallback(() => {
-    try {
-      sessionStorage.setItem(SW_UPDATE_DISMISSED_KEY, 'true');
-    } catch {
-      // Ignora erros de storage
-    }
-  }, []);
-
-  // Limpa o flag de dismissal (quando uma nova versão é detectada)
-  const clearUpdateDismissed = useCallback(() => {
-    try {
-      sessionStorage.removeItem(SW_UPDATE_DISMISSED_KEY);
-    } catch {
-      // Ignora erros de storage
-    }
-  }, []);
-
   // Mostra o prompt de atualização
   const showUpdatePrompt = useCallback((worker: ServiceWorker) => {
-    if (hasProcessedRef.current || wasUpdateDismissed()) {
-      console.log('[PWA] Prompt já processado ou dispensado, ignorando');
+    if (hasProcessedRef.current || wasUpdateDismissed() || isRecentlyProcessing()) {
+      console.log('[PWA] Prompt já processado, dispensado ou em processamento, ignorando');
       return;
     }
     
@@ -48,7 +94,7 @@ const UpdatePrompt = () => {
     console.log('[PWA] Mostrando prompt de atualização');
     setWaitingWorker(worker);
     setShow(true);
-  }, [wasUpdateDismissed]);
+  }, [wasUpdateDismissed, isRecentlyProcessing]);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
@@ -118,9 +164,10 @@ const UpdatePrompt = () => {
     console.log("[PWA] Enviando SKIP_WAITING para o worker:", waitingWorker);
     console.log("[PWA] Estado do worker:", waitingWorker.state);
     setIsUpdating(true);
-    setShow(false); // Esconde o prompt imediatamente
+    setShow(false);
     
-    // Limpa o flag de dismissal pois estamos atualizando
+    // Marca que está processando para evitar mostrar novamente
+    markProcessing();
     clearUpdateDismissed();
     
     try {
@@ -129,13 +176,13 @@ const UpdatePrompt = () => {
       console.log('[PWA] Mensagem SKIP_WAITING enviada');
       
       // Aguarda um momento para o SW processar e então recarrega
-      // O controllerchange no main.tsx vai cuidar do reload
       setTimeout(() => {
         console.log("[PWA] Forçando reload após SKIP_WAITING");
         window.location.reload();
-      }, 1000);
+      }, 500);
     } catch (error) {
       console.error('[PWA] Erro ao enviar mensagem:', error);
+      localStorage.removeItem(SW_UPDATE_PROCESSING_KEY);
       setIsUpdating(false);
       setShow(true);
     }
