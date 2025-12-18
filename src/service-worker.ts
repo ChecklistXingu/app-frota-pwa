@@ -9,8 +9,9 @@ declare const self: ServiceWorkerGlobalScope
 
 // Nome do cache atual - deve ser declarado antes de usar
 // Incrementar esta versão força a limpeza de todos os caches antigos
-const CACHE_VERSION = '1.0.6'
+const CACHE_VERSION = '1.0.7'
 const CACHE_NAME = `frota-xingu-v${CACHE_VERSION}`
+const OFFLINE_URL = '/index.html'
 
 // Workbox will replace this with the manifest array at build time
 // @ts-ignore
@@ -26,9 +27,11 @@ self.addEventListener('install', (event: ExtendableEvent) => {
       console.log('[SW] Fazendo precache do app shell para offline')
       return cache.addAll([
         '/',
-        '/index.html',
+        OFFLINE_URL,
       ]).catch(err => {
         console.warn('[SW] Erro ao fazer precache:', err)
+        // Mesmo com erro, continua a instalação
+        return Promise.resolve()
       })
     }).then(() => {
       console.log('[SW] Precache concluído, ativando imediatamente')
@@ -116,14 +119,16 @@ registerRoute(
     } catch (error) {
       // Se falhar, tenta retornar index.html do cache
       console.log('[SW] Rede falhou, tentando index.html do cache');
-      const indexResponse = await cache.match('/index.html');
+      const indexResponse = await cache.match(OFFLINE_URL) || await cache.match('/');
       if (indexResponse) {
+        console.log('[SW] Retornando index.html do cache como fallback');
         return indexResponse;
       }
       
       // Último recurso: página offline básica
+      console.warn('[SW] Nenhum cache disponível, retornando página offline básica');
       return new Response(
-        '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline - Frota Xingu</title><style>body{font-family:system-ui;padding:2rem;text-align:center;background:#0d2d6c;color:#fff}h1{color:#ffd300}</style></head><body><h1>⚠️ App Offline</h1><p>O aplicativo está disponível offline, mas precisa ser acessado online pelo menos uma vez.</p><p>Conecte-se à internet e recarregue a página.</p><button onclick="location.reload()" style="padding:1rem 2rem;font-size:1rem;background:#ffd300;border:none;border-radius:8px;cursor:pointer;margin-top:1rem">Tentar novamente</button></body></html>',
+        '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline - Frota Xingu</title><style>body{font-family:system-ui;padding:2rem;text-align:center;background:#0d2d6c;color:#fff}h1{color:#ffd300}button{padding:1rem 2rem;font-size:1rem;background:#ffd300;color:#0d2d6c;border:none;border-radius:8px;cursor:pointer;margin-top:1rem;font-weight:bold}</style></head><body><h1>⚠️ App Offline</h1><p>O aplicativo está disponível offline, mas precisa ser acessado online pelo menos uma vez.</p><p>Conecte-se à internet e recarregue a página.</p><button onclick="location.reload()">Tentar novamente</button></body></html>',
         { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
       );
     }
@@ -172,17 +177,25 @@ registerRoute(
   })
 )
 
-// Fallback para recursos não encontrados
-registerRoute(
-  ({ request }) => request.destination === 'script' || request.destination === 'style',
-  async ({ request }) => {
-    try {
-      const response = await fetch(request)
-      return response
-    } catch (error) {
-      console.warn('[SW] Recurso não encontrado, tentando cache:', request.url)
-      const cached = await caches.match(request)
-      return cached || new Response('Resource not found', { status: 404 })
-    }
+// Handler global de fetch para garantir que todas as requisições sejam interceptadas
+self.addEventListener('fetch', (event: FetchEvent) => {
+  // Ignora requisições que não são HTTP/HTTPS
+  if (!event.request.url.startsWith('http')) {
+    return;
   }
-)
+
+  // Ignora requisições para Firebase Auth e Firestore (deixa o Firebase SDK lidar)
+  if (
+    event.request.url.includes('firebaseapp.com') ||
+    event.request.url.includes('firebaseio.com') ||
+    event.request.url.includes('googleapis.com/identitytoolkit') ||
+    event.request.url.includes('securetoken.googleapis.com')
+  ) {
+    return;
+  }
+
+  // Log para debug
+  if (event.request.mode === 'navigate') {
+    console.log('[SW] Interceptando navegação:', event.request.url);
+  }
+});
