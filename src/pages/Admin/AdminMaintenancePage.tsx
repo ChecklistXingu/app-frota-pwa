@@ -82,10 +82,13 @@ const AdminMaintenancePage = () => {
       const currentDateTime = now.toISOString().slice(0, 16);
       const seedCost = typeof maintenance.finalCost === "number" ? maintenance.finalCost : maintenance.forecastedCost;
       
+      // Usa a previsão de finalização se existir, senão usa a data atual
+      const defaultDate = toInputDateTime(maintenance.forecastedCompletion) || currentDateTime;
+      
       setCompletionModal({
         open: true,
         maintenance,
-        date: toInputDateTime(maintenance.completedAt) || currentDateTime,
+        date: defaultDate,
         cost: seedCost ? seedCost.toString() : "",
         managerNote: maintenance.managerNote || ""
       });
