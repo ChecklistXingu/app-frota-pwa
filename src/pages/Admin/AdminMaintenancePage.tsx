@@ -36,11 +36,18 @@ const AdminMaintenancePage = () => {
     managerNote: "",
   });
   const [savingTicket, setSavingTicket] = useState(false);
-  const [completionModal, setCompletionModal] = useState<{ open: boolean; maintenance: Maintenance | null; date: string; cost: string }>({
+  const [completionModal, setCompletionModal] = useState<{ 
+    open: boolean; 
+    maintenance: Maintenance | null; 
+    date: string; 
+    cost: string;
+    managerNote: string;
+  }>({
     open: false,
     maintenance: null,
     date: "",
     cost: "",
+    managerNote: ""
   });
   const [completing, setCompleting] = useState(false);
   const [photoModal, setPhotoModal] = useState<{ open: boolean; photos: string[]; maintenance: Maintenance | null }>({
@@ -80,6 +87,7 @@ const AdminMaintenancePage = () => {
         maintenance,
         date: toInputDateTime(maintenance.completedAt) || currentDateTime,
         cost: seedCost ? seedCost.toString() : "",
+        managerNote: maintenance.managerNote || ""
       });
       return;
     }
@@ -130,6 +138,10 @@ const AdminMaintenancePage = () => {
     setSavingTicket(false);
   };
 
+  const closeCompletionModal = () => {
+    setCompletionModal({ open: false, maintenance: null, date: "", cost: "", managerNote: "" });
+  };
+
   const handleTicketSubmit = async () => {
     if (!ticketModal.maintenance) return;
     setSavingTicket(true);
@@ -162,8 +174,9 @@ const AdminMaintenancePage = () => {
         completedAt: completedDate,
         finalCost: finalCost && !Number.isNaN(finalCost) ? finalCost : undefined,
         managerId: profile?.id,
+        managerNote: completionModal.managerNote || undefined,
       });
-      setCompletionModal({ open: false, maintenance: null, date: "", cost: "" });
+      setCompletionModal({ open: false, maintenance: null, date: "", cost: "", managerNote: "" });
     } catch (error) {
       console.error("Erro ao finalizar manutenção", error);
     } finally {
@@ -585,16 +598,6 @@ const AdminMaintenancePage = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-600">Observação</label>
-                <textarea
-                  value={ticketForm.managerNote}
-                  onChange={(e) => setTicketForm((prev) => ({ ...prev, managerNote: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
-                  rows={3}
-                  placeholder="Detalhes para o motorista"
-                />
-              </div>
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
@@ -659,12 +662,23 @@ const AdminMaintenancePage = () => {
                   </p>
                 )}
               </div>
+              
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Observação</label>
+                <textarea
+                  value={completionModal.managerNote}
+                  onChange={(e) => setCompletionModal(prev => ({ ...prev, managerNote: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                  rows={3}
+                  placeholder="Informações adicionais sobre a manutenção"
+                />
+              </div>
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setCompletionModal({ open: false, maintenance: null, date: "", cost: "" })}
+                onClick={closeCompletionModal}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600"
                 disabled={completing}
               >
