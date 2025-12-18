@@ -1,91 +1,93 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 const UpdatePrompt = () => {
-  const [showUpdate, setShowUpdate] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
+  const [show, setShow] = useState(false);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 
-    const handleUpdate = async () => {
-      const registration = await navigator.serviceWorker.getRegistration();
-      
-      if (registration) {
+    const onControllerChange = () => {
+      console.log("[PWA] Novo Service Worker ativo, recarregando...");
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+
+    const checkForUpdates = async () => {
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        
+        if (!registration) return;
+
         // Verifica se já tem um worker esperando
         if (registration.waiting) {
-          console.log('[UpdatePrompt] Worker encontrado esperando ativação');
+          console.log('[PWA] Worker encontrado esperando ativação');
           setWaitingWorker(registration.waiting);
-          setShowUpdate(true);
+          setShow(true);
         }
+
+        // Força verificação de atualizações
+        await registration.update();
 
         // Escuta por novas atualizações
         registration.addEventListener("updatefound", () => {
-          console.log('[UpdatePrompt] Nova atualização encontrada');
-          const newWorker = registration.installing;
+          console.log('[PWA] Nova atualização encontrada');
+          const worker = registration.installing;
           
-          if (newWorker) {
-            newWorker.addEventListener("statechange", () => {
-              console.log('[UpdatePrompt] Worker state changed to:', newWorker.state);
-              if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-                console.log('[UpdatePrompt] Novo worker instalado, mostrando prompt');
-                setWaitingWorker(newWorker);
-                setShowUpdate(true);
+          if (worker) {
+            worker.addEventListener("statechange", () => {
+              console.log('[PWA] Worker state changed to:', worker.state);
+              if (worker.state === "installed" && navigator.serviceWorker.controller) {
+                console.log('[PWA] Novo worker instalado, mostrando prompt');
+                setWaitingWorker(worker);
+                setShow(true);
               }
             });
           }
         });
+      } catch (error) {
+        console.error('[PWA] Erro ao verificar atualizações:', error);
       }
     };
 
-    handleUpdate();
+    // Verifica atualizações na inicialização
+    checkForUpdates();
 
-    // Verifica atualizações a cada 60 segundos
-    const interval = setInterval(() => {
-      navigator.serviceWorker.getRegistration().then((reg) => {
-        if (reg) {
-          console.log('[UpdatePrompt] Verificando atualizações...');
-          reg.update().catch(console.error);
-        }
-      });
-    }, 60000);
+    // Verifica atualizações periodicamente
+    const interval = setInterval(checkForUpdates, 5 * 60 * 1000); // 5 minutos
 
-    return () => clearInterval(interval);
+    return () => {
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      clearInterval(interval);
+    };
   }, []);
 
-  const handleUpdate = () => {
-    if (waitingWorker) {
-      console.log('[UpdatePrompt] Enviando SKIP_WAITING para o service worker');
-      // Envia mensagem para o SW ativar imediatamente (suporta string ou obj)
-      try {
-        waitingWorker.postMessage('SKIP_WAITING')
-      } catch (e) {
-        console.error('[UpdatePrompt] Erro ao enviar mensagem (string), tentando objeto:', e);
-        // fallback to object shape
-        waitingWorker.postMessage({ type: 'SKIP_WAITING' })
-      }
-    }
-    // Não recarregamos imediatamente aqui — esperamos o evento 'controllerchange'
-    // global para recarregar a página quando o novo SW assumir o controle.
-    setShowUpdate(false);
+  const updateApp = () => {
+    if (!waitingWorker) return;
+
+    console.log("[PWA] Enviando SKIP_WAITING");
+    waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    setShow(false);
   };
 
-  if (!showUpdate) return null;
+  if (!show) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 animate-slide-down">
-      <div className="bg-[#0d2d6c] text-white px-4 py-3 shadow-lg">
+    <div className="fixed top-0 inset-x-0 z-50">
+      <div className="bg-[#0d2d6c] text-white px-4 py-3 shadow">
         <div className="max-w-md mx-auto flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#ffd300] rounded-full flex items-center justify-center flex-shrink-0">
-            <RefreshCw size={20} className="text-[#0d2d6c]" />
+          <div className="w-10 h-10 bg-[#ffd300] rounded-full flex items-center justify-center">
+            <RefreshCw size={20} className="animate-spin text-[#0d2d6c]" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm">Nova versão disponível!</p>
-            <p className="text-xs text-white/70">Clique para atualizar o app</p>
+          <div className="flex-1">
+            <p className="text-sm font-semibold">Nova versão disponível</p>
+            <p className="text-xs opacity-80">Atualize para continuar</p>
           </div>
           <button
-            onClick={handleUpdate}
-            className="bg-[#ffd300] text-[#0d2d6c] font-semibold px-4 py-2 rounded-lg text-sm hover:bg-[#e6be00] transition-colors"
+            onClick={updateApp}
+            className="bg-[#ffd300] text-[#0d2d6c] px-4 py-2 rounded-lg text-sm font-semibold"
           >
             Atualizar
           </button>
