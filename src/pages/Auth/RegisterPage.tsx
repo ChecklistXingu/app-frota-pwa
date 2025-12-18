@@ -121,7 +121,10 @@ const RegisterPage = () => {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium">E-mail</label>
+            <div className="flex justify-between items-center">
+              <label className="text-sm font-medium">E-mail</label>
+              <span className="text-xs text-gray-500">Corporativo ou Pessoal</span>
+            </div>
             <input
               type="email"
               className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
@@ -130,7 +133,10 @@ const RegisterPage = () => {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium">Senha</label>
+            <div className="flex justify-between items-center">
+              <label className="text-sm font-medium">Senha</label>
+              <span className="text-xs text-gray-500">Senha pré-definida: primeiros 6 dígitos do CPF</span>
+            </div>
             <input
               type="password"
               className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
