@@ -156,18 +156,24 @@ const AdminMaintenancePage = () => {
     try {
       const scheduledDate = ticketForm.scheduledFor ? new Date(ticketForm.scheduledFor) : null;
       const forecastedDate = ticketForm.forecastedCompletion ? new Date(ticketForm.forecastedCompletion) : null;
-      const forecastedCost = ticketForm.forecastedCost ? Number(ticketForm.forecastedCost) : undefined;
+      const forecastedCost = ticketForm.forecastedCost ? Number(ticketForm.forecastedCost) : null;
       
       console.log('[TICKET] Datas processadas:', { scheduledDate, forecastedDate, forecastedCost });
       
-      await updateMaintenanceStatus(ticketModal.maintenance.id, "scheduled", {
-        workshopName: ticketForm.workshopName || undefined,
-        scheduledFor: scheduledDate || undefined,
-        forecastedCompletion: forecastedDate || undefined,
-        forecastedCost: forecastedCost && !Number.isNaN(forecastedCost) ? forecastedCost : undefined,
-        managerNote: ticketForm.managerNote || undefined,
+      // Constrói o payload removendo valores undefined (Firestore não aceita undefined)
+      const payload: any = {
         managerId: profile?.id,
-      });
+      };
+      
+      if (ticketForm.workshopName) payload.workshopName = ticketForm.workshopName;
+      if (scheduledDate) payload.scheduledFor = scheduledDate;
+      if (forecastedDate) payload.forecastedCompletion = forecastedDate;
+      if (forecastedCost && !Number.isNaN(forecastedCost)) payload.forecastedCost = forecastedCost;
+      if (ticketForm.managerNote) payload.managerNote = ticketForm.managerNote;
+      
+      console.log('[TICKET] Payload final:', payload);
+      
+      await updateMaintenanceStatus(ticketModal.maintenance.id, "scheduled", payload);
       
       console.log('[TICKET] Ticket salvo com sucesso!');
       closeTicketModal();
