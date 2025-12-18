@@ -2,14 +2,14 @@
 /* eslint-disable no-restricted-globals */
 import { precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
-import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies'
+import { NetworkFirst, CacheFirst } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
 
 declare const self: ServiceWorkerGlobalScope
 
 // Nome do cache atual - deve ser declarado antes de usar
 // Incrementar esta versão força a limpeza de todos os caches antigos
-const CACHE_VERSION = '1.0.4'
+const CACHE_VERSION = '1.0.5'
 const CACHE_NAME = `frota-xingu-v${CACHE_VERSION}`
 
 // Workbox will replace this with the manifest array at build time
@@ -71,27 +71,46 @@ self.addEventListener('message', (event: any) => {
     console.error('[SW] Error handling message', e)
   }
 })
-// Estratégia de cache para navegação (HTML)
+
+// Estratégia de cache para navegação (HTML) - com fallback offline
 registerRoute(
   ({ request }) => request.mode === 'navigate',
   new NetworkFirst({
     cacheName: `${CACHE_NAME}-html`,
     networkTimeoutSeconds: 3,
+    plugins: [
+      {
+        // Fallback para index.html quando offline
+        handlerDidError: async () => {
+          const cache = await caches.open(`${CACHE_NAME}-html`);
+          const cachedResponse = await cache.match('/index.html');
+          if (cachedResponse) {
+            console.log('[SW] Retornando index.html do cache (offline)');
+            return cachedResponse;
+          }
+          // Se não tem cache, retorna página offline básica
+          return new Response(
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Offline</title></head><body><h1>Você está offline</h1><p>Conecte-se à internet para acessar o aplicativo.</p></body></html>',
+            { headers: { 'Content-Type': 'text/html' } }
+          );
+        },
+      },
+    ],
   })
 )
 
-// Estratégia para assets estáticos (JS, CSS, imagens, etc.)
+// Estratégia para assets estáticos (JS, CSS, imagens, etc.) - CacheFirst para melhor offline
 registerRoute(
   ({ request }) => 
     request.destination === 'script' || 
     request.destination === 'style' ||
     request.destination === 'image' ||
     request.destination === 'font',
-  new StaleWhileRevalidate({
+  new CacheFirst({
     cacheName: `${CACHE_NAME}-assets`,
     plugins: [
       new ExpirationPlugin({
-        maxEntries: 100,
+        maxEntries: 200,
         maxAgeSeconds: 60 * 60 * 24 * 30, // 30 dias
       })
     ]
