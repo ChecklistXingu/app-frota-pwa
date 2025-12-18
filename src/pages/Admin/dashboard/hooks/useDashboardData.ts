@@ -254,6 +254,9 @@ export const useDashboardData = (filters?: DashboardFilters) => {
     // Agrupa abastecimentos por veículo e ordena por data
     const refuelsByVehicle = groupRefuelsByVehicle(effectiveRefuelings);
     
+    console.log('[DEBUG] effectiveRefuelings:', effectiveRefuelings.length);
+    console.log('[DEBUG] refuelsByVehicle:', refuelsByVehicle);
+    
     let totalDistance = 0;
     let validSamples = 0;
     const monthlyDistances = new Map<string, number>();
@@ -313,6 +316,14 @@ export const useDashboardData = (filters?: DashboardFilters) => {
     // Calcula o custo por km (R$/km)
     const costPerKm = validSamples > 0 && totalDistance > 0 ? 
       monthlyTotal / totalDistance : 0;
+
+    console.log('[DEBUG] Cálculos finais:');
+    console.log('  - totalDistance:', totalDistance);
+    console.log('  - totalLiters:', totalLiters);
+    console.log('  - validSamples:', validSamples);
+    console.log('  - monthlyTotal:', monthlyTotal);
+    console.log('  - averageConsumption:', averageConsumption);
+    console.log('  - costPerKm:', costPerKm);
 
     const refuelingStats = {
       monthlyTotal,
