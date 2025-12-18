@@ -2,200 +2,226 @@
 /* eslint-disable no-restricted-globals */
 import { precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
-import { NetworkFirst, CacheFirst } from 'workbox-strategies'
+import { CacheFirst, StaleWhileRevalidate } from 'workbox-strategies'
+import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 import { ExpirationPlugin } from 'workbox-expiration'
 
 declare const self: ServiceWorkerGlobalScope
 
-// Nome do cache atual - deve ser declarado antes de usar
-// Incrementar esta versão força a limpeza de todos os caches antigos
-const CACHE_VERSION = '1.0.7'
+// ============================================================================
+// CONFIGURAÇÃO DO CACHE - VERSÃO 2.0.0 - OFFLINE FIRST
+// ============================================================================
+const CACHE_VERSION = '2.0.0'
 const CACHE_NAME = `frota-xingu-v${CACHE_VERSION}`
-const OFFLINE_URL = '/index.html'
+const RUNTIME_CACHE = `${CACHE_NAME}-runtime`
+const OFFLINE_PAGE = '/index.html'
 
-// Workbox will replace this with the manifest array at build time
-// @ts-ignore
+console.log('[SW] 🚀 Service Worker v' + CACHE_VERSION + ' carregando...')
+
+// ============================================================================
+// PRECACHE - Workbox injeta automaticamente os assets do build
+// ============================================================================
 precacheAndRoute(self.__WB_MANIFEST || [])
 
-// Install: ativar imediatamente a nova versão do service worker
+// ============================================================================
+// INSTALL - Cache agressivo do app shell
+// ============================================================================
 self.addEventListener('install', (event: ExtendableEvent) => {
-  console.log('[SW] Install event - Nova versão detectada')
+  console.log('[SW] 📦 Instalando Service Worker v' + CACHE_VERSION)
   
-  // Força o cache do shell do app para garantir funcionamento offline
   event.waitUntil(
-    caches.open(`${CACHE_NAME}-html`).then(cache => {
-      console.log('[SW] Fazendo precache do app shell para offline')
-      return cache.addAll([
-        '/',
-        OFFLINE_URL,
-      ]).catch(err => {
-        console.warn('[SW] Erro ao fazer precache:', err)
-        // Mesmo com erro, continua a instalação
-        return Promise.resolve()
+    caches.open(RUNTIME_CACHE)
+      .then(cache => {
+        console.log('[SW] 💾 Fazendo cache do app shell')
+        return cache.addAll([
+          '/',
+          '/index.html',
+        ])
       })
-    }).then(() => {
-      console.log('[SW] Precache concluído, ativando imediatamente')
-      return self.skipWaiting()
-    })
+      .then(() => {
+        console.log('[SW] ✅ Cache do app shell completo')
+        return self.skipWaiting()
+      })
+      .catch(err => {
+        console.error('[SW] ❌ Erro no precache:', err)
+        // Continua mesmo com erro
+        return self.skipWaiting()
+      })
   )
 })
 
-// Ativação: assumir controle das abas/janelas já abertas e limpar caches antigos
+// ============================================================================
+// ACTIVATE - Limpa caches antigos e assume controle
+// ============================================================================
 self.addEventListener('activate', (event: ExtendableEvent) => {
-  console.log('[SW] Activate event - Limpando caches antigos')
+  console.log('[SW] 🔄 Ativando Service Worker v' + CACHE_VERSION)
   
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          // Limpa todos os caches exceto os caches da versão atual
-          if (!cacheName.startsWith(CACHE_NAME)) {
-            console.log('[SW] Removendo cache antigo na ativação:', cacheName)
-            return caches.delete(cacheName)
-          }
-          return Promise.resolve()
-        })
-      )
-    }).then(() => {
-      // Assumir controle de todas as abas imediatamente
-      console.log('[SW] Assumindo controle de todos os clientes')
-      return self.clients.claim()
-    })
+    caches.keys()
+      .then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => {
+            if (!cacheName.startsWith(CACHE_NAME)) {
+              console.log('[SW] 🗑️ Removendo cache antigo:', cacheName)
+              return caches.delete(cacheName)
+            }
+          })
+        )
+      })
+      .then(() => {
+        console.log('[SW] ✅ Assumindo controle de todos os clientes')
+        return self.clients.claim()
+      })
   )
 })
 
-// Message: handle SKIP_WAITING (support string or object messages)
+// ============================================================================
+// MESSAGE - Comunicação com o app
+// ============================================================================
 self.addEventListener('message', (event: any) => {
-  try {
-    const data = event.data
-    console.log('[SW] Mensagem recebida:', data);
-    
-    if (data === 'SKIP_WAITING' || (data && data.type === 'SKIP_WAITING')) {
-      console.log('[SW] Received SKIP_WAITING message; calling skipWaiting()')
-      ;(self as any).skipWaiting()
-      
-      // Notifica todos os clientes sobre a mudança
-      self.clients.matchAll().then(clients => {
-        clients.forEach(client => {
-          client.postMessage({ type: 'SKIP_WAITING_COMPLETE' });
-        });
-      });
-    }
-  } catch (e) {
-    console.error('[SW] Error handling message', e)
+  const data = event.data
+  
+  if (data === 'SKIP_WAITING' || (data && data.type === 'SKIP_WAITING')) {
+    console.log('[SW] ⏭️ SKIP_WAITING recebido')
+    self.skipWaiting()
   }
 })
 
-// Estratégia de cache para navegação (HTML) - CacheFirst para melhor offline
-registerRoute(
-  ({ request }) => request.mode === 'navigate',
-  async ({ request, event }) => {
-    const cache = await caches.open(`${CACHE_NAME}-html`);
-    
-    // Tenta buscar do cache primeiro
-    const cachedResponse = await cache.match(request);
-    if (cachedResponse) {
-      console.log('[SW] Retornando navegação do cache');
-      // Atualiza o cache em background se houver rede
-      if (event) {
-        event.waitUntil(
-          fetch(request).then(response => {
-            if (response.ok) {
-              cache.put(request, response.clone());
-            }
-          }).catch(() => {})
-        );
-      }
-      return cachedResponse;
-    }
-    
-    // Se não tem no cache, tenta a rede
-    try {
-      const networkResponse = await fetch(request);
-      if (networkResponse.ok) {
-        cache.put(request, networkResponse.clone());
-      }
-      return networkResponse;
-    } catch (error) {
-      // Se falhar, tenta retornar index.html do cache
-      console.log('[SW] Rede falhou, tentando index.html do cache');
-      const indexResponse = await cache.match(OFFLINE_URL) || await cache.match('/');
-      if (indexResponse) {
-        console.log('[SW] Retornando index.html do cache como fallback');
-        return indexResponse;
-      }
-      
-      // Último recurso: página offline básica
-      console.warn('[SW] Nenhum cache disponível, retornando página offline básica');
-      return new Response(
-        '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline - Frota Xingu</title><style>body{font-family:system-ui;padding:2rem;text-align:center;background:#0d2d6c;color:#fff}h1{color:#ffd300}button{padding:1rem 2rem;font-size:1rem;background:#ffd300;color:#0d2d6c;border:none;border-radius:8px;cursor:pointer;margin-top:1rem;font-weight:bold}</style></head><body><h1>⚠️ App Offline</h1><p>O aplicativo está disponível offline, mas precisa ser acessado online pelo menos uma vez.</p><p>Conecte-se à internet e recarregue a página.</p><button onclick="location.reload()">Tentar novamente</button></body></html>',
-        { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-      );
-    }
+// ============================================================================
+// FETCH - Estratégia OFFLINE FIRST
+// ============================================================================
+self.addEventListener('fetch', (event: FetchEvent) => {
+  const { request } = event
+  const url = new URL(request.url)
+  
+  // Ignora requisições não-HTTP
+  if (!request.url.startsWith('http')) {
+    return
   }
-)
-
-// Estratégia para assets estáticos (JS, CSS, imagens, etc.) - CacheFirst para melhor offline
-registerRoute(
-  ({ request }) => 
-    request.destination === 'script' || 
+  
+  // Ignora Firebase Auth/Firestore (deixa SDK lidar)
+  if (
+    url.hostname.includes('firebaseapp.com') ||
+    url.hostname.includes('firebaseio.com') ||
+    url.hostname.includes('firestore.googleapis.com') ||
+    url.hostname.includes('identitytoolkit.googleapis.com') ||
+    url.hostname.includes('securetoken.googleapis.com')
+  ) {
+    return
+  }
+  
+  // ========================================================================
+  // NAVEGAÇÃO (HTML) - CACHE FIRST com fallback
+  // ========================================================================
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      caches.match(request)
+        .then(cachedResponse => {
+          if (cachedResponse) {
+            console.log('[SW] 📄 Navegação do CACHE:', url.pathname)
+            return cachedResponse
+          }
+          
+          // Tenta rede
+          return fetch(request)
+            .then(response => {
+              // Salva no cache se OK
+              if (response.ok) {
+                const responseClone = response.clone()
+                caches.open(RUNTIME_CACHE).then(cache => {
+                  cache.put(request, responseClone)
+                })
+              }
+              return response
+            })
+            .catch(() => {
+              // FALLBACK: retorna index.html do cache
+              console.log('[SW] 🔌 OFFLINE - Retornando index.html do cache')
+              return caches.match(OFFLINE_PAGE)
+                .then(offlineResponse => {
+                  if (offlineResponse) {
+                    return offlineResponse
+                  }
+                  // Último recurso
+                  return new Response(
+                    '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;background:#0d2d6c;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem;text-align:center}h1{color:#ffd300;font-size:2rem;margin-bottom:1rem}p{margin-bottom:1.5rem;opacity:.9}button{background:#ffd300;color:#0d2d6c;border:none;padding:1rem 2rem;font-size:1rem;font-weight:bold;border-radius:8px;cursor:pointer;transition:transform .2s}button:active{transform:scale(.95)}</style></head><body><div><h1>🔌 Você está offline</h1><p>Conecte-se à internet para acessar o aplicativo.</p><button onclick="location.reload()">Tentar novamente</button></div></body></html>',
+                    { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+                  )
+                })
+            })
+        })
+    )
+    return
+  }
+  
+  // ========================================================================
+  // ASSETS (JS, CSS, imagens, fontes) - CACHE FIRST
+  // ========================================================================
+  if (
+    request.destination === 'script' ||
     request.destination === 'style' ||
     request.destination === 'image' ||
-    request.destination === 'font',
-  new CacheFirst({
-    cacheName: `${CACHE_NAME}-assets`,
-    plugins: [
-      new ExpirationPlugin({
-        maxEntries: 200,
-        maxAgeSeconds: 60 * 60 * 24 * 30, // 30 dias
-      })
-    ]
-  })
-)
-
-// Estratégia para API e outros recursos
-registerRoute(
-  ({ url }) => url.origin === self.location.origin && url.pathname.startsWith('/api/'),
-  new NetworkFirst({
-    cacheName: `${CACHE_NAME}-api`,
-    networkTimeoutSeconds: 10,
-  })
-)
-
-// Estratégia para recursos Firebase (evitar 404s)
-registerRoute(
-  ({ url }) => url.origin.includes('firebase') || url.origin.includes('googleapis'),
-  new NetworkFirst({
-    cacheName: `${CACHE_NAME}-firebase`,
-    networkTimeoutSeconds: 10,
-    plugins: [
-      new ExpirationPlugin({
-        maxEntries: 50,
-        maxAgeSeconds: 60 * 60 * 24, // 24 horas
-      })
-    ]
-  })
-)
-
-// Handler global de fetch para garantir que todas as requisições sejam interceptadas
-self.addEventListener('fetch', (event: FetchEvent) => {
-  // Ignora requisições que não são HTTP/HTTPS
-  if (!event.request.url.startsWith('http')) {
-    return;
-  }
-
-  // Ignora requisições para Firebase Auth e Firestore (deixa o Firebase SDK lidar)
-  if (
-    event.request.url.includes('firebaseapp.com') ||
-    event.request.url.includes('firebaseio.com') ||
-    event.request.url.includes('googleapis.com/identitytoolkit') ||
-    event.request.url.includes('securetoken.googleapis.com')
+    request.destination === 'font'
   ) {
-    return;
+    event.respondWith(
+      caches.match(request)
+        .then(cachedResponse => {
+          if (cachedResponse) {
+            return cachedResponse
+          }
+          
+          return fetch(request)
+            .then(response => {
+              if (response.ok) {
+                const responseClone = response.clone()
+                caches.open(RUNTIME_CACHE).then(cache => {
+                  cache.put(request, responseClone)
+                })
+              }
+              return response
+            })
+            .catch(() => {
+              // Se falhar, retorna do cache ou erro
+              return caches.match(request).then(r => r || new Response('', { status: 404 }))
+            })
+        })
+    )
+    return
   }
+})
 
-  // Log para debug
-  if (event.request.mode === 'navigate') {
-    console.log('[SW] Interceptando navegação:', event.request.url);
-  }
-});
+// ============================================================================
+// ROTAS ADICIONAIS COM WORKBOX
+// ============================================================================
+
+// Firebase Storage - Cache com expiração
+registerRoute(
+  ({ url }) => url.hostname.includes('firebasestorage.googleapis.com'),
+  new CacheFirst({
+    cacheName: `${CACHE_NAME}-firebase-storage`,
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({
+        maxEntries: 100,
+        maxAgeSeconds: 60 * 60 * 24 * 30, // 30 dias
+      }),
+    ],
+  })
+)
+
+// Google Fonts - Cache permanente
+registerRoute(
+  ({ url }) => url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com',
+  new StaleWhileRevalidate({
+    cacheName: `${CACHE_NAME}-google-fonts`,
+    plugins: [
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new ExpirationPlugin({
+        maxEntries: 30,
+        maxAgeSeconds: 60 * 60 * 24 * 365, // 1 ano
+      }),
+    ],
+  })
+)
+
+console.log('[SW] ✅ Service Worker v' + CACHE_VERSION + ' pronto!')
