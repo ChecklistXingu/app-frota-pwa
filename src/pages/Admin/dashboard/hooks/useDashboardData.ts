@@ -446,10 +446,10 @@ export const useDashboardData = (filters?: DashboardFilters) => {
         updateDashboard();
       }),
       // Listen to refuelings
-      listenRefuelings((refuelings) => {
-        console.log('[DEBUG] Refuelings recebidos do Firebase:', refuelings.length);
-        console.log('[DEBUG] Amostra de refuelings:', refuelings.slice(0, 3));
-        refuelings = refuelings;
+      listenRefuelings((items) => {
+        console.log('[DEBUG] Refuelings recebidos do Firebase:', items.length);
+        console.log('[DEBUG] Amostra de refuelings:', items.slice(0, 3));
+        refuelings = items;
         updateDashboard();
       })
 
