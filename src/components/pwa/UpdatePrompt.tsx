@@ -13,7 +13,16 @@ const UpdatePrompt = () => {
       window.location.reload();
     };
 
+    const onMessage = (event: MessageEvent) => {
+      console.log('[PWA] Mensagem do SW:', event.data);
+      if (event.data?.type === 'SKIP_WAITING_COMPLETE') {
+        console.log('[PWA] SW confirmou atualização, recarregando...');
+        window.location.reload();
+      }
+    };
+
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+    navigator.serviceWorker.addEventListener("message", onMessage);
 
     const checkForUpdates = async () => {
       try {
@@ -60,15 +69,25 @@ const UpdatePrompt = () => {
 
     return () => {
       navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      navigator.serviceWorker.removeEventListener("message", onMessage);
       clearInterval(interval);
     };
   }, []);
 
-  const updateApp = () => {
+  const updateApp = async () => {
     if (!waitingWorker) return;
 
     console.log("[PWA] Enviando SKIP_WAITING");
+    
+    // Envia a mensagem para o service worker
     waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    
+    // Aguarda um pouco e força o reload
+    setTimeout(() => {
+      console.log("[PWA] Forçando reload após SKIP_WAITING");
+      window.location.reload();
+    }, 500);
+    
     setShow(false);
   };
 

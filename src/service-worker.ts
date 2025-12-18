@@ -54,9 +54,18 @@ self.addEventListener('activate', (event: ExtendableEvent) => {
 self.addEventListener('message', (event: any) => {
   try {
     const data = event.data
+    console.log('[SW] Mensagem recebida:', data);
+    
     if (data === 'SKIP_WAITING' || (data && data.type === 'SKIP_WAITING')) {
       console.log('[SW] Received SKIP_WAITING message; calling skipWaiting()')
       ;(self as any).skipWaiting()
+      
+      // Notifica todos os clientes sobre a mudança
+      self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+          client.postMessage({ type: 'SKIP_WAITING_COMPLETE' });
+        });
+      });
     }
   } catch (e) {
     console.error('[SW] Error handling message', e)
