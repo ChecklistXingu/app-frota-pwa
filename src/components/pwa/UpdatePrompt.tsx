@@ -85,6 +85,12 @@ const UpdatePrompt = () => {
 
   // Mostra o prompt de atualização
   const showUpdatePrompt = useCallback((worker: ServiceWorker) => {
+    // NÃO mostra prompt se estiver offline
+    if (!navigator.onLine) {
+      console.log('[PWA] Offline - não mostra prompt de atualização');
+      return;
+    }
+    
     if (hasProcessedRef.current || wasUpdateDismissed() || isRecentlyProcessing()) {
       console.log('[PWA] Prompt já processado, dispensado ou em processamento, ignorando');
       return;
@@ -95,6 +101,19 @@ const UpdatePrompt = () => {
     setWaitingWorker(worker);
     setShow(true);
   }, [wasUpdateDismissed, isRecentlyProcessing]);
+
+  // Esconde o prompt se ficar offline
+  useEffect(() => {
+    const handleOffline = () => {
+      if (show) {
+        console.log('[PWA] Ficou offline - escondendo prompt de atualização');
+        setShow(false);
+      }
+    };
+
+    window.addEventListener('offline', handleOffline);
+    return () => window.removeEventListener('offline', handleOffline);
+  }, [show]);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;

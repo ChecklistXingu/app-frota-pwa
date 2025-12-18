@@ -60,23 +60,64 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        const ref = doc(db, "users", firebaseUser.uid);
-        const snap = await getDoc(ref);
+        try {
+          // Timeout de 5 segundos para não travar offline
+          const timeoutPromise = new Promise<null>((_, reject) => 
+            setTimeout(() => reject(new Error('timeout')), 5000)
+          );
+          
+          const ref = doc(db, "users", firebaseUser.uid);
+          const snap = await Promise.race([
+            getDoc(ref),
+            timeoutPromise
+          ]);
 
-        if (snap.exists()) {
-          const data = snap.data() as any;
-          setProfile({
-            id: snap.id,
-            name: data.name ?? "",
-            phone: data.phone ?? "",
-            filial: data.filial ?? "",
-            role: (data.role as AppUserRole) ?? "driver",
-          });
-        } else {
-          setProfile(null);
+          if (snap && snap.exists()) {
+            const data = snap.data() as any;
+            setProfile({
+              id: snap.id,
+              name: data.name ?? "",
+              phone: data.phone ?? "",
+              filial: data.filial ?? "",
+              role: (data.role as AppUserRole) ?? "driver",
+            });
+          } else {
+            // Se timeout ou não existe, tenta carregar do cache local
+            const cachedProfile = localStorage.getItem('cached_user_profile');
+            if (cachedProfile) {
+              console.log('[AUTH] Usando perfil do cache local (offline)');
+              setProfile(JSON.parse(cachedProfile));
+            } else {
+              setProfile(null);
+            }
+          }
+          
+          // Salva no cache para uso offline
+          if (snap && snap.exists()) {
+            const data = snap.data() as any;
+            const profileData = {
+              id: snap.id,
+              name: data.name ?? "",
+              phone: data.phone ?? "",
+              filial: data.filial ?? "",
+              role: (data.role as AppUserRole) ?? "driver",
+            };
+            localStorage.setItem('cached_user_profile', JSON.stringify(profileData));
+          }
+        } catch (error) {
+          console.warn('[AUTH] Erro ao buscar perfil (provavelmente offline):', error);
+          // Tenta carregar do cache local
+          const cachedProfile = localStorage.getItem('cached_user_profile');
+          if (cachedProfile) {
+            console.log('[AUTH] Usando perfil do cache local (offline)');
+            setProfile(JSON.parse(cachedProfile));
+          } else {
+            setProfile(null);
+          }
         }
       } else {
         setProfile(null);
+        localStorage.removeItem('cached_user_profile');
       }
 
       setLoading(false);
