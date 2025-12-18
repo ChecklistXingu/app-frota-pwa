@@ -262,9 +262,14 @@ export const useDashboardData = (filters?: DashboardFilters) => {
     const monthlyDistances = new Map<string, number>();
 
     // Calcula a distância percorrida para cada veículo
-    refuelsByVehicle.forEach((vehicleRefuels) => {
+    refuelsByVehicle.forEach((vehicleRefuels, vehicleId) => {
+      console.log(`[DEBUG] Processando veículo ${vehicleId} com ${vehicleRefuels.length} abastecimentos`);
+      
       // Pula se tiver menos de 2 abastecimentos
-      if (vehicleRefuels.length < 2) return;
+      if (vehicleRefuels.length < 2) {
+        console.log(`[DEBUG] Veículo ${vehicleId} pulado - menos de 2 abastecimentos`);
+        return;
+      }
 
       // Ordena por data para garantir a ordem correta
       vehicleRefuels.sort((a, b) => {
@@ -281,11 +286,15 @@ export const useDashboardData = (filters?: DashboardFilters) => {
         const currentKm = Number(current.km);
         const previousKm = Number(previous.km);
         
+        console.log(`[DEBUG] Comparando abastecimento ${i-1} -> ${i}: ${previousKm}km -> ${currentKm}km`);
+        
         // Apenas considera se ambas as leituras forem válidas e a atual for maior que a anterior
         if (!isNaN(currentKm) && !isNaN(previousKm) && currentKm > previousKm) {
           const distance = currentKm - previousKm;
           totalDistance += distance;
           validSamples++;
+          
+          console.log(`[DEBUG] Distância válida: ${distance}km (total: ${totalDistance}, samples: ${validSamples})`);
 
           // Atualiza o registro de distância mensal
           const refuelDate = current.date?.toDate?.() || current.date;
