@@ -9,7 +9,7 @@ declare const self: ServiceWorkerGlobalScope
 
 // Nome do cache atual - deve ser declarado antes de usar
 // Incrementar esta versão força a limpeza de todos os caches antigos
-const CACHE_VERSION = '1.0.2'
+const CACHE_VERSION = '1.0.3'
 const CACHE_NAME = `frota-xingu-v${CACHE_VERSION}`
 
 // Workbox will replace this with the manifest array at build time

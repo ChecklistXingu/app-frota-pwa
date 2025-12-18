@@ -13,15 +13,15 @@ export default defineConfig({
       },
     }),
     VitePWA({
-      registerType: 'autoUpdate',
+      // Com injectManifest, o registerType é controlado pelo próprio SW
+      registerType: 'prompt',
       injectRegister: 'auto',
-      // use injectManifest so we can use a custom service worker with precise
-      // install/activate behavior and explicit cache cleanup
+      // use injectManifest para controle total do service worker
       strategies: 'injectManifest',
       srcDir: 'src',
+      filename: 'sw.js',
       injectManifest: {
-        // path is relative to `srcDir`
-        swSrc: 'service-worker.ts',
+        swSrc: 'src/service-worker.ts',
       },
       includeAssets: ['icons/icon-192.png'],
       devOptions: {

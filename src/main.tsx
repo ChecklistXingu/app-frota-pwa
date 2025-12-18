@@ -29,80 +29,11 @@ createRoot(document.getElementById('root')!).render(
 startAutoSync()
 
 // Configuração do Service Worker do PWA
-let updateSW = registerSW({
+registerSW({
   onNeedRefresh() {
-    // Cria um toast personalizado para notificar sobre a atualização
-    const toast = document.createElement('div');
-    toast.style.position = 'fixed';
-    toast.style.bottom = '20px';
-    toast.style.right = '20px';
-    toast.style.backgroundColor = '#0d2d6c';
-    toast.style.color = 'white';
-    toast.style.padding = '16px';
-    toast.style.borderRadius = '8px';
-    toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
-    toast.style.zIndex = '10000';
-    toast.style.display = 'flex';
-    toast.style.flexDirection = 'column';
-    toast.style.gap = '12px';
-    toast.style.maxWidth = '320px';
-    
-    const message = document.createElement('div');
-    message.textContent = 'Uma nova versão do aplicativo está disponível!';
-    message.style.fontWeight = '500';
-    
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.display = 'flex';
-    buttonContainer.style.gap = '8px';
-    buttonContainer.style.justifyContent = 'flex-end';
-    
-    const updateButton = document.createElement('button');
-    updateButton.textContent = 'Atualizar';
-    updateButton.style.padding = '8px 16px';
-    updateButton.style.backgroundColor = '#4CAF50';
-    updateButton.style.color = 'white';
-    updateButton.style.border = 'none';
-    updateButton.style.borderRadius = '4px';
-    updateButton.style.cursor = 'pointer';
-    
-    const laterButton = document.createElement('button');
-    laterButton.textContent = 'Depois';
-    laterButton.style.padding = '8px 16px';
-    laterButton.style.backgroundColor = '#ffffff';
-    laterButton.style.color = '#0d2d6c';
-    laterButton.style.fontWeight = '600';
-    laterButton.style.border = '1px solid rgba(13,45,108,0.2)';
-    laterButton.style.borderRadius = '4px';
-    laterButton.style.cursor = 'pointer';
-    laterButton.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.6)';
-    
-    // Adiciona os elementos ao toast
-    buttonContainer.appendChild(laterButton);
-    buttonContainer.appendChild(updateButton);
-    toast.appendChild(message);
-    toast.appendChild(buttonContainer);
-    document.body.appendChild(toast);
-    
-    // Configura os eventos dos botões
-    const updateApp = () => {
-      updateSW(true).then(() => {
-        document.body.removeChild(toast);
-        window.location.reload();
-      });
-    };
-    
-    updateButton.addEventListener('click', updateApp);
-    laterButton.addEventListener('click', () => {
-      document.body.removeChild(toast);
-    });
-    
-    // Atualiza automaticamente após 1 minuto se o usuário não interagir
-    const timeout = setTimeout(updateApp, 60000);
-    
-    // Limpa o timeout se o usuário fechar manualmente
-    laterButton.addEventListener('click', () => {
-      clearTimeout(timeout);
-    });
+    // O UpdatePrompt.tsx cuida da UI de atualização
+    // Não fazemos nada aqui para evitar duplicação
+    console.log('[PWA] onNeedRefresh - nova versão disponível');
   },
   onOfflineReady() {
     console.log('[PWA] App pronto para uso offline!')
@@ -120,65 +51,40 @@ let updateSW = registerSW({
   },
   onRegistered(registration) {
     console.log('[PWA] Service Worker registrado:', registration)
-    // Log updatefound and the installing worker states for debugging
     if (!registration) return
+    
+    // Log para debug
     registration.addEventListener('updatefound', () => {
-      console.log('[PWA] updatefound - new service worker installing')
+      console.log('[PWA] updatefound - novo service worker instalando')
       const newWorker = registration.installing
       if (newWorker) {
         newWorker.addEventListener('statechange', () => {
-          console.log('[PWA] new worker state:', newWorker.state)
+          console.log('[PWA] novo worker state:', newWorker.state)
         })
       }
     })
     
-    // Verifica atualizações a cada 30 minutos
+    // Verifica atualizações a cada 1 hora (não muito agressivo)
     const updateInterval = setInterval(() => {
-      registration && registration.update().catch(console.error)
-    }, 30 * 60 * 1000)
+      registration.update().catch(console.error)
+    }, 60 * 60 * 1000) // 1 hora
     
-    // Limpa o intervalo quando a página for fechada
     window.addEventListener('beforeunload', () => {
       clearInterval(updateInterval)
     })
-
-    // If a worker is already waiting, we intentionally DO NOT auto-apply here
-    // so that the UpdatePrompt can surface and the user can choose to update.
   },
   onRegisterError(error) {
     console.error('[PWA] Erro ao registrar SW:', error)
   },
 })
 
-// Verifica atualizações quando a página ganha foco
-const handleVisibilityChange = () => {
-  if (document.visibilityState === 'visible') {
-    updateSW(true).catch(console.error)
-  }
-}
-
-// Adiciona listener para verificar atualizações quando a página ganha foco
-document.addEventListener('visibilitychange', handleVisibilityChange)
-
-// Verifica atualizações a cada 5 minutos (para testes)
-// Em produção, você pode aumentar esse tempo (ex: 1 hora)
-setInterval(() => {
-  if (document.visibilityState === 'visible') {
-    updateSW(true).catch(console.error);
-  }
-}, 5 * 60 * 1000); // 5 minutos
-
-// Reload the page when the controlling service worker changes so new assets
-// are used immediately after activation.
+// Reload quando o service worker muda (nova versão ativada)
 let refreshing = false
 if (navigator.serviceWorker) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshing) return
     refreshing = true
-    console.log('[PWA] controllerchange detected - reloading to activate new SW')
-    // Pequeno delay para garantir que o novo SW já tenha registrado seus caches
-    setTimeout(() => {
-      window.location.reload()
-    }, 300)
+    console.log('[PWA] controllerchange - recarregando para ativar novo SW')
+    window.location.reload()
   })
 }
