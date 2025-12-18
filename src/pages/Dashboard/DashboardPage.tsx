@@ -426,20 +426,6 @@ const DashboardPage = () => {
                         <p className="mt-1">Itens: {m.items.filter((i: { name: string; status?: boolean }) => i.status).map((i: { name: string }) => i.name).join(", ")}</p>
                       )}
                       {m.notes && <p className="mt-1">Obs: {m.notes}</p>}
-                      {m.photos && m.photos.length > 0 && (
-                          <p className="mt-1 text-[11px] text-gray-500">Fotos: capturadas em {formatDateField(m.createdAt)}</p>
-                        )}
-                      {/* Áudios do motorista (cada evento com data/hora) */}
-                      {m.audioEvents && m.audioEvents.length > 0 && (
-                        <div className="mt-1">
-                          <p className="text-[11px] font-medium">Áudios:</p>
-                          <ul className="mt-1 list-disc list-inside text-[11px] text-gray-500">
-                            {m.audioEvents.map((ev: any, i: number) => (
-                              <li key={i} className="mt-1">{formatDurationSeconds(ev.duration)} • {formatDateField(ev.at)}{ev.uploadedBy ? ` • por ${ev.uploadedBy}` : ''}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
 
                       {/* Histórico inferido do motorista (quando não houver statusHistory público) */}
                       {(m.statusHistory && m.statusHistory.length > 0) && (
@@ -475,17 +461,17 @@ const DashboardPage = () => {
                         <div className="mt-1 space-y-2">
                           {m.audioEvents && m.audioEvents.length > 0 ? (
                             m.audioEvents.map((ev: any, i: number) => (
-                              <div key={i} className="flex items-center gap-2">
-                                <audio controls src={ev.url} className="w-48" />
+                              <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                                <audio controls src={ev.url} className="w-full sm:w-64 max-w-full" />
                                 <div className="text-[11px] text-gray-500">
                                   <div>Duração: {formatDurationSeconds(ev.duration)}</div>
-                                  <div className="text-[10px]">Enviado por: {ev.uploadedBy || "-"} • {formatDateField(ev.at)}</div>
+                                  <div className="text-[10px]">Enviado por: {usersById[ev.uploadedBy] || ev.uploadedBy || "-"} • {formatDateField(ev.at)}</div>
                                 </div>
                               </div>
                             ))
                           ) : m.audioUrl ? (
-                            <div className="flex items-center gap-2">
-                              <audio controls src={m.audioUrl} className="w-48" />
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                              <audio controls src={m.audioUrl} className="w-full sm:w-64 max-w-full" />
                               <div className="text-[11px] text-gray-500">
                                 <div>Duração: {formatDurationSeconds(m.audioDurationSeconds)}</div>
                                 <div className="text-[10px]">Enviado por: - • {m.date ? m.date.toLocaleString() : ''}</div>
