@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Download, X, Share } from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -6,44 +6,100 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+// Chave para armazenar quando foi dispensado (expira em 7 dias)
+const INSTALL_DISMISSED_KEY = 'pwa-install-dismissed';
+const DISMISS_EXPIRY_DAYS = 7;
+
 const InstallPrompt = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [showIOSInstructions, setShowIOSInstructions] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
+  // Verifica se o dismiss expirou
+  const isDismissExpired = useCallback(() => {
+    try {
+      const dismissedAt = localStorage.getItem(INSTALL_DISMISSED_KEY);
+      if (!dismissedAt) return true;
+      
+      const dismissDate = new Date(dismissedAt);
+      const now = new Date();
+      const diffDays = (now.getTime() - dismissDate.getTime()) / (1000 * 60 * 60 * 24);
+      
+      // Se passou mais de 7 dias, permite mostrar novamente
+      if (diffDays > DISMISS_EXPIRY_DAYS) {
+        localStorage.removeItem(INSTALL_DISMISSED_KEY);
+        return true;
+      }
+      return false;
+    } catch {
+      return true;
+    }
+  }, []);
+
+  // Verifica se está em modo standalone (já instalado)
+  const isStandalone = useCallback(() => {
+    return window.matchMedia("(display-mode: standalone)").matches ||
+           (window.navigator as any).standalone === true ||
+           document.referrer.includes('android-app://');
+  }, []);
+
+  // Detecta iOS
+  const isIOS = useCallback(() => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  }, []);
+
   useEffect(() => {
-    // Verifica se já foi instalado ou dispensado
-    const isInstalled = window.matchMedia("(display-mode: standalone)").matches;
-    const wasDismissed = localStorage.getItem("pwa-install-dismissed");
-    
-    if (isInstalled || wasDismissed) {
+    // Se já está instalado, não mostra nada
+    if (isStandalone()) {
+      console.log('[PWA Install] App já está instalado (standalone mode)');
       return;
     }
 
-    // Detecta iOS
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isInStandaloneMode = window.matchMedia("(display-mode: standalone)").matches;
-
-    if (isIOS && !isInStandaloneMode) {
-      // Mostra instruções para iOS após 2 segundos
-      setTimeout(() => setShowIOSInstructions(true), 2000);
+    // Verifica se foi dispensado recentemente
+    if (!isDismissExpired()) {
+      console.log('[PWA Install] Prompt dispensado recentemente');
       return;
+    }
+
+    // iOS - mostra instruções específicas
+    if (isIOS()) {
+      console.log('[PWA Install] Detectado iOS, mostrando instruções');
+      // Mostra instruções para iOS após 3 segundos
+      const timer = setTimeout(() => {
+        if (!isStandalone()) {
+          setShowIOSInstructions(true);
+        }
+      }, 3000);
+      return () => clearTimeout(timer);
     }
 
     // Android/Chrome - captura o evento beforeinstallprompt
     const handleBeforeInstall = (e: Event) => {
+      console.log('[PWA Install] beforeinstallprompt capturado');
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setShowInstallBanner(true);
+      // Mostra o banner após um pequeno delay
+      setTimeout(() => setShowInstallBanner(true), 2000);
+    };
+
+    // Verifica se o app foi instalado
+    const handleAppInstalled = () => {
+      console.log('[PWA Install] App instalado com sucesso');
+      setShowInstallBanner(false);
+      setDeferredPrompt(null);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    console.log('[PWA Install] Listeners registrados, aguardando beforeinstallprompt...');
 
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
+      window.removeEventListener("appinstalled", handleAppInstalled);
     };
-  }, []);
+  }, [isStandalone, isDismissExpired, isIOS]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
@@ -61,7 +117,8 @@ const InstallPrompt = () => {
     setShowInstallBanner(false);
     setShowIOSInstructions(false);
     setDismissed(true);
-    localStorage.setItem("pwa-install-dismissed", "true");
+    // Salva a data atual para expirar após 7 dias
+    localStorage.setItem(INSTALL_DISMISSED_KEY, new Date().toISOString());
   };
 
   // Banner para Android/Chrome
