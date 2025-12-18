@@ -103,20 +103,6 @@ const AdminMaintenanceHistoryPage = () => {
                       <p className="mt-1">Itens: {m.items.filter((i:any)=> i.status).map((i:any)=> i.name).join(", ")}</p>
                     )}
                     {(m as any).notes && <p className="mt-1">Obs: {(m as any).notes}</p>}
-                    {(m as any).photos && (m as any).photos.length > 0 && (
-                      <p className="mt-1 text-[11px] text-gray-500">Fotos: capturadas em {formatDateField(m.createdAt)}</p>
-                    )}
-
-                    {(m as any).audioEvents && (m as any).audioEvents.length > 0 && (
-                      <div className="mt-1">
-                        <p className="text-[11px] font-medium">Áudios:</p>
-                        <ul className="mt-1 list-disc list-inside text-[11px] text-gray-500">
-                          {(m as any).audioEvents.map((ev:any, i:number) => (
-                            <li key={i} className="mt-1">{formatDurationSeconds(ev.duration)} • {formatDateField(ev.at)}{ev.uploadedBy ? ` • por ${ev.uploadedBy}` : ''}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
 
                     {(m.statusHistory && (m.statusHistory as any[]).length > 0) && (
                       <div className="mt-2">
@@ -150,16 +136,16 @@ const AdminMaintenanceHistoryPage = () => {
                         {(m as any).audioEvents && (m as any).audioEvents.length > 0 ? (
                           (m as any).audioEvents.map((ev:any, i:number) => (
                             <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2">
-                              <audio controls src={ev.url} className="w-full sm:w-48" />
+                              <audio controls src={ev.url} className="w-full sm:w-64 max-w-full" />
                               <div className="text-[11px] text-gray-500">
                                 <div>Duração: {formatDurationSeconds(ev.duration)}</div>
-                                <div className="text-[10px]">Enviado por: {ev.uploadedBy || "-"} • {formatDateField(ev.at)}</div>
+                                <div className="text-[10px]">Enviado por: {usersById[ev.uploadedBy] || ev.uploadedBy || "-"} • {formatDateField(ev.at)}</div>
                               </div>
                             </div>
                           ))
                         ) : (m as any).audioUrl ? (
                           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                            <audio controls src={(m as any).audioUrl} className="w-full sm:w-48" />
+                            <audio controls src={(m as any).audioUrl} className="w-full sm:w-64 max-w-full" />
                             <div className="text-[11px] text-gray-500">
                               <div>Duração: {formatDurationSeconds((m as any).audioDurationSeconds)}</div>
                               <div className="text-[10px]">Enviado por: - • {m.completedAt ? formatDateField(m.completedAt) : ''}</div>
