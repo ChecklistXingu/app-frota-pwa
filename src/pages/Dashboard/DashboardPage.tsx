@@ -41,9 +41,10 @@ type MaintenanceRecord = {
 };
 
 // Extensões que podem aparecer nos docs
-type ExtendedMaintenanceRecord = MaintenanceRecord & {
+interface ExtendedMaintenanceRecord extends MaintenanceRecord {
   forecastedCompletion?: any;
   workshopName?: string;
+  finalCost?: number;
 };
 
 type Vehicle = {
@@ -507,6 +508,7 @@ const DashboardPage = () => {
                         {m.forecastedCompletion && <p className="mt-1">Previsão: {formatDateField(m.forecastedCompletion)}</p>}
                         {m.completedAtRaw && <p className="mt-1">Finalizado: {formatDateField(m.completedAtRaw)}</p>}
                         {m.managerNote && <p className="mt-1">Obs (gestor): {m.managerNote}</p>}
+                        {m.finalCost && <p className="mt-1 text-emerald-600 font-semibold">Valor final: R$ {Number(m.finalCost).toFixed(2).replace('.', ',')}</p>}
 
                         {(m.statusHistory && m.statusHistory.length > 0) && (
                           <div className="mt-2">

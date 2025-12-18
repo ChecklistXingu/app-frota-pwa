@@ -180,6 +180,7 @@ const AdminMaintenanceHistoryPage = () => {
                       {m.forecastedCompletion && <p className="mt-1">Previsão: {formatDateField(m.forecastedCompletion)}</p>}
                       {m.completedAt && <p className="mt-1">Finalizado: {formatDateField(m.completedAt)}</p>}
                       {(m as any).managerNote && <p className="mt-1">Obs (gestor): {(m as any).managerNote}</p>}
+                      {m.finalCost && <p className="mt-1 text-emerald-600 font-semibold">Valor final: R$ {Number(m.finalCost).toFixed(2).replace('.', ',')}</p>}
 
                       {(m.statusHistory && (m.statusHistory as any[]).length > 0) && (
                         <div className="mt-2">
