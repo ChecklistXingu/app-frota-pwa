@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste PWA Offline</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0d2d6c;
+            color: white;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .online { background: #10b981; }
+        .offline { background: #f59e0b; }
+        .error { background: #ef4444; }
+        button {
+            background: #ffd300;
+            color: #0d2d6c;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #ffed4e; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste PWA Offline - Frota Xingu</h1>
+    
+    <div class="card">
+        <h2>Status da Conexão</h2>
+        <p>Conexão: <span id="connection-status" class="status">Verificando...</span></p>
+        <p>Service Worker: <span id="sw-status" class="status">Verificando...</span></p>
+    </div>
+
+    <div class="card">
+        <h2>Testes de Funcionalidade</h2>
+        <button onclick="testCache()">Testar Cache</button>
+        <button onclick="testOfflinePage()">Testar Página Offline</button>
+        <button onclick="clearCache()">Limpar Cache</button>
+        <button onclick="showCacheInfo()">Mostrar Info do Cache</button>
+    </div>
+
+    <div class="card">
+        <h2>Logs</h2>
+        <div id="log" class="log"></div>
+        <button onclick="clearLog()">Limpar Logs</button>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#ffffff';
+            logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateConnectionStatus() {
+            const status = navigator.onLine;
+            const statusEl = document.getElementById('connection-status');
+            statusEl.textContent = status ? 'Online' : 'Offline';
+            statusEl.className = `status ${status ? 'online' : 'offline'}`;
+            log(`Status de conexão: ${status ? 'Online' : 'Offline'}`);
+        }
+
+        async function checkServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registration = await navigator.serviceWorker.ready;
+                    const statusEl = document.getElementById('sw-status');
+                    
+                    if (registration.active) {
+                        statusEl.textContent = 'Ativo';
+                        statusEl.className = 'status online';
+                        log('Service Worker ativo e pronto');
+                        
+                        // Verifica se o SW controla a página
+                        if (navigator.serviceWorker.controller) {
+                            log('Service Worker está controlando esta página', 'success');
+                        } else {
+                            log('Service Worker está ativo mas não controla esta página. Recarregue a página.', 'error');
+                        }
+                    } else {
+                        statusEl.textContent = 'Inativo';
+                        statusEl.className = 'status error';
+                        log('Service Worker não está ativo', 'error');
+                    }
+                } catch (error) {
+                    log('Erro ao verificar Service Worker: ' + error.message, 'error');
+                    document.getElementById('sw-status').textContent = 'Erro';
+                    document.getElementById('sw-status').className = 'status error';
+                }
+            } else {
+                log('Service Worker não suportado neste navegador', 'error');
+                document.getElementById('sw-status').textContent = 'Não suportado';
+                document.getElementById('sw-status').className = 'status error';
+            }
+        }
+
+        async function testCache() {
+            log('Testando cache...');
+            try {
+                const cache = await caches.open('frota-xingu-v2.0.0-runtime');
+                const keys = await cache.keys();
+                log(`Cache encontrado com ${keys.length} itens:`, 'success');
+                keys.forEach(key => log(`  - ${key.url}`));
+            } catch (error) {
+                log('Erro ao testar cache: ' + error.message, 'error');
+            }
+        }
+
+        async function testOfflinePage() {
+            log('Testando página offline...');
+            try {
+                const response = await fetch('/index.html');
+                if (response.ok) {
+                    log('Página index.html carregada com sucesso', 'success');
+                    log(`Status: ${response.status}, Size: ${response.headers.get('content-length')} bytes`);
+                } else {
+                    log(`Erro ao carregar página: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log('Erro ao carregar página (pode estar offline): ' + error.message, 'error');
+            }
+        }
+
+        async function clearCache() {
+            log('Limpando cache...');
+            try {
+                const keys = await caches.keys();
+                await Promise.all(keys.map(key => caches.delete(key)));
+                log('Cache limpo com sucesso', 'success');
+            } catch (error) {
+                log('Erro ao limpar cache: ' + error.message, 'error');
+            }
+        }
+
+        async function showCacheInfo() {
+            log('Informações do cache...');
+            try {
+                const keys = await caches.keys();
+                log(`Total de caches: ${keys.length}`);
+                for (const key of keys) {
+                    const cache = await caches.open(key);
+                    const requests = await cache.keys();
+                    log(`  ${key}: ${requests.length} itens`);
+                }
+            } catch (error) {
+                log('Erro ao obter informações do cache: ' + error.message, 'error');
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // Event listeners
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+
+        // Inicialização
+        updateConnectionStatus();
+        checkServiceWorker();
+        
+        // Verifica periodicamente o status
+        setInterval(updateConnectionStatus, 5000);
+    </script>
+</body>
+</html>

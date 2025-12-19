@@ -33,9 +33,12 @@ self.addEventListener('install', (event: ExtendableEvent) => {
     caches.open(RUNTIME_CACHE)
       .then(cache => {
         console.log('[SW] 💾 Fazendo cache do app shell')
+        // Cache essencial para funcionamento offline
         return cache.addAll([
           '/',
           '/index.html',
+          '/icons/icon-192.png',
+          '/icons/icon-512.png',
         ])
       })
       .then(() => {
@@ -44,7 +47,7 @@ self.addEventListener('install', (event: ExtendableEvent) => {
       })
       .catch(err => {
         console.error('[SW] ❌ Erro no precache:', err)
-        // Continua mesmo com erro
+        // Continua mesmo com erro - o app ainda pode funcionar
         return self.skipWaiting()
       })
   )
@@ -88,7 +91,7 @@ self.addEventListener('message', (event: any) => {
 })
 
 // ============================================================================
-// FETCH - Estratégia OFFLINE FIRST
+// FETCH - Estratégia OFFLINE FIRST simplificada e mais robusta
 // ============================================================================
 self.addEventListener('fetch', (event: FetchEvent) => {
   const { request } = event
@@ -111,45 +114,43 @@ self.addEventListener('fetch', (event: FetchEvent) => {
   }
   
   // ========================================================================
-  // NAVEGAÇÃO (HTML) - CACHE FIRST com fallback
+  // NAVEGAÇÃO (HTML) - CACHE FIRST com fallback garantido
   // ========================================================================
   if (request.mode === 'navigate') {
     event.respondWith(
-      caches.match(request)
-        .then(cachedResponse => {
+      (async () => {
+        try {
+          // Tenta cache primeiro
+          const cachedResponse = await caches.match(request)
           if (cachedResponse) {
             console.log('[SW] 📄 Navegação do CACHE:', url.pathname)
             return cachedResponse
           }
           
           // Tenta rede
-          return fetch(request)
-            .then(response => {
-              // Salva no cache se OK
-              if (response.ok) {
-                const responseClone = response.clone()
-                caches.open(RUNTIME_CACHE).then(cache => {
-                  cache.put(request, responseClone)
-                })
-              }
-              return response
-            })
-            .catch(() => {
-              // FALLBACK: retorna index.html do cache
-              console.log('[SW] 🔌 OFFLINE - Retornando index.html do cache')
-              return caches.match(OFFLINE_PAGE)
-                .then(offlineResponse => {
-                  if (offlineResponse) {
-                    return offlineResponse
-                  }
-                  // Último recurso
-                  return new Response(
-                    '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;background:#0d2d6c;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem;text-align:center}h1{color:#ffd300;font-size:2rem;margin-bottom:1rem}p{margin-bottom:1.5rem;opacity:.9}button{background:#ffd300;color:#0d2d6c;border:none;padding:1rem 2rem;font-size:1rem;font-weight:bold;border-radius:8px;cursor:pointer;transition:transform .2s}button:active{transform:scale(.95)}</style></head><body><div><h1>🔌 Você está offline</h1><p>Conecte-se à internet para acessar o aplicativo.</p><button onclick="location.reload()">Tentar novamente</button></div></body></html>',
-                    { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-                  )
-                })
-            })
-        })
+          const networkResponse = await fetch(request)
+          if (networkResponse.ok) {
+            const responseClone = networkResponse.clone()
+            const cache = await caches.open(RUNTIME_CACHE)
+            cache.put(request, responseClone)
+          }
+          return networkResponse
+        } catch (error) {
+          console.log('[SW] 🔌 OFFLINE - Usando fallback para:', url.pathname)
+          
+          // Tenta index.html do cache
+          const offlineResponse = await caches.match(OFFLINE_PAGE)
+          if (offlineResponse) {
+            return offlineResponse
+          }
+          
+          // Último recurso - página offline inline
+          return new Response(
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline - Frota Xingu</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;background:#0d2d6c;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem;text-align:center}h1{color:#ffd300;font-size:2rem;margin-bottom:1rem}p{margin-bottom:1.5rem;opacity:.9}button{background:#ffd300;color:#0d2d6c;border:none;padding:1rem 2rem;font-size:1rem;font-weight:bold;border-radius:8px;cursor:pointer;transition:transform .2s}button:active{transform:scale(.95)}</style></head><body><div><h1>🔌 Você está offline</h1><p>O aplicativo Frota Xingu está funcionando offline. Conecte-se à internet para sincronizar seus dados.</p><button onclick="location.reload()">Tentar novamente</button></div></body></html>',
+            { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          )
+        }
+      })()
     )
     return
   }
@@ -164,28 +165,36 @@ self.addEventListener('fetch', (event: FetchEvent) => {
     request.destination === 'font'
   ) {
     event.respondWith(
-      caches.match(request)
-        .then(cachedResponse => {
+      (async () => {
+        try {
+          // Tenta cache primeiro
+          const cachedResponse = await caches.match(request)
           if (cachedResponse) {
             return cachedResponse
           }
           
-          return fetch(request)
-            .then(response => {
-              if (response.ok) {
-                const responseClone = response.clone()
-                caches.open(RUNTIME_CACHE).then(cache => {
-                  cache.put(request, responseClone)
-                })
-              }
-              return response
-            })
-            .catch(() => {
-              // Se falhar, retorna do cache ou erro
-              return caches.match(request).then(r => r || new Response('', { status: 404 }))
-            })
-        })
+          // Tenta rede
+          const networkResponse = await fetch(request)
+          if (networkResponse.ok) {
+            const responseClone = networkResponse.clone()
+            const cache = await caches.open(RUNTIME_CACHE)
+            cache.put(request, responseClone)
+          }
+          return networkResponse
+        } catch (error) {
+          // Se falhar, tenta do cache novamente ou retorna erro 404
+          const cachedResponse = await caches.match(request)
+          return cachedResponse || new Response('', { status: 404 })
+        }
+      })()
     )
+    return
+  }
+  
+  // ========================================================================
+  // API requests - Deixa passar (não cacheia)
+  // ========================================================================
+  if (url.pathname.startsWith('/api/')) {
     return
   }
 })

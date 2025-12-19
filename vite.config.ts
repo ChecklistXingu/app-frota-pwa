@@ -23,7 +23,7 @@ export default defineConfig({
       injectManifest: {
         swSrc: 'src/service-worker.ts',
       },
-      includeAssets: ['icons/icon-192.png'],
+      includeAssets: ['icons/icon-192.png', 'icons/icon-512.png'],
       devOptions: {
         enabled: true,
         type: 'module',
@@ -73,6 +73,30 @@ export default defineConfig({
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 30, // 30 dias
+              },
+            },
+          },
+          // Cache para fontes do Google
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 ano
+              },
+            },
+          },
+          // Cache para fontes estáticas
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'gstatic-fonts-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 ano
               },
             },
           },
