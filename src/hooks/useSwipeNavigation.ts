@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, type PointerEventHandler } from "react";
+import { useCallback, useMemo, useRef, type TouchEventHandler } from "react";
 
 export type UseSwipeNavigationOptions = {
   routes: string[];
@@ -8,15 +8,16 @@ export type UseSwipeNavigationOptions = {
 };
 
 export type SwipeNavigationHandlers = {
-  onPointerDown: PointerEventHandler<HTMLDivElement>;
-  onPointerMove: PointerEventHandler<HTMLDivElement>;
-  onPointerUp: PointerEventHandler<HTMLDivElement>;
-  onPointerCancel: PointerEventHandler<HTMLDivElement>;
+  onTouchStart: TouchEventHandler<HTMLDivElement>;
+  onTouchMove: TouchEventHandler<HTMLDivElement>;
+  onTouchEnd: TouchEventHandler<HTMLDivElement>;
+  onTouchCancel: TouchEventHandler<HTMLDivElement>;
 };
 
 const DEFAULT_THRESHOLD = 60;
 const LOCK_SELECTOR = "[data-swipe-lock='true']";
-const VERTICAL_BIAS = 1.35; // Keeps vertical scroll responsive
+const VERTICAL_BIAS = 1.2;
+const VERTICAL_CANCEL_DISTANCE = 24;
 
 export const useSwipeNavigation = ({
   routes,
@@ -24,16 +25,16 @@ export const useSwipeNavigation = ({
   onNavigate,
   threshold = DEFAULT_THRESHOLD,
 }: UseSwipeNavigationOptions): SwipeNavigationHandlers => {
-  const pointerIdRef = useRef<number | null>(null);
   const startXRef = useRef<number | null>(null);
   const startYRef = useRef<number | null>(null);
+  const isTrackingRef = useRef(false);
 
   const isSwipeableRoute = useMemo(() => routes.includes(currentPath), [routes, currentPath]);
 
   const reset = useCallback(() => {
-    pointerIdRef.current = null;
     startXRef.current = null;
     startYRef.current = null;
+    isTrackingRef.current = false;
   }, []);
 
   const navigateByOffset = useCallback(
@@ -49,39 +50,43 @@ export const useSwipeNavigation = ({
     [currentPath, onNavigate, routes],
   );
 
-  const onPointerDown: PointerEventHandler<HTMLDivElement> = useCallback(
+  const onTouchStart: TouchEventHandler<HTMLDivElement> = useCallback(
     (event) => {
-      if (event.pointerType !== "touch" || !isSwipeableRoute) return;
+      if (!isSwipeableRoute || event.touches.length !== 1) return;
 
       const target = event.target as HTMLElement | null;
       if (target?.closest(LOCK_SELECTOR)) return;
 
-      pointerIdRef.current = event.pointerId;
-      startXRef.current = event.clientX;
-      startYRef.current = event.clientY;
+      const touch = event.touches[0];
+      startXRef.current = touch.clientX;
+      startYRef.current = touch.clientY;
+      isTrackingRef.current = true;
     },
     [isSwipeableRoute],
   );
 
-  const onPointerMove: PointerEventHandler<HTMLDivElement> = useCallback(
+  const onTouchMove: TouchEventHandler<HTMLDivElement> = useCallback(
     (event) => {
-      if (event.pointerType !== "touch") return;
-      if (pointerIdRef.current !== event.pointerId) return;
+      if (!isTrackingRef.current || event.touches.length !== 1) return;
       if (startXRef.current === null || startYRef.current === null) return;
 
-      const deltaX = event.clientX - startXRef.current;
-      const deltaY = event.clientY - startYRef.current;
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - startXRef.current;
+      const deltaY = touch.clientY - startYRef.current;
 
-      const isHorizontalDominant = Math.abs(deltaX) > Math.abs(deltaY) * VERTICAL_BIAS;
+      const absDeltaX = Math.abs(deltaX);
+      const absDeltaY = Math.abs(deltaY);
+
+      const isHorizontalDominant = absDeltaX > absDeltaY * VERTICAL_BIAS;
       if (!isHorizontalDominant) {
-        // User is scrolling vertically; stop tracking this pointer.
-        if (Math.abs(deltaY) > threshold / 4) {
+        if (absDeltaY > VERTICAL_CANCEL_DISTANCE) {
           reset();
         }
         return;
       }
 
-      if (Math.abs(deltaX) >= threshold) {
+      if (absDeltaX >= threshold) {
+        event.preventDefault();
         navigateByOffset(deltaX < 0 ? 1 : -1);
         reset();
       }
@@ -89,20 +94,16 @@ export const useSwipeNavigation = ({
     [navigateByOffset, reset, threshold],
   );
 
-  const onPointerUp: PointerEventHandler<HTMLDivElement> = useCallback(
-    (event) => {
-      if (event.pointerType !== "touch") return;
-      reset();
-    },
-    [reset],
-  );
+  const onTouchEnd: TouchEventHandler<HTMLDivElement> = useCallback(() => {
+    reset();
+  }, [reset]);
 
-  const onPointerCancel = onPointerUp;
+  const onTouchCancel = onTouchEnd;
 
   return {
-    onPointerDown,
-    onPointerMove,
-    onPointerUp,
-    onPointerCancel,
+    onTouchStart,
+    onTouchMove,
+    onTouchEnd,
+    onTouchCancel,
   };
 };
