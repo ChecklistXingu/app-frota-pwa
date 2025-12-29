@@ -1,19 +1,32 @@
 import type { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { Home, Car, Fuel, Wrench, User } from "lucide-react";
+import { useSwipeNavigation } from "../../hooks/useSwipeNavigation";
 
 type MainLayoutProps = {
   children: ReactNode;
 };
 
 const MainLayout = ({ children }: MainLayoutProps) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const swipeHandlers = useSwipeNavigation({
+    routes: ["/", "/vehicles", "/refueling", "/maintenance", "/profile"],
+    currentPath: location.pathname,
+    onNavigate: (path) => navigate(path),
+  });
+
   return (
     <div className="min-h-screen flex flex-col bg-[color:var(--color-background)] text-[color:var(--color-primary)]">
       <header className="h-14 flex items-center justify-center bg-[color:var(--color-primary)] text-white shadow-md">
         <h1 className="font-semibold text-lg tracking-tight">App Frota</h1>
       </header>
 
-      <main className="flex-1 overflow-y-auto pb-16 px-3 pt-3 max-w-md w-full mx-auto">
+      <main
+        className="flex-1 overflow-y-auto pb-16 px-3 pt-3 max-w-md w-full mx-auto"
+        {...swipeHandlers}
+      >
         {children}
       </main>
 
