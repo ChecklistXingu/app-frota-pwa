@@ -16,9 +16,24 @@ import {
 let isSyncing = false;
 let syncListeners: ((syncing: boolean, pending: number) => void)[] = [];
 
+// Notifica o Hub (app pai) sobre pendências de sincronização
+const notifyHub = (type: 'FROTA_SYNC_PENDING' | 'FROTA_SYNC_DONE') => {
+  if (typeof window !== 'undefined' && window.parent !== window) {
+    try {
+      window.parent.postMessage({ type }, '*');
+    } catch (e) {
+      console.warn('[Sync] Falha ao enviar postMessage para o Hub:', e);
+    }
+  }
+};
+
 // Notifica listeners sobre mudança de status
 const notifyListeners = (syncing: boolean, pending: number) => {
   syncListeners.forEach((listener) => listener(syncing, pending));
+  // Notificar o Hub se houver pendências
+  if (pending > 0) {
+    notifyHub('FROTA_SYNC_PENDING');
+  }
 };
 
 // Adiciona listener para status de sincronização
@@ -169,7 +184,12 @@ export const syncPendingUploads = async (): Promise<{
     console.error("[Sync] Erro na sincronização:", error);
   } finally {
     isSyncing = false;
-    notifyListeners(false, failed);
+    const remaining = failed; // failed representa o que ainda não foi sincronizado
+    notifyListeners(false, remaining);
+    // Se não há mais pendências, notificar o Hub que a sincronização foi concluída
+    if (remaining === 0) {
+      notifyHub('FROTA_SYNC_DONE');
+    }
   }
 
   return { success, failed };
@@ -181,6 +201,12 @@ export const startAutoSync = (): (() => void) => {
 
   // Sincroniza ao iniciar se estiver online
   if (isOnline()) {
+    // Verifica se há pendências e notifica o Hub
+    hasPendingUploads().then((hasPending) => {
+      if (hasPending) {
+        notifyHub('FROTA_SYNC_PENDING');
+      }
+    });
     syncPendingUploads();
   }
 
@@ -188,6 +214,12 @@ export const startAutoSync = (): (() => void) => {
   const unsubscribe = onOnlineStatusChange((online) => {
     if (online) {
       console.log("[Sync] Conexão restaurada, iniciando sincronização...");
+      // Verifica se há pendências e notifica o Hub
+      hasPendingUploads().then((hasPending) => {
+        if (hasPending) {
+          notifyHub('FROTA_SYNC_PENDING');
+        }
+      });
       syncPendingUploads();
     }
   });

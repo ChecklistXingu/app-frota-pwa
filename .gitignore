@@ -28,3 +28,5 @@ scripts/serviceAccountKey.json
 *serviceAccountKey*.json
 *firebase-adminsdk*.json
 
+
+.vercel

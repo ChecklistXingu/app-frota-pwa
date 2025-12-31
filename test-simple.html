@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste PWA Simples</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #0d2d6c;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            text-align: center;
+            max-width: 400px;
+        }
+        h1 {
+            color: #ffd300;
+            margin-bottom: 20px;
+        }
+        .status {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        .online { background: rgba(16, 185, 129, 0.2); }
+        .offline { background: rgba(245, 158, 11, 0.2); }
+        button {
+            background: #ffd300;
+            color: #0d2d6c;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 App Frota Teste</h1>
+        <div id="status" class="status">
+            Verificando status...
+        </div>
+        <button onclick="testOffline()">Testar Offline</button>
+        <button onclick="reload()">Recarregar</button>
+        <div id="logs" style="margin-top: 20px; font-size: 12px;"></div>
+    </div>
+
+    <script>
+        function log(msg) {
+            const logs = document.getElementById('logs');
+            const time = new Date().toLocaleTimeString();
+            logs.innerHTML = `[${time}] ${msg}<br>` + logs.innerHTML;
+        }
+
+        function updateStatus() {
+            const status = document.getElementById('status');
+            const online = navigator.onLine;
+            
+            status.className = `status ${online ? 'online' : 'offline'}`;
+            status.innerHTML = `
+                <strong>Status:</strong> ${online ? '🟢 Online' : '🟡 Offline'}<br>
+                <strong>Service Worker:</strong> ${navigator.serviceWorker.controller ? '🟢 Ativo' : '🔴 Inativo'}<br>
+                <strong>URL:</strong> ${window.location.href}
+            `;
+            
+            log(`Status: ${online ? 'Online' : 'Offline'}`);
+        }
+
+        function testOffline() {
+            log('Iniciando teste offline...');
+            // Simula offline
+            window.dispatchEvent(new Event('offline'));
+            updateStatus();
+        }
+
+        function reload() {
+            location.reload();
+        }
+
+        // Verifica Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').then(reg => {
+                log('Service Worker registrado: ' + reg.scope);
+                updateStatus();
+            }).catch(err => {
+                log('Erro no Service Worker: ' + err);
+            });
+        }
+
+        // Event listeners
+        window.addEventListener('online', updateStatus);
+        window.addEventListener('offline', updateStatus);
+
+        // Atualiza status inicial
+        updateStatus();
+        setInterval(updateStatus, 5000);
+    </script>
+</body>
+</html>

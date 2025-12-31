@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { RefreshCw } from "lucide-react";
+import { Workbox } from 'workbox-window';
 
 // Chaves para persistir no localStorage
 const SW_UPDATE_DISMISSED_KEY = 'sw_update_dismissed';
@@ -119,60 +120,38 @@ const UpdatePrompt = () => {
     if (!("serviceWorker" in navigator)) return;
 
     let isSubscribed = true;
+    let wb: Workbox | null = null;
 
-    const checkForWaitingWorker = async () => {
+    const registerSW = async () => {
       try {
-        const registration = await navigator.serviceWorker.getRegistration();
+        // Registra o service worker usando Workbox
+        wb = new Workbox('/sw.js');
         
-        if (!registration || !isSubscribed) return;
-
-        // Se há um worker esperando e não foi dispensado
-        if (registration.waiting && !wasUpdateDismissed() && !hasProcessedRef.current) {
-          console.log('[PWA] Worker encontrado esperando ativação');
-          showUpdatePrompt(registration.waiting);
-        }
-
-        // Escuta por novas atualizações
-        const handleUpdateFound = () => {
+        // Escuta atualizações
+        wb.addEventListener('waiting', () => {
           if (!isSubscribed) return;
-          
-          console.log('[PWA] Nova atualização encontrada');
-          const worker = registration.installing;
-          
-          if (worker) {
-            const handleStateChange = () => {
-              if (!isSubscribed) return;
-              
-              console.log('[PWA] Worker state changed to:', worker.state);
-              if (worker.state === "installed" && navigator.serviceWorker.controller) {
-                // Nova versão instalada - limpa o flag de dismissal
-                clearUpdateDismissed();
-                hasProcessedRef.current = false;
-                showUpdatePrompt(worker);
-              }
-            };
-            
-            worker.addEventListener("statechange", handleStateChange);
-          }
-        };
+          console.log('[PWA] Nova versão encontrada, esperando ativação');
+          showUpdatePrompt(wb as any);
+        });
 
-        registration.addEventListener("updatefound", handleUpdateFound);
-
-        return () => {
-          registration.removeEventListener("updatefound", handleUpdateFound);
-        };
+        // Registra o service worker
+        await wb.register();
+        console.log('[PWA] Service Worker registrado com Workbox');
+        
       } catch (error) {
-        console.error('[PWA] Erro ao verificar atualizações:', error);
+        console.error('[PWA] Erro ao registrar Service Worker:', error);
       }
     };
 
-    // Verifica apenas uma vez na inicialização
-    checkForWaitingWorker();
+    registerSW();
 
     return () => {
       isSubscribed = false;
+      if (wb) {
+        // Cleanup do Workbox
+      }
     };
-  }, [showUpdatePrompt, wasUpdateDismissed, clearUpdateDismissed]);
+  }, [showUpdatePrompt]);
 
   const updateApp = async () => {
     if (!waitingWorker) {
@@ -181,7 +160,6 @@ const UpdatePrompt = () => {
     }
 
     console.log("[PWA] Enviando SKIP_WAITING para o worker:", waitingWorker);
-    console.log("[PWA] Estado do worker:", waitingWorker.state);
     setIsUpdating(true);
     setShow(false);
     

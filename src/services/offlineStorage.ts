@@ -92,6 +92,14 @@ export const savePendingUpload = async (
 
     request.onsuccess = () => {
       console.log("[OfflineDB] Upload pendente salvo:", id);
+      // Notificar o Hub sobre nova pendência
+      if (typeof window !== 'undefined' && window.parent !== window) {
+        try {
+          window.parent.postMessage({ type: 'FROTA_SYNC_PENDING' }, '*');
+        } catch (e) {
+          console.warn('[OfflineDB] Falha ao enviar postMessage para o Hub:', e);
+        }
+      }
       resolve(id);
     };
     request.onerror = () => reject(request.error);

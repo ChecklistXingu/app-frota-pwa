@@ -566,7 +566,7 @@ const MaintenancePage = () => {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-24">
       <h2 className="text-xl font-semibold">Manutenções</h2>
 
       <div className="space-y-3 rounded-xl border bg-white px-4 py-3 shadow-sm">

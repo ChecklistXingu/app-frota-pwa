@@ -44,12 +44,28 @@ const InstallPrompt = () => {
            document.referrer.includes('android-app://');
   }, []);
 
+  // Verifica se o app está rodando embutido em um iframe (ex: dentro do Xingu Access)
+  const isEmbeddedInIframe = useCallback(() => {
+    try {
+      return window.self !== window.top;
+    } catch {
+      // Em caso de erro de cross-origin, consideramos que está em iframe
+      return true;
+    }
+  }, []);
+
   // Detecta iOS
   const isIOS = useCallback(() => {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
   }, []);
 
   useEffect(() => {
+    // Se está embutido em iframe (ex: dentro do Xingu Access), nunca mostra banner
+    if (isEmbeddedInIframe()) {
+      console.log('[PWA Install] Executando em iframe (ex: Xingu Access) - não mostrar banner de instalação');
+      return;
+    }
+
     // Se já está instalado, não mostra nada
     if (isStandalone()) {
       console.log('[PWA Install] App já está instalado (standalone mode)');
@@ -99,7 +115,7 @@ const InstallPrompt = () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
-  }, [isStandalone, isDismissExpired, isIOS]);
+  }, [isStandalone, isDismissExpired, isIOS, isEmbeddedInIframe]);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
