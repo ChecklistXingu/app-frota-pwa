@@ -11,7 +11,7 @@ import ProfilePage from "../pages/Profile/ProfilePage";
 import OnboardingVehiclesPage from "../pages/Vehicles/OnboardingVehiclesPage";
 import LoginPage from "../pages/Auth/LoginPage";
 import RegisterPage from "../pages/Auth/RegisterPage";
-import AdminDashboardPage from "../pages/Admin/dashboard/DashboardPage";
+import AdminDashboardPage from "../pages/Admin/AdminDashboardPage";
 import AdminMaintenancePage from "../pages/Admin/AdminMaintenancePage";
 import AdminMaintenanceHistoryPage from "../pages/Admin/AdminMaintenanceHistoryPage";
 import AdminVehiclesPage from "../pages/Admin/AdminVehiclesPage";
