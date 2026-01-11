@@ -544,11 +544,11 @@ const TopConsumersCard = ({ maintenances, vehicles, users, filters }: { maintena
         {isEmpty ? (
           <p className="text-sm text-muted-foreground">Sem dados de consumo disponíveis.</p>
         ) : (
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             {rows.map((r) => (
               <div key={r.label} className="rounded-xl bg-gray-50 px-3 py-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1">{r.icon}{r.label}</p>
-                <p className="text-base font-semibold text-gray-900 whitespace-nowrap truncate">{r.vehicle || "—"}</p>
+                <p className="text-base font-semibold text-gray-900 whitespace-normal break-words leading-snug">{r.vehicle || "—"}</p>
                 <p className="text-xs text-gray-600">{r.value}</p>
               </div>
             ))}
