@@ -438,10 +438,10 @@ const ChartPlaceholder = ({ data }: { data: { month: string; maintenance: number
         </div>
         <div className="space-y-2">
           <div className="h-2 rounded-full bg-blue-500/20">
-            <div className="h-full rounded-full bg-blue-600" style={{ width: `${(item.maintenance / (item.maintenance + item.fuel)) * 100}%` }} />
+            <div className="h-full rounded-full bg-blue-600" style={{ width: `${(item.fuel / (item.maintenance + item.fuel)) * 100}%` }} />
           </div>
-          <div className="h-2 rounded-full bg-emerald-500/20">
-            <div className="h-full rounded-full bg-emerald-600" style={{ width: `${(item.fuel / (item.maintenance + item.fuel)) * 100}%` }} />
+          <div className="h-2 rounded-full bg-orange-500/20">
+            <div className="h-full rounded-full bg-orange-500" style={{ width: `${(item.maintenance / (item.maintenance + item.fuel)) * 100}%` }} />
           </div>
         </div>
       </div>
