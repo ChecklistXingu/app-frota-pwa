@@ -686,24 +686,8 @@ const MaintenancePage = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={pauseRecording}
-                    disabled={recorderStatus !== "recording"}
-                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
-                  >
-                    <PauseCircle size={14} /> Pausar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={resumeRecording}
-                    disabled={recorderStatus !== "paused"}
-                    className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
-                  >
-                    <PlayCircle size={14} /> Retomar
-                  </button>
-                  <button
-                    type="button"
                     onClick={stopRecording}
-                    disabled={recorderStatus !== "recording" && recorderStatus !== "paused"}
+                    disabled={recorderStatus !== "recording"}
                     className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
                   >
                     <Square size={14} /> Parar
