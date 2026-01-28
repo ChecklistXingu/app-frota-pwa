@@ -5,6 +5,8 @@ import {
   onSnapshot,
   query,
   where,
+  orderBy,
+  limit,
 } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -16,6 +18,7 @@ type Vehicle = {
   year: number;
   currentKm: number;
   status: "ok" | "attention" | "critical";
+  latestKm?: number; // KM mais recente de manutenção ou histórico
 };
 
 const statusColors: Record<Vehicle["status"], string> = {
@@ -29,6 +32,57 @@ const VehiclesPage = () => {
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [vehicleLatestKm, setVehicleLatestKm] = useState<Record<string, number>>({});
+
+  // Busca o KM mais recente de um veículo (manutenção ativa ou histórico)
+  const fetchLatestKmForVehicle = async (vehicleId: string) => {
+    if (!user) return;
+    // Busca última manutenção ativa (não finalizada)
+    const qActive = query(
+      collection(db, "maintenance"),
+      where("userId", "==", user.uid),
+      where("vehicleId", "==", vehicleId),
+      where("status", "in", ["pending", "in_review", "scheduled"]),
+      orderBy("km", "desc"),
+      limit(1)
+    );
+
+    // Busca última manutenção finalizada (histórico)
+    const qDone = query(
+      collection(db, "maintenance"),
+      where("userId", "==", user.uid),
+      where("vehicleId", "==", vehicleId),
+      where("status", "==", "done"),
+      orderBy("completedAt", "desc"),
+      limit(1)
+    );
+
+    const promises = [new Promise<number>((resolve) => {
+      const unsub = onSnapshot(qActive, (snap) => {
+        if (!snap.empty) {
+          resolve(snap.docs[0].data().km ?? 0);
+        } else {
+          resolve(0);
+        }
+        unsub();
+      });
+    }), new Promise<number>((resolve) => {
+      const unsub = onSnapshot(qDone, (snap) => {
+        if (!snap.empty) {
+          resolve(snap.docs[0].data().km ?? 0);
+        } else {
+          resolve(0);
+        }
+        unsub();
+      });
+    })];
+
+    const [activeKm, doneKm] = await Promise.all(promises);
+    const latestKm = Math.max(activeKm, doneKm);
+    if (latestKm > 0) {
+      setVehicleLatestKm((prev) => ({ ...prev, [vehicleId]: latestKm }));
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -54,6 +108,11 @@ const VehiclesPage = () => {
         });
         setVehicles(list);
         setLoading(false);
+
+        // Busca KM mais recente para cada veículo
+        list.forEach((vehicle) => {
+          fetchLatestKmForVehicle(vehicle.id);
+        });
       },
       (error) => {
         console.error("Erro ao carregar veículos:", error);
@@ -116,7 +175,9 @@ const VehiclesPage = () => {
 
             <div className="text-right">
               <p className="text-[10px] text-gray-500">KM atual</p>
-              <p className="text-sm font-semibold">{v.currentKm.toLocaleString("pt-BR")} km</p>
+              <p className="text-sm font-semibold">
+                {(vehicleLatestKm[v.id] ?? v.currentKm).toLocaleString("pt-BR")} km
+              </p>
             </div>
           </div>
         ))}
