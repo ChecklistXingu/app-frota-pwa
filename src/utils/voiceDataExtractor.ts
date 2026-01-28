@@ -57,19 +57,43 @@ const textToNumber: Record<string, number> = {
  * Ex: "cento e vinte e cinco mil" -> 125000
  */
 const parseSpokenNumber = (text: string): number | null => {
+  const lower = text.toLowerCase();
+  const normalized = lower
+    .replace(/(\d+)\s*(vírgula|virgula)\s*(\d+)/g, "$1,$3")
+    .replace(/(\d+)\s*ponto\s*(\d+)/g, "$1.$3");
+
   // Primeiro tenta extrair número direto
-  const directNumber = text.match(/[\d.,]+/);
+  const directNumber = normalized.match(/[\d.,]+/);
   if (directNumber) {
-    // Remove pontos de milhar e converte vírgula para ponto
-    const cleaned = directNumber[0]
-      .replace(/\./g, "")
-      .replace(",", ".");
+    const raw = directNumber[0];
+
+    let cleaned: string;
+    if (raw.includes(",") && raw.includes(".")) {
+      const lastComma = raw.lastIndexOf(",");
+      const lastDot = raw.lastIndexOf(".");
+      if (lastComma > lastDot) {
+        cleaned = raw.replace(/\./g, "").replace(/,/g, ".");
+      } else {
+        cleaned = raw.replace(/,/g, "");
+      }
+    } else if (raw.includes(",")) {
+      cleaned = raw.replace(/,/g, ".");
+    } else {
+      const lastDot = raw.lastIndexOf(".");
+      const decimalsLen = lastDot >= 0 ? raw.length - lastDot - 1 : 0;
+      if (lastDot >= 0 && decimalsLen === 3) {
+        cleaned = raw.replace(/\./g, "");
+      } else {
+        cleaned = raw;
+      }
+    }
+
     const num = parseFloat(cleaned);
     if (!isNaN(num)) return num;
   }
 
   // Tenta converter texto por extenso
-  const words = text.toLowerCase().split(/\s+/);
+  const words = lower.split(/\s+/);
   let total = 0;
   let current = 0;
 
@@ -135,9 +159,9 @@ export const extractVoiceData = (text: string): ExtractedData => {
 
   // Padrões para litros
   const litersPatterns = [
-    /(\d+[\d.,]*)\s*(litros?|l\b)/i,
-    /(litros?)\s*(\d+[\d.,]*)/i,
-    /abastec\w*\s*(\d+[\d.,]*)/i,
+    /(\d+(?:[\d.,]\d+)?|\d+\s*(vírgula|virgula|ponto)\s*\d+)\s*(litros?|l\b)/i,
+    /(litros?)\s*(\d+(?:[\d.,]\d+)?|\d+\s*(vírgula|virgula|ponto)\s*\d+)/i,
+    /abastec\w*\s*(\d+(?:[\d.,]\d+)?|\d+\s*(vírgula|virgula|ponto)\s*\d+)/i,
   ];
 
   for (const pattern of litersPatterns) {

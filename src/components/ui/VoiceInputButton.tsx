@@ -75,7 +75,7 @@ const VoiceInputButton = ({ onDataExtracted, className = "" }: VoiceInputButtonP
       {/* Dica */}
       {!isListening && !transcript && !error && (
         <p className="text-[10px] text-gray-500 text-center">
-          Diga: "km 125400, 62 litros, 480 reais"
+          Diga: para KM: 125 mil e 400 km / para LITROS: 35,53 litros (falar virgula ou ponto) / para VALOR: 100 reais e 35 centavos.
         </p>
       )}
     </div>
