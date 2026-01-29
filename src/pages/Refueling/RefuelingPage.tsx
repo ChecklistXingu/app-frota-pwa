@@ -14,7 +14,7 @@ import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import VoiceInputButton from "../../components/ui/VoiceInputButton";
 import type { ExtractedData } from "../../utils/voiceDataExtractor";
-import { Pencil, X } from "lucide-react";
+import { Pencil, X, TrendingUp } from "lucide-react";
 
 type VehicleOption = {
   id: string;
@@ -55,6 +55,11 @@ const RefuelingPage = () => {
   const [editingRecord, setEditingRecord] = useState<RefuelingRecord | null>(null);
   const [editForm, setEditForm] = useState({ km: 0, liters: 0, value: 0, dateTime: "" });
   const [savingEdit, setSavingEdit] = useState(false);
+  
+  // Estado para KM anterior e modal de histórico
+  const [previousKm, setPreviousKm] = useState<number | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
 
   // Monitora status de conexão
   useEffect(() => {
@@ -140,6 +145,72 @@ const RefuelingPage = () => {
 
     return () => unsub();
   }, [user]);
+
+  // Busca o KM anterior do veículo selecionado
+  useEffect(() => {
+    if (!user || !selectedVehicleId) return;
+
+    const q = query(
+      collection(db, "refueling"),
+      where("userId", "==", user.uid),
+      where("vehicleId", "==", selectedVehicleId),
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      if (snap.empty) {
+        setPreviousKm(null);
+        return;
+      }
+
+      // Ordena por data e pega o mais recente
+      const sorted = snap.docs.sort((a, b) => {
+        const dateA = a.data().date?.toDate?.() || new Date(0);
+        const dateB = b.data().date?.toDate?.() || new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      const lastRefueling = sorted[0].data();
+      setPreviousKm(lastRefueling.km || null);
+    });
+
+    return () => unsub();
+  }, [user, selectedVehicleId]);
+
+  // Atualiza o veículo selecionado quando muda no select
+  const handleVehicleChange = (vehicleId: string) => {
+    setSelectedVehicleId(vehicleId);
+    setValue("vehicleId", vehicleId);
+  };
+
+  // Inicializa o veículo selecionado
+  useEffect(() => {
+    if (vehicles.length > 0 && !selectedVehicleId) {
+      setSelectedVehicleId(vehicles[0].id);
+    }
+  }, [vehicles, selectedVehicleId]);
+
+  // Obtém histórico comparativo do veículo selecionado
+  const getVehicleHistory = () => {
+    if (!selectedVehicleId) return [];
+    
+    const vehicleRefuelings = refuelings
+      .filter(r => r.vehicleId === selectedVehicleId)
+      .sort((a, b) => {
+        const dateA = a.date || new Date(0);
+        const dateB = b.date || new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+    return vehicleRefuelings.map((current, index) => {
+      const previous = vehicleRefuelings[index + 1];
+      return {
+        currentKm: current.km,
+        previousKm: previous?.km || null,
+        difference: previous ? current.km - previous.km : null,
+        date: current.date,
+      };
+    });
+  };
 
   const onSubmit = async (data: RefuelingForm) => {
     if (!user) return;
@@ -269,6 +340,7 @@ const RefuelingPage = () => {
               <select
                 className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] bg-white"
                 {...register("vehicleId", { required: true })}
+                onChange={(e) => handleVehicleChange(e.target.value)}
               >
                 {vehicles.map((v) => (
                   <option key={v.id} value={v.id}>{`${v.plate} • ${v.model}`}</option>
@@ -276,9 +348,22 @@ const RefuelingPage = () => {
               </select>
             </div>
 
+            {/* Campo KM anterior (somente leitura) */}
+            {previousKm !== null && (
+              <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2">
+                <p className="text-[10px] text-blue-600 font-medium mb-0.5">KM anterior</p>
+                <p className="text-sm font-semibold text-blue-800">{previousKm.toLocaleString("pt-BR")} km</p>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <div className="flex-1 space-y-1">
-                <label className="text-xs font-medium">KM atual</label>
+                <label 
+                  className="text-xs font-medium text-blue-600 cursor-pointer hover:text-blue-800 flex items-center gap-1"
+                  onClick={() => setShowHistoryModal(true)}
+                >
+                  KM atual <TrendingUp size={12} />
+                </label>
                 <input
                   type="number"
                   className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
@@ -406,6 +491,77 @@ const RefuelingPage = () => {
           })}
         </div>
       </div>
+
+      {/* Modal de Histórico Comparativo */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md p-5 shadow-xl max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                <TrendingUp size={18} className="text-blue-600" />
+                Histórico de KM
+              </h3>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="p-1 text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {getVehicleHistory().length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">Nenhum histórico disponível</p>
+              ) : (
+                getVehicleHistory().map((item, index) => (
+                  <div key={index} className="rounded-lg border bg-gray-50 px-4 py-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="text-[10px] text-gray-500 uppercase font-medium">KM Atual</p>
+                        <p className="text-lg font-bold text-gray-800">{item.currentKm.toLocaleString("pt-BR")} km</p>
+                      </div>
+                      {item.previousKm !== null && (
+                        <div className="text-right">
+                          <p className="text-[10px] text-gray-500 uppercase font-medium">KM Anterior</p>
+                          <p className="text-sm font-semibold text-gray-600">{item.previousKm.toLocaleString("pt-BR")} km</p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">
+                        {item.date ? item.date.toLocaleDateString("pt-BR") : "Data não disponível"}
+                      </p>
+                      {item.difference !== null && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-gray-500">Diferença:</span>
+                          <span className="text-xs font-semibold text-green-600">
+                            +{item.difference.toLocaleString("pt-BR")} km
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {getVehicleHistory().length > 1 && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-xs text-blue-800 font-medium mb-1">Média de uso</p>
+                <p className="text-sm text-blue-600">
+                  {(() => {
+                    const history = getVehicleHistory().filter(h => h.difference !== null);
+                    if (history.length === 0) return "N/A";
+                    const avgKm = history.reduce((sum, h) => sum + (h.difference || 0), 0) / history.length;
+                    return `${avgKm.toFixed(0)} km por abastecimento`;
+                  })()}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Modal de Edição */}
       {editingRecord && (
