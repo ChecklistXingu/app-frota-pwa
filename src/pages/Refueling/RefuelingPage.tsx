@@ -58,6 +58,7 @@ const RefuelingPage = () => {
   
   // Estado para KM anterior e modal de histórico
   const [previousKm, setPreviousKm] = useState<number | null>(null);
+  const [currentKm, setCurrentKm] = useState<number | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>("");
 
@@ -146,7 +147,7 @@ const RefuelingPage = () => {
     return () => unsub();
   }, [user]);
 
-  // Busca o KM anterior do veículo selecionado
+  // Busca o KM atual e anterior do veículo selecionado
   useEffect(() => {
     if (!user || !selectedVehicleId) return;
 
@@ -159,10 +160,11 @@ const RefuelingPage = () => {
     const unsub = onSnapshot(q, (snap) => {
       if (snap.empty) {
         setPreviousKm(null);
+        setCurrentKm(null);
         return;
       }
 
-      // Ordena por data e pega o mais recente
+      // Ordena por data e pega os dois mais recentes
       const sorted = snap.docs.sort((a, b) => {
         const dateA = a.data().date?.toDate?.() || new Date(0);
         const dateB = b.data().date?.toDate?.() || new Date(0);
@@ -170,7 +172,10 @@ const RefuelingPage = () => {
       });
 
       const lastRefueling = sorted[0].data();
-      setPreviousKm(lastRefueling.km || null);
+      const secondLastRefueling = sorted[1]?.data();
+      
+      setCurrentKm(lastRefueling.km || null);
+      setPreviousKm(secondLastRefueling?.km || null);
     });
 
     return () => unsub();
@@ -210,6 +215,16 @@ const RefuelingPage = () => {
         date: current.date,
       };
     });
+  };
+
+  // Obtém resumo do último registro
+  const getLastRecordSummary = () => {
+    if (currentKm === null) return null;
+    return {
+      currentKm,
+      previousKm,
+      difference: previousKm !== null ? currentKm - previousKm : null,
+    };
   };
 
   const onSubmit = async (data: RefuelingForm) => {
@@ -348,13 +363,38 @@ const RefuelingPage = () => {
               </select>
             </div>
 
-            {/* Campo KM anterior (somente leitura) */}
-            {previousKm !== null && (
-              <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2">
-                <p className="text-[10px] text-blue-600 font-medium mb-0.5">KM anterior</p>
-                <p className="text-sm font-semibold text-blue-800">{previousKm.toLocaleString("pt-BR")} km</p>
-              </div>
-            )}
+            {/* Resumo do último registro */}
+            {(() => {
+              const summary = getLastRecordSummary();
+              if (!summary) return null;
+              
+              return (
+                <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2.5">
+                  <p className="text-[10px] text-blue-600 font-medium uppercase tracking-wide mb-1.5">Último Registro</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <p className="text-[9px] text-gray-500 uppercase">KM Atual</p>
+                        <p className="text-base font-bold text-blue-800">{summary.currentKm.toLocaleString("pt-BR")}</p>
+                      </div>
+                      <span className="text-gray-400 text-sm">←</span>
+                      {summary.previousKm !== null && (
+                        <div>
+                          <p className="text-[9px] text-gray-500 uppercase">KM Anterior</p>
+                          <p className="text-sm font-semibold text-gray-600">{summary.previousKm.toLocaleString("pt-BR")}</p>
+                        </div>
+                      )}
+                    </div>
+                    {summary.difference !== null && (
+                      <div className="text-right">
+                        <p className="text-[9px] text-gray-500 uppercase">Diferença</p>
+                        <p className="text-sm font-bold text-green-600">+{summary.difference.toLocaleString("pt-BR")} km</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="flex gap-3">
               <div className="flex-1 space-y-1">
