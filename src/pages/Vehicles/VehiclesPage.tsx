@@ -18,7 +18,7 @@ type Vehicle = {
   year: number;
   currentKm: number;
   status: "ok" | "attention" | "critical";
-  latestKm?: number; // KM mais recente de manutenção ou histórico
+  latestKm?: number; // KM mais recente de manutenção, abastecimento ou histórico
 };
 
 const statusColors: Record<Vehicle["status"], string> = {
@@ -34,7 +34,7 @@ const VehiclesPage = () => {
   const [loading, setLoading] = useState(true);
   const [vehicleLatestKm, setVehicleLatestKm] = useState<Record<string, number>>({});
 
-  // Busca o KM mais recente de um veículo (manutenção ativa ou histórico)
+  // Busca o KM mais recente de um veículo (manutenção, abastecimento ou histórico)
   const fetchLatestKmForVehicle = async (vehicleId: string) => {
     if (!user) return;
     // Busca última manutenção ativa (não finalizada)
@@ -57,28 +57,50 @@ const VehiclesPage = () => {
       limit(1)
     );
 
-    const promises = [new Promise<number>((resolve) => {
-      const unsub = onSnapshot(qActive, (snap) => {
-        if (!snap.empty) {
-          resolve(snap.docs[0].data().km ?? 0);
-        } else {
-          resolve(0);
-        }
-        unsub();
-      });
-    }), new Promise<number>((resolve) => {
-      const unsub = onSnapshot(qDone, (snap) => {
-        if (!snap.empty) {
-          resolve(snap.docs[0].data().km ?? 0);
-        } else {
-          resolve(0);
-        }
-        unsub();
-      });
-    })];
+    // Busca último abastecimento
+    const qRefueling = query(
+      collection(db, "refueling"),
+      where("userId", "==", user.uid),
+      where("vehicleId", "==", vehicleId),
+      orderBy("date", "desc"),
+      limit(1)
+    );
 
-    const [activeKm, doneKm] = await Promise.all(promises);
-    const latestKm = Math.max(activeKm, doneKm);
+    const promises = [
+      new Promise<number>((resolve) => {
+        const unsub = onSnapshot(qActive, (snap) => {
+          if (!snap.empty) {
+            resolve(snap.docs[0].data().km ?? 0);
+          } else {
+            resolve(0);
+          }
+          unsub();
+        });
+      }),
+      new Promise<number>((resolve) => {
+        const unsub = onSnapshot(qDone, (snap) => {
+          if (!snap.empty) {
+            resolve(snap.docs[0].data().km ?? 0);
+          } else {
+            resolve(0);
+          }
+          unsub();
+        });
+      }),
+      new Promise<number>((resolve) => {
+        const unsub = onSnapshot(qRefueling, (snap) => {
+          if (!snap.empty) {
+            resolve(snap.docs[0].data().km ?? 0);
+          } else {
+            resolve(0);
+          }
+          unsub();
+        });
+      })
+    ];
+
+    const [activeKm, doneKm, refuelingKm] = await Promise.all(promises);
+    const latestKm = Math.max(activeKm, doneKm, refuelingKm);
     if (latestKm > 0) {
       setVehicleLatestKm((prev) => ({ ...prev, [vehicleId]: latestKm }));
     }
