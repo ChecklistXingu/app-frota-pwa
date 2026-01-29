@@ -406,11 +406,19 @@ const MaintenancePage = () => {
       };
 
       if (isOffline) {
-        await uploadPhotos();
-        await uploadAudioDraft();
+        // Limpa formulário IMEDIATAMENTE para não bloquear novos registros
         setMessageType("offline");
-        setMessage("Salvo offline! Será enviado quando houver conexão.");
+        setMessage("Salvo offline! Fotos e áudios serão sincronizados automaticamente.");
         clearForm();
+        
+        // Processa fotos e áudio em BACKGROUND (não aguarda)
+        Promise.all([
+          uploadPhotos(),
+          uploadAudioDraft()
+        ]).catch(err => {
+          console.error("Erro ao processar mídia offline:", err);
+        });
+        
         return;
       }
 
