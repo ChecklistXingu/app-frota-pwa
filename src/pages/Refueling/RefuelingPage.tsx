@@ -233,9 +233,9 @@ const RefuelingPage = () => {
     const clearForm = () => {
       reset({
         vehicleId: data.vehicleId,
-        km: undefined as any,
-        liters: undefined as any,
-        value: undefined as any,
+        km: "" as any,
+        liters: "" as any,
+        value: "" as any,
         dateTime: "",
         notes: "",
       });
@@ -510,39 +510,37 @@ const RefuelingPage = () => {
             </div>
 
             <div className="space-y-3">
-              {getVehicleHistory().length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">Nenhum histórico disponível</p>
+              {getVehicleHistory().filter(item => item.previousKm !== null).length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">Nenhum histórico comparativo disponível. Registre mais abastecimentos para ver o comparativo.</p>
               ) : (
-                getVehicleHistory().map((item, index) => (
-                  <div key={index} className="rounded-lg border bg-gray-50 px-4 py-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="text-[10px] text-gray-500 uppercase font-medium">KM Atual</p>
-                        <p className="text-lg font-bold text-gray-800">{item.currentKm.toLocaleString("pt-BR")} km</p>
-                      </div>
-                      {item.previousKm !== null && (
+                getVehicleHistory()
+                  .filter(item => item.previousKm !== null)
+                  .map((item, index) => (
+                    <div key={index} className="rounded-lg border bg-gray-50 px-4 py-3">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="text-[10px] text-gray-500 uppercase font-medium">KM Atual</p>
+                          <p className="text-lg font-bold text-gray-800">{item.currentKm.toLocaleString("pt-BR")} km</p>
+                        </div>
                         <div className="text-right">
                           <p className="text-[10px] text-gray-500 uppercase font-medium">KM Anterior</p>
-                          <p className="text-sm font-semibold text-gray-600">{item.previousKm.toLocaleString("pt-BR")} km</p>
+                          <p className="text-sm font-semibold text-gray-600">{item.previousKm!.toLocaleString("pt-BR")} km</p>
                         </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                      <p className="text-xs text-gray-500">
-                        {item.date ? item.date.toLocaleDateString("pt-BR") : "Data não disponível"}
-                      </p>
-                      {item.difference !== null && (
+                      </div>
+                      
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                        <p className="text-xs text-gray-500">
+                          {item.date ? item.date.toLocaleDateString("pt-BR") : "Data não disponível"}
+                        </p>
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] text-gray-500">Diferença:</span>
                           <span className="text-xs font-semibold text-green-600">
-                            +{item.difference.toLocaleString("pt-BR")} km
+                            +{item.difference!.toLocaleString("pt-BR")} km
                           </span>
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))
               )}
             </div>
 
