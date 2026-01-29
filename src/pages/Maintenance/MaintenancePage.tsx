@@ -358,7 +358,7 @@ const MaintenancePage = () => {
         reset({
           vehicleId: data.vehicleId,
           type: data.type,
-          km: undefined as any,
+          km: "" as any,
           dateTime: "",
           notes: "",
         });
