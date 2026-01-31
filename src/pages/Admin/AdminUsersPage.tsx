@@ -82,7 +82,6 @@ const AdminUsersPage = () => {
               <th className="p-3">Telefone</th>
               <th className="p-3">Filial</th>
               <th className="p-3">Placa do Carro</th>
-              <th className="p-3">Papel</th>
             </tr>
           </thead>
           <tbody>
@@ -120,13 +119,12 @@ const AdminUsersPage = () => {
                       )}
                     </div>
                   </td>
-                  <td className="p-3">{u.role || 'driver'}</td>
                 </tr>
               );
             })}
             {users.length === 0 && (
               <tr>
-                <td className="p-6 text-center text-gray-500" colSpan={5}>Nenhum usuário encontrado</td>
+                <td className="p-6 text-center text-gray-500" colSpan={4}>Nenhum usuário encontrado</td>
               </tr>
             )}
           </tbody>
