@@ -1,11 +1,12 @@
 import { useEffect, useState, useMemo } from "react";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
-import { Users, Car, AlertTriangle, Users2 } from "lucide-react";
+import { Users, Car, AlertTriangle, Users2, Filter, X } from "lucide-react";
 
 const AdminUsersPage = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
 
   useEffect(() => {
     const unsubUsers = listenUsers(setUsers);
@@ -16,18 +17,39 @@ const AdminUsersPage = () => {
     };
   }, []);
 
+  // Obter lista única de filiais para o filtro
+  const branchOptions = useMemo(() => {
+    const branches = new Set<string>();
+    users.forEach(user => {
+      if (user.filial && user.filial.trim()) {
+        branches.add(user.filial.trim());
+      }
+    });
+    return Array.from(branches).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [users]);
+
+  // Filtrar usuários por filial selecionada
+  const filteredUsers = useMemo(() => {
+    if (selectedBranch === 'all') {
+      return users;
+    }
+    return users.filter(user => 
+      user.filial && user.filial.trim() === selectedBranch
+    );
+  }, [users, selectedBranch]);
+
   // Função para obter a placa do veículo do usuário
   const getUserVehiclePlate = (userId: string) => {
     const userVehicle = vehicles.find(v => v.userId === userId);
     return userVehicle ? userVehicle.plate : '-';
   };
 
-  // Analisa duplicatas de placas
+  // Analisa duplicatas de placas (apenas para usuários filtrados)
   const plateAnalysis = useMemo(() => {
     const plateCount = new Map<string, number>();
     
     // Conta quantos usuários têm cada placa (ignorando case)
-    users.forEach(user => {
+    filteredUsers.forEach(user => {
       const plate = getUserVehiclePlate(user.id);
       if (plate !== '-') {
         // Normaliza a placa para maiúsculas para comparação
@@ -37,7 +59,7 @@ const AdminUsersPage = () => {
     });
     
     return plateCount;
-  }, [users, vehicles]);
+  }, [filteredUsers, vehicles]);
 
   // Função para obter o status da placa para um usuário
   const getPlateStatus = (userId: string) => {
@@ -58,25 +80,63 @@ const AdminUsersPage = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-2xl font-bold">Usuários</h2>
         
-        {/* Legenda de alertas de placas */}
-        <div className="flex items-center gap-4 text-xs">
-          <span className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            Placa única
-          </span>
-          <span className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-            Placa duplicada
-          </span>
-          <span className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-            Placa com 3+ usuários
-          </span>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          {/* Filtro por filial */}
+          <div className="flex items-center gap-2">
+            <Filter size={16} className="text-gray-500" />
+            <select 
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#ffd300] focus:border-transparent"
+            >
+              <option value="all">Todas as Filiais</option>
+              {branchOptions.map(branch => (
+                <option key={branch} value={branch}>
+                  {branch}
+                </option>
+              ))}
+            </select>
+            {selectedBranch !== 'all' && (
+              <button
+                onClick={() => setSelectedBranch('all')}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Limpar filtro"
+              >
+                <X size={14} className="text-gray-500" />
+              </button>
+            )}
+          </div>
+          
+          {/* Legenda de alertas de placas */}
+          <div className="flex items-center gap-4 text-xs">
+            <span className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              Placa única
+            </span>
+            <span className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+              Placa duplicada
+            </span>
+            <span className="flex items-center gap-1">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              Placa com 3+ usuários
+            </span>
+          </div>
         </div>
       </div>
+
+      {/* Indicador de filtro ativo */}
+      {selectedBranch !== 'all' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
+          <Filter size={16} className="text-blue-600" />
+          <span className="text-sm text-blue-800">
+            Filtrando por filial: <strong>{selectedBranch}</strong> ({filteredUsers.length} {filteredUsers.length === 1 ? 'usuário' : 'usuários'})
+          </span>
+        </div>
+      )}
 
       <div className="bg-white border rounded-xl overflow-hidden">
         <table className="w-full text-sm">
@@ -89,7 +149,7 @@ const AdminUsersPage = () => {
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => {
+            {filteredUsers.map((u) => {
               const plateStatus = getPlateStatus(u.id);
               const plate = getUserVehiclePlate(u.id);
               
@@ -126,9 +186,14 @@ const AdminUsersPage = () => {
                 </tr>
               );
             })}
-            {users.length === 0 && (
+            {filteredUsers.length === 0 && (
               <tr>
-                <td className="p-6 text-center text-gray-500" colSpan={4}>Nenhum usuário encontrado</td>
+                <td className="p-6 text-center text-gray-500" colSpan={4}>
+                  {selectedBranch === 'all' 
+                    ? 'Nenhum usuário encontrado' 
+                    : `Nenhum usuário encontrado na filial "${selectedBranch}"`
+                  }
+                </td>
               </tr>
             )}
           </tbody>
