@@ -26,11 +26,13 @@ const AdminUsersPage = () => {
   const plateAnalysis = useMemo(() => {
     const plateCount = new Map<string, number>();
     
-    // Conta quantos usuários têm cada placa
+    // Conta quantos usuários têm cada placa (ignorando case)
     users.forEach(user => {
       const plate = getUserVehiclePlate(user.id);
       if (plate !== '-') {
-        plateCount.set(plate, (plateCount.get(plate) || 0) + 1);
+        // Normaliza a placa para maiúsculas para comparação
+        const normalizedPlate = plate.toUpperCase();
+        plateCount.set(normalizedPlate, (plateCount.get(normalizedPlate) || 0) + 1);
       }
     });
     
@@ -42,7 +44,9 @@ const AdminUsersPage = () => {
     const plate = getUserVehiclePlate(userId);
     if (plate === '-') return { count: 0, isDuplicate: false, color: 'text-gray-400' };
     
-    const count = plateAnalysis.get(plate) || 0;
+    // Normaliza a placa para comparação
+    const normalizedPlate = plate.toUpperCase();
+    const count = plateAnalysis.get(normalizedPlate) || 0;
     const isDuplicate = count > 1;
     
     let color = 'text-green-600'; // Único

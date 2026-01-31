@@ -17,13 +17,15 @@ export const deduplicateVehicles = (vehicles: Vehicle[]): Vehicle[] => {
   const vehicleMap = new Map<string, Vehicle>();
   
   vehicles.forEach(vehicle => {
-    const existingVehicle = vehicleMap.get(vehicle.plate);
+    // Normaliza a placa para maiúsculas para comparação
+    const normalizedPlate = vehicle.plate.toUpperCase();
+    const existingVehicle = vehicleMap.get(normalizedPlate);
     
     // Se não existe ou se o veículo atual é mais recente
     if (!existingVehicle || 
         (vehicle.createdAt && existingVehicle.createdAt && 
          new Date(vehicle.createdAt).getTime() > new Date(existingVehicle.createdAt).getTime())) {
-      vehicleMap.set(vehicle.plate, vehicle);
+      vehicleMap.set(normalizedPlate, vehicle);
     }
   });
   

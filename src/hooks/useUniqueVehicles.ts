@@ -29,13 +29,15 @@ export const deduplicateVehicles = (vehicles: Vehicle[]): Vehicle[] => {
   const vehicleMap = new Map<string, Vehicle>();
   
   vehicles.forEach(vehicle => {
-    const existingVehicle = vehicleMap.get(vehicle.plate);
+    // Normaliza a placa para maiúsculas para comparação
+    const normalizedPlate = vehicle.plate.toUpperCase();
+    const existingVehicle = vehicleMap.get(normalizedPlate);
     
     // Se não existe ou se o veículo atual é mais recente
     if (!existingVehicle || 
         (vehicle.createdAt && existingVehicle.createdAt && 
          new Date(vehicle.createdAt).getTime() > new Date(existingVehicle.createdAt).getTime())) {
-      vehicleMap.set(vehicle.plate, vehicle);
+      vehicleMap.set(normalizedPlate, vehicle);
     }
   });
   
@@ -48,8 +50,10 @@ export const findVehicleById = (vehicles: Vehicle[], id: string): Vehicle | unde
   return uniqueVehicles.find(v => v.id === id);
 };
 
-// Função para encontrar um veículo por placa (já deduplicado)
+// Função para encontrar um veículo por placa (já deduplicado e case-insensitive)
 export const findVehicleByPlate = (vehicles: Vehicle[], plate: string): Vehicle | undefined => {
   const uniqueVehicles = deduplicateVehicles(vehicles);
-  return uniqueVehicles.find(v => v.plate === plate);
+  // Normaliza a placa buscada para maiúsculas
+  const normalizedPlate = plate.toUpperCase();
+  return uniqueVehicles.find(v => v.plate.toUpperCase() === normalizedPlate);
 };
