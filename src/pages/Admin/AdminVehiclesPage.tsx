@@ -1,10 +1,10 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { Car, User, Calendar, CheckCircle, XCircle } from "lucide-react";
 
 const AdminVehiclesPage = () => {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [uniqueVehicles, setVehicles] = useState<Vehicle[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
 
   useEffect(() => {
@@ -18,24 +18,6 @@ const AdminVehiclesPage = () => {
     const user = users.find(u => u.id === userId);
     return user?.name || "Não informado";
   };
-
-  // Remove duplicatas de veículos com a mesma placa, mantendo o mais recente
-  const uniqueVehicles = useMemo(() => {
-    const vehicleMap = new Map<string, Vehicle>();
-    
-    vehicles.forEach(vehicle => {
-      const existingVehicle = vehicleMap.get(vehicle.plate);
-      
-      // Se não existe ou se o veículo atual é mais recente (createdAt maior)
-      if (!existingVehicle || 
-          (vehicle.createdAt && existingVehicle.createdAt && 
-           new Date(vehicle.createdAt).getTime() > new Date(existingVehicle.createdAt).getTime())) {
-        vehicleMap.set(vehicle.plate, vehicle);
-      }
-    });
-    
-    return Array.from(vehicleMap.values());
-  }, [vehicles]);
 
   return (
     <div className="space-y-4">

@@ -12,6 +12,24 @@ export type Vehicle = {
   createdAt?: any;
 };
 
+// Função de deduplicação para ser usada em todo o app
+export const deduplicateVehicles = (vehicles: Vehicle[]): Vehicle[] => {
+  const vehicleMap = new Map<string, Vehicle>();
+  
+  vehicles.forEach(vehicle => {
+    const existingVehicle = vehicleMap.get(vehicle.plate);
+    
+    // Se não existe ou se o veículo atual é mais recente
+    if (!existingVehicle || 
+        (vehicle.createdAt && existingVehicle.createdAt && 
+         new Date(vehicle.createdAt).getTime() > new Date(existingVehicle.createdAt).getTime())) {
+      vehicleMap.set(vehicle.plate, vehicle);
+    }
+  });
+  
+  return Array.from(vehicleMap.values());
+};
+
 export const listenVehicles = (
   options: { userId?: string } = {},
   cb: (data: Vehicle[]) => void
@@ -22,7 +40,9 @@ export const listenVehicles = (
   const q = query(col, ...filters, orderBy("plate", "asc"));
   return onSnapshot(q, (snap) => {
     const list: Vehicle[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
-    cb(list);
+    // Aplica deduplicação automaticamente
+    const uniqueList = deduplicateVehicles(list);
+    cb(uniqueList);
   });
 };
 
