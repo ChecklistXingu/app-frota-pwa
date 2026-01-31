@@ -1,14 +1,26 @@
 import { useEffect, useState } from "react";
 import { listenUsers, type AppUser } from "../../services/usersService";
-import { Users } from "lucide-react";
+import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
+import { Users, Car } from "lucide-react";
 
 const AdminUsersPage = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
   useEffect(() => {
-    const unsub = listenUsers(setUsers);
-    return () => unsub();
+    const unsubUsers = listenUsers(setUsers);
+    const unsubVehicles = listenVehicles({}, setVehicles);
+    return () => {
+      unsubUsers();
+      unsubVehicles();
+    };
   }, []);
+
+  // Função para obter a placa do veículo do usuário
+  const getUserVehiclePlate = (userId: string) => {
+    const userVehicle = vehicles.find(v => v.userId === userId);
+    return userVehicle ? userVehicle.plate : '-';
+  };
 
   return (
     <div className="space-y-4">
@@ -21,6 +33,7 @@ const AdminUsersPage = () => {
               <th className="p-3">Nome</th>
               <th className="p-3">Telefone</th>
               <th className="p-3">Filial</th>
+              <th className="p-3">Placa do Carro</th>
               <th className="p-3">Papel</th>
             </tr>
           </thead>
@@ -37,12 +50,18 @@ const AdminUsersPage = () => {
                 </td>
                 <td className="p-3">{u.phone || '-'}</td>
                 <td className="p-3">{u.filial || '-'}</td>
+                <td className="p-3">
+                  <div className="flex items-center gap-2">
+                    <Car size={14} className="text-gray-400" />
+                    <span>{getUserVehiclePlate(u.id)}</span>
+                  </div>
+                </td>
                 <td className="p-3">{u.role || 'driver'}</td>
               </tr>
             ))}
             {users.length === 0 && (
               <tr>
-                <td className="p-6 text-center text-gray-500" colSpan={4}>Nenhum usuário encontrado</td>
+                <td className="p-6 text-center text-gray-500" colSpan={5}>Nenhum usuário encontrado</td>
               </tr>
             )}
           </tbody>
