@@ -7,6 +7,7 @@ const AdminUsersPage = () => {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [hoveredPlate, setHoveredPlate] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubUsers = listenUsers(setUsers);
@@ -72,6 +73,34 @@ const AdminUsersPage = () => {
     if (count === 1) return 'text-green-600';      // Placa única
     if (count === 2) return 'text-yellow-600';     // Duplicada
     return 'text-red-600';                         // 3+ usuários
+  };
+
+  // Função para obter todos os usuários que usam a mesma placa
+  const getUsersWithSamePlate = (plate: string) => {
+    if (!plate) return [];
+    
+    const normalizedPlate = plate.toUpperCase();
+    const samePlateUsers: Array<{ userId: string; userName: string; filial: string }> = [];
+    
+    vehicles.forEach(vehicle => {
+      if (vehicle.plate && vehicle.plate.toUpperCase() === normalizedPlate) {
+        const user = users.find(u => u.id === vehicle.userId);
+        if (user) {
+          samePlateUsers.push({
+            userId: user.id,
+            userName: user.name || user.id,
+            filial: user.filial || 'Não informada'
+          });
+        }
+      }
+    });
+    
+    // Remove duplicatas e ordena por nome
+    const uniqueUsers = samePlateUsers.filter((user, index, self) => 
+      index === self.findIndex((u) => u.userId === user.userId)
+    );
+    
+    return uniqueUsers.sort((a, b) => a.userName.localeCompare(b.userName, 'pt-BR'));
   };
 
   return (
@@ -170,23 +199,56 @@ const AdminUsersPage = () => {
                           const count = plateAnalysis.get(normalizedPlate) || 0;
                           const isDuplicate = count > 1;
                           const plateColor = getPlateColor(vehicle.plate);
+                          const samePlateUsers = getUsersWithSamePlate(vehicle.plate);
                           
                           return (
-                            <div key={vehicle.id} className="flex items-center gap-2">
-                              <Car size={14} className="text-gray-400" />
-                              <span className={plateColor}>
-                                {vehicle.plate}
-                              </span>
-                              {isDuplicate && (
-                                <div className="flex items-center gap-1">
-                                  {count >= 3 ? (
-                                    <AlertTriangle size={12} className="text-red-500" />
-                                  ) : (
-                                    <Users2 size={12} className="text-yellow-500" />
-                                  )}
-                                  <span className={`text-xs font-medium ${plateColor}`}>
-                                    ({count})
-                                  </span>
+                            <div key={vehicle.id} className="relative">
+                              <div 
+                                className="flex items-center gap-2 cursor-help"
+                                onMouseEnter={() => isDuplicate && setHoveredPlate(vehicle.plate)}
+                                onMouseLeave={() => setHoveredPlate(null)}
+                                onClick={() => isDuplicate && setHoveredPlate(hoveredPlate === vehicle.plate ? null : vehicle.plate)}
+                              >
+                                <Car size={14} className="text-gray-400" />
+                                <span className={plateColor}>
+                                  {vehicle.plate}
+                                </span>
+                                {isDuplicate && (
+                                  <div className="flex items-center gap-1">
+                                    {count >= 3 ? (
+                                      <AlertTriangle size={12} className="text-red-500" />
+                                    ) : (
+                                      <Users2 size={12} className="text-yellow-500" />
+                                    )}
+                                    <span className={`text-xs font-medium ${plateColor}`}>
+                                      ({count})
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Tooltip com nomes dos usuários */}
+                              {hoveredPlate === vehicle.plate && isDuplicate && (
+                                <div className="absolute z-10 bottom-full left-0 mb-2 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg border border-gray-700 min-w-max">
+                                  <div className="font-semibold mb-2 text-yellow-400">
+                                    Usuários com placa {vehicle.plate}:
+                                  </div>
+                                  <div className="space-y-1">
+                                    {samePlateUsers.map((user) => (
+                                      <div key={user.userId} className="flex items-center justify-between gap-4">
+                                        <span className="flex items-center gap-2">
+                                          <Users size={12} className="text-gray-400" />
+                                          {user.userName}
+                                        </span>
+                                        <span className="text-xs text-gray-400">
+                                          {user.filial}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="absolute bottom-0 left-4 transform translate-y-full">
+                                    <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                  </div>
                                 </div>
                               )}
                             </div>
