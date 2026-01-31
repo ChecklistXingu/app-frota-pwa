@@ -62,29 +62,16 @@ const AdminUsersPage = () => {
     return plateCount;
   }, [filteredUsers, vehicles]);
 
-  // Função para obter o status da placa para um usuário
-  const getPlateStatus = (userId: string) => {
-    const userVehicles = getUserVehicles(userId);
-    if (userVehicles.length === 0) return { count: 0, isDuplicate: false, color: 'text-gray-400' };
+  // Função para obter a cor de uma placa específica baseada na contagem global
+  const getPlateColor = (plate: string) => {
+    if (!plate) return 'text-gray-400';
     
-    // Verifica se alguma das placas do usuário é duplicada
-    let hasDuplicate = false;
-    let maxCount = 0;
+    const count = plateAnalysis.get(plate.toUpperCase()) || 0;
     
-    userVehicles.forEach(vehicle => {
-      if (vehicle.plate) {
-        const normalizedPlate = vehicle.plate.toUpperCase();
-        const count = plateAnalysis.get(normalizedPlate) || 0;
-        maxCount = Math.max(maxCount, count);
-        if (count > 1) hasDuplicate = true;
-      }
-    });
-    
-    let color = 'text-green-600'; // Único
-    if (maxCount >= 3) color = 'text-red-600'; // 3+ usuários
-    else if (hasDuplicate) color = 'text-yellow-600'; // 2 usuários
-    
-    return { count: maxCount, isDuplicate: hasDuplicate, color, vehicleCount: userVehicles.length };
+    if (count === 0) return 'text-gray-400';      // Sem placa
+    if (count === 1) return 'text-green-600';      // Placa única
+    if (count === 2) return 'text-yellow-600';     // Duplicada
+    return 'text-red-600';                         // 3+ usuários
   };
 
   return (
@@ -159,7 +146,6 @@ const AdminUsersPage = () => {
           </thead>
           <tbody>
             {filteredUsers.map((u) => {
-              const plateStatus = getPlateStatus(u.id);
               const userVehicles = getUserVehicles(u.id);
               
               return (
@@ -183,11 +169,12 @@ const AdminUsersPage = () => {
                           const normalizedPlate = vehicle.plate.toUpperCase();
                           const count = plateAnalysis.get(normalizedPlate) || 0;
                           const isDuplicate = count > 1;
+                          const plateColor = getPlateColor(vehicle.plate);
                           
                           return (
                             <div key={vehicle.id} className="flex items-center gap-2">
                               <Car size={14} className="text-gray-400" />
-                              <span className={isDuplicate ? plateStatus.color : 'text-gray-800'}>
+                              <span className={plateColor}>
                                 {vehicle.plate}
                               </span>
                               {isDuplicate && (
@@ -197,7 +184,7 @@ const AdminUsersPage = () => {
                                   ) : (
                                     <Users2 size={12} className="text-yellow-500" />
                                   )}
-                                  <span className={`text-xs font-medium ${plateStatus.color}`}>
+                                  <span className={`text-xs font-medium ${plateColor}`}>
                                     ({count})
                                   </span>
                                 </div>
