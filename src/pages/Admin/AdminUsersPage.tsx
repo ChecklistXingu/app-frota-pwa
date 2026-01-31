@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { listenUsers, type AppUser } from "../../services/usersService";
-import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
+import { listenAllVehicles, type Vehicle } from "../../services/vehiclesService";
 import { Users, Car, AlertTriangle, Users2, Filter, X } from "lucide-react";
 
 const AdminUsersPage = () => {
@@ -10,7 +10,7 @@ const AdminUsersPage = () => {
 
   useEffect(() => {
     const unsubUsers = listenUsers(setUsers);
-    const unsubVehicles = listenVehicles({}, setVehicles);
+    const unsubVehicles = listenAllVehicles({}, setVehicles);
     return () => {
       unsubUsers();
       unsubVehicles();
@@ -38,10 +38,9 @@ const AdminUsersPage = () => {
     );
   }, [users, selectedBranch]);
 
-  // Função para obter a placa do veículo do usuário
-  const getUserVehiclePlate = (userId: string) => {
-    const userVehicle = vehicles.find(v => v.userId === userId);
-    return userVehicle ? userVehicle.plate : '-';
+  // Função para obter TODOS os veículos do usuário (incluindo duplicatas)
+  const getUserVehicles = (userId: string) => {
+    return vehicles.filter(v => v.userId === userId);
   };
 
   // Analisa duplicatas de placas (apenas para usuários filtrados)
@@ -50,12 +49,14 @@ const AdminUsersPage = () => {
     
     // Conta quantos usuários têm cada placa (ignorando case)
     filteredUsers.forEach(user => {
-      const plate = getUserVehiclePlate(user.id);
-      if (plate !== '-') {
-        // Normaliza a placa para maiúsculas para comparação
-        const normalizedPlate = plate.toUpperCase();
-        plateCount.set(normalizedPlate, (plateCount.get(normalizedPlate) || 0) + 1);
-      }
+      const userVehicles = getUserVehicles(user.id);
+      userVehicles.forEach(vehicle => {
+        if (vehicle.plate) {
+          // Normaliza a placa para maiúsculas para comparação
+          const normalizedPlate = vehicle.plate.toUpperCase();
+          plateCount.set(normalizedPlate, (plateCount.get(normalizedPlate) || 0) + 1);
+        }
+      });
     });
     
     return plateCount;
@@ -63,19 +64,27 @@ const AdminUsersPage = () => {
 
   // Função para obter o status da placa para um usuário
   const getPlateStatus = (userId: string) => {
-    const plate = getUserVehiclePlate(userId);
-    if (plate === '-') return { count: 0, isDuplicate: false, color: 'text-gray-400' };
+    const userVehicles = getUserVehicles(userId);
+    if (userVehicles.length === 0) return { count: 0, isDuplicate: false, color: 'text-gray-400' };
     
-    // Normaliza a placa para comparação
-    const normalizedPlate = plate.toUpperCase();
-    const count = plateAnalysis.get(normalizedPlate) || 0;
-    const isDuplicate = count > 1;
+    // Verifica se alguma das placas do usuário é duplicada
+    let hasDuplicate = false;
+    let maxCount = 0;
+    
+    userVehicles.forEach(vehicle => {
+      if (vehicle.plate) {
+        const normalizedPlate = vehicle.plate.toUpperCase();
+        const count = plateAnalysis.get(normalizedPlate) || 0;
+        maxCount = Math.max(maxCount, count);
+        if (count > 1) hasDuplicate = true;
+      }
+    });
     
     let color = 'text-green-600'; // Único
-    if (count >= 3) color = 'text-red-600'; // 3+ usuários
-    else if (isDuplicate) color = 'text-yellow-600'; // 2 usuários
+    if (maxCount >= 3) color = 'text-red-600'; // 3+ usuários
+    else if (hasDuplicate) color = 'text-yellow-600'; // 2 usuários
     
-    return { count, isDuplicate, color };
+    return { count: maxCount, isDuplicate: hasDuplicate, color, vehicleCount: userVehicles.length };
   };
 
   return (
@@ -151,7 +160,7 @@ const AdminUsersPage = () => {
           <tbody>
             {filteredUsers.map((u) => {
               const plateStatus = getPlateStatus(u.id);
-              const plate = getUserVehiclePlate(u.id);
+              const userVehicles = getUserVehicles(u.id);
               
               return (
                 <tr key={u.id} className="border-t">
@@ -166,22 +175,38 @@ const AdminUsersPage = () => {
                   <td className="p-3">{u.phone || '-'}</td>
                   <td className="p-3">{u.filial || '-'}</td>
                   <td className="p-3">
-                    <div className="flex items-center gap-2">
-                      <Car size={14} className="text-gray-400" />
-                      <span className={plateStatus.color}>{plate}</span>
-                      {plateStatus.isDuplicate && (
-                        <div className="flex items-center gap-1">
-                          {plateStatus.count >= 3 ? (
-                            <AlertTriangle size={14} className="text-red-500" />
-                          ) : (
-                            <Users2 size={14} className="text-yellow-500" />
-                          )}
-                          <span className={`text-xs font-medium ${plateStatus.color}`}>
-                            ({plateStatus.count})
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    {userVehicles.length === 0 ? (
+                      <span className="text-gray-400">-</span>
+                    ) : (
+                      <div className="space-y-1">
+                        {userVehicles.map((vehicle) => {
+                          const normalizedPlate = vehicle.plate.toUpperCase();
+                          const count = plateAnalysis.get(normalizedPlate) || 0;
+                          const isDuplicate = count > 1;
+                          
+                          return (
+                            <div key={vehicle.id} className="flex items-center gap-2">
+                              <Car size={14} className="text-gray-400" />
+                              <span className={isDuplicate ? plateStatus.color : 'text-gray-800'}>
+                                {vehicle.plate}
+                              </span>
+                              {isDuplicate && (
+                                <div className="flex items-center gap-1">
+                                  {count >= 3 ? (
+                                    <AlertTriangle size={12} className="text-red-500" />
+                                  ) : (
+                                    <Users2 size={12} className="text-yellow-500" />
+                                  )}
+                                  <span className={`text-xs font-medium ${plateStatus.color}`}>
+                                    ({count})
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </td>
                 </tr>
               );
