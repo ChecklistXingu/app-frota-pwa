@@ -9,6 +9,7 @@ export type Vehicle = {
   brand?: string;
   year?: number;
   active?: boolean;
+  createdAt?: any;
 };
 
 export const listenVehicles = (
