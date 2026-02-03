@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { listenRefuelings, type Refueling, getRefuelingTimestamp } from "../../services/refuelingService";
-import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
+import { listenAllVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { Fuel } from "lucide-react";
 
@@ -12,7 +12,7 @@ const AdminRefuelingHistoryPage = () => {
 
   useEffect(() => {
     const unsubR = listenRefuelings(setItems);
-    const unsubV = listenVehicles({}, setVehicles);
+    const unsubV = listenAllVehicles({}, setVehicles);
     const unsubU = listenUsers(setUsers);
     return () => { unsubR(); unsubV(); unsubU(); };
   }, []);

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { listenMaintenances, type Maintenance } from "../../services/maintenanceService";
-import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
+import { listenAllVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { Wrench } from "lucide-react";
 
@@ -20,7 +20,7 @@ const AdminMaintenanceHistoryPage = () => {
 
   useEffect(() => {
     const unsubM = listenMaintenances({}, setItems);
-    const unsubV = listenVehicles({}, setVehicles);
+    const unsubV = listenAllVehicles({}, setVehicles);
     const unsubU = listenUsers(setUsers);
     return () => { unsubM(); unsubV(); unsubU(); };
   }, []);

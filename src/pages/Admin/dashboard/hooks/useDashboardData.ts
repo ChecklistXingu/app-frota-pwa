@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { listenMaintenances } from "../../../../services/maintenanceService";
-import { listenVehicles } from "../../../../services/vehiclesService";
+import { listenAllVehicles } from "../../../../services/vehiclesService";
 import { listenUsers } from "../../../../services/usersService";
 import { listenRefuelings } from "../../../../services/refuelingService";
 import type { DashboardData, DashboardFilters } from "../types/dashboard.types";
@@ -467,7 +467,7 @@ export const useDashboardData = (filters?: DashboardFilters) => {
         maintenances = items;
         updateDashboard();
       }),
-      listenVehicles({}, (items) => {
+      listenAllVehicles({}, (items) => {
         vehicles = items;
         updateDashboard();
       }),

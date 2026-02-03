@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { listenMaintenances, type Maintenance } from "../../services/maintenanceService";
-import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
+import { listenAllVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { listenRefuelings, type Refueling } from "../../services/refuelingService";
 
@@ -14,7 +14,7 @@ const AdminDashboardPage = () => {
 
   useEffect(() => {
     const unsub1 = listenMaintenances({}, setMaint);
-    const unsub2 = listenVehicles({}, setVehicles);
+    const unsub2 = listenAllVehicles({}, setVehicles);
     const unsub3 = listenUsers(setUsers);
     const unsub4 = listenRefuelings(setRefuelings);
     return () => {

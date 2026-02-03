@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { listenMaintenances, updateMaintenanceStatus, type Maintenance, type MaintenanceStatus } from "../../services/maintenanceService";
-import { listenVehicles, type Vehicle } from "../../services/vehiclesService";
+import { listenAllVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { ChevronDown, Wrench } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -68,7 +68,7 @@ const AdminMaintenancePage = () => {
       setItems
     );
     const unsub2 = listenUsers(setUsers);
-    const unsub3 = listenVehicles({}, setVehicles);
+    const unsub3 = listenAllVehicles({}, setVehicles);
     return () => { unsub1(); unsub2(); unsub3(); };
   }, [filter]);
 
