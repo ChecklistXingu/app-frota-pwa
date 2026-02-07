@@ -51,7 +51,7 @@ const DashboardPage = () => {
   });
   const { data, loading } = useDashboardData(filters);
 
-  const handleExportPDF = async () => {
+  const handleExportPDF = () => {
     console.log('[Dashboard] Botão clicado - Iniciando exportação PDF');
     console.log('[Dashboard] Data disponível:', !!data);
     console.log('[Dashboard] Filtros:', filters);
@@ -64,7 +64,7 @@ const DashboardPage = () => {
     
     try {
       console.log('[Dashboard] Chamando generateCostReportPDF...');
-      await generateCostReportPDF(data, filters, profile?.name);
+      generateCostReportPDF(data, filters, profile?.name);
     } catch (error) {
       console.error('[Dashboard] Erro ao gerar PDF:', error);
       alert('Erro ao gerar o relatório PDF. Tente novamente.');
