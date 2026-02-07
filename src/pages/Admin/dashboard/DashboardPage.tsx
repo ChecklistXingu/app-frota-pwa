@@ -1,4 +1,4 @@
-import { Fuel, Filter, AlertTriangle, Wrench } from "lucide-react";
+import { Fuel, Filter, AlertTriangle, Wrench, Download } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
 import { Skeleton } from "../../../components/ui/skeleton.tsx";
@@ -7,6 +7,8 @@ import type { Maintenance } from "../../../services/maintenanceService";
 import { listenRefuelings } from "../../../services/refuelingService";
 import type { DashboardData, DashboardFilters } from "./types/dashboard.types";
 import { useMemo, useState, useEffect } from "react";
+import { useAuth } from "../../../contexts/AuthContext";
+import { generateCostReportPDF } from "../../../utils/generateCostReportPDF";
 import {
   ResponsiveContainer,
   BarChart,
@@ -41,12 +43,18 @@ const BRANCH_COLOR_MAP: Record<string, string> = {
 const FALLBACK_COLORS = ["#2563eb", "#16a34a", "#dc2626", "#f97316", "#9333ea", "#0ea5e9"];
 
 const DashboardPage = () => {
+  const { profile } = useAuth();
   const [filters, setFilters] = useState<DashboardFilters>({
     branch: "all",
     startDate: undefined,
     endDate: undefined,
   });
   const { data, loading } = useDashboardData(filters);
+
+  const handleExportPDF = () => {
+    if (!data) return;
+    generateCostReportPDF(data, filters, profile?.name);
+  };
 
   if (loading || !data) {
     return (
@@ -176,7 +184,10 @@ const DashboardPage = () => {
               <CardTitle>Custo mensal</CardTitle>
               <CardDescription>Comparativo entre manutenção e combustível</CardDescription>
             </div>
-            <Button variant="ghost" size="sm">Ver relatórios</Button>
+            <Button variant="ghost" size="sm" onClick={handleExportPDF} className="flex items-center gap-2">
+              <Download className="w-4 h-4" />
+              Ver relatórios
+            </Button>
           </CardHeader>
           <CardContent>
             <ChartPlaceholder data={monthlyCosts} />
