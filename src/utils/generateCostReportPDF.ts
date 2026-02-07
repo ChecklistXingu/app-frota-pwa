@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { DashboardFilters, DashboardData } from '../pages/Admin/dashboard/types/dashboard.types';
 import { imageToBase64 } from './imageUtils';
+import logoImage from '../assets/logo app (2).png';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -38,10 +39,10 @@ export const generateCostReportPDF = async (
     // Carregar logo
     let logoData: string | null = null;
     try {
-      logoData = await imageToBase64('/src/assets/logo app (2).png');
+      logoData = await imageToBase64(logoImage);
       console.log('[PDF] Logo carregada com sucesso');
     } catch (error) {
-      console.warn('[PDF] Não foi possível carregar a logo, usando placeholder');
+      console.warn('[PDF] Não foi possível carregar a logo, usando placeholder', error);
     }
     
     // Função para adicionar logo em qualquer página
