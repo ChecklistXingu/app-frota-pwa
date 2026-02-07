@@ -51,6 +51,57 @@ const DashboardPage = () => {
   });
   const { data, loading } = useDashboardData(filters);
 
+  const interpretiveText = useMemo(() => {
+    if (!data) {
+      return "Ainda não há dados suficientes para avaliar a tendência de custo por km.";
+    }
+
+    const { timelineBranches, costPerKmTimeline } = data;
+
+    if (!timelineBranches.length || !costPerKmTimeline.length) {
+      return "Ainda não há dados suficientes para avaliar a tendência de custo por km.";
+    }
+
+    const branchStats = timelineBranches
+      .map((branch) => {
+        const values = costPerKmTimeline
+          .map((point) => point[branch] as number | undefined)
+          .filter((value): value is number => typeof value === "number");
+        if (!values.length) return null;
+        const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+        const aboveBenchmark = values.filter((value) => value > BENCHMARK_COST_PER_KM).length;
+        const trend = values.length >= 2 ? values[values.length - 1] - values[0] : 0;
+        return { branch, avg, aboveBenchmark, total: values.length, trend };
+      })
+      .filter(Boolean) as Array<{
+        branch: string;
+        avg: number;
+        aboveBenchmark: number;
+        total: number;
+        trend: number;
+      }>;
+
+    if (!branchStats.length) {
+      return "Ainda não há dados suficientes para avaliar a tendência de custo por km.";
+    }
+
+    const worstBranch = branchStats.reduce((worst, current) =>
+      current.avg > worst.avg ? current : worst
+    );
+    const trendText =
+      Math.abs(worstBranch.trend) < 0.05
+        ? "mantém estabilidade"
+        : worstBranch.trend > 0
+          ? `está em tendência de alta (+${worstBranch.trend.toFixed(2)} R$/km)`
+          : `apresenta queda (-${Math.abs(worstBranch.trend).toFixed(2)} R$/km)`;
+
+    return `${worstBranch.branch} apresenta custo médio de R$ ${worstBranch.avg.toFixed(
+      2
+    )}/km nos últimos ${worstBranch.total} meses, acima da meta em ${
+      worstBranch.aboveBenchmark
+    } deles e ${trendText}.`;
+  }, [data]);
+
   const handleExportPDF = () => {
     console.log('[Dashboard] Botão clicado - Iniciando exportação PDF');
     console.log('[Dashboard] Data disponível:', !!data);
@@ -98,36 +149,6 @@ const DashboardPage = () => {
   const branchSummary = costsByBranch.length
     ? costsByBranch.reduce((max, current) => (current.maintenance > max.maintenance ? current : max), costsByBranch[0])
     : null;
-
-  const interpretiveText = useMemo(() => {
-    if (!timelineBranches.length || !costPerKmTimeline.length) {
-      return "Ainda não há dados suficientes para avaliar a tendência de custo por km.";
-    }
-
-    const branchStats = timelineBranches.map((branch) => {
-      const values = costPerKmTimeline
-        .map((point) => point[branch] as number | undefined)
-        .filter((value): value is number => typeof value === "number");
-      if (!values.length) return null;
-      const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
-      const aboveBenchmark = values.filter((value) => value > BENCHMARK_COST_PER_KM).length;
-      const trend = values.length >= 2 ? values[values.length - 1] - values[0] : 0;
-      return { branch, avg, aboveBenchmark, total: values.length, trend };
-    }).filter(Boolean) as Array<{ branch: string; avg: number; aboveBenchmark: number; total: number; trend: number }>;
-
-    if (!branchStats.length) {
-      return "Ainda não há dados suficientes para avaliar a tendência de custo por km.";
-    }
-
-    const worstBranch = branchStats.reduce((worst, current) => (current.avg > worst.avg ? current : worst));
-    const trendText = Math.abs(worstBranch.trend) < 0.05
-      ? "mantém estabilidade"
-      : worstBranch.trend > 0
-        ? `está em tendência de alta (+${worstBranch.trend.toFixed(2)} R$/km)`
-        : `apresenta queda (-${Math.abs(worstBranch.trend).toFixed(2)} R$/km)`;
-
-    return `${worstBranch.branch} apresenta custo médio de R$ ${worstBranch.avg.toFixed(2)}/km nos últimos ${worstBranch.total} meses, acima da meta em ${worstBranch.aboveBenchmark} deles e ${trendText}.`;
-  }, [timelineBranches, costPerKmTimeline]);
 
   const handleFilterChange = (key: keyof DashboardFilters, value: string) => {
     setFilters((prev) => ({
