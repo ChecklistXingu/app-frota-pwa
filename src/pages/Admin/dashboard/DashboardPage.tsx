@@ -51,7 +51,7 @@ const DashboardPage = () => {
   });
   const { data, loading } = useDashboardData(filters);
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     console.log('[Dashboard] Botão clicado - Iniciando exportação PDF');
     console.log('[Dashboard] Data disponível:', !!data);
     console.log('[Dashboard] Filtros:', filters);
@@ -62,8 +62,13 @@ const DashboardPage = () => {
       return;
     }
     
-    console.log('[Dashboard] Chamando generateCostReportPDF...');
-    generateCostReportPDF(data, filters, profile?.name);
+    try {
+      console.log('[Dashboard] Chamando generateCostReportPDF...');
+      await generateCostReportPDF(data, filters, profile?.name);
+    } catch (error) {
+      console.error('[Dashboard] Erro ao gerar PDF:', error);
+      alert('Erro ao gerar o relatório PDF. Tente novamente.');
+    }
   };
 
   if (loading || !data) {

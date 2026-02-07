@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { DashboardFilters, DashboardData } from '../pages/Admin/dashboard/types/dashboard.types';
+import { imageToBase64 } from './imageUtils';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -20,11 +21,11 @@ const COLORS = {
   dark: [17, 24, 39], // gray-900
 };
 
-export const generateCostReportPDF = (
+export const generateCostReportPDF = async (
   data: DashboardData,
   filters: DashboardFilters,
   userName?: string
-): void => {
+): Promise<void> => {
   try {
     console.log('[PDF] Iniciando geração do PDF...');
     console.log('[PDF] Dados recebidos:', { data, filters, userName });
@@ -34,13 +35,39 @@ export const generateCostReportPDF = (
     const pageHeight = doc.internal.pageSize.height;
     let currentY = 20;
 
+    // Carregar logo
+    let logoData: string | null = null;
+    try {
+      logoData = await imageToBase64('/src/assets/logo app (2).png');
+      console.log('[PDF] Logo carregada com sucesso');
+    } catch (error) {
+      console.warn('[PDF] Não foi possível carregar a logo, usando placeholder');
+    }
+    
+    // Função para adicionar logo em qualquer página
+    const addLogo = (yPosition: number = 10) => {
+      if (logoData) {
+        doc.addImage(logoData, 'PNG', 15, yPosition, 25, 25);
+      } else {
+        // Placeholder se não conseguir carregar a logo
+        doc.setFillColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+        doc.rect(15, yPosition, 25, 25, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(8);
+        doc.text('LOGO', 27.5, yPosition + 15, { align: 'center' });
+      }
+    };
+
   // Helper functions
   const addHeader = () => {
     // Header background
     doc.setFillColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
     doc.rect(0, 0, pageWidth, 40, 'F');
     
-    // Title
+    // Add logo
+    addLogo(7);
+    
+    // Title (ajustado para não ficar sobre a logo)
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(24);
     doc.text('Relatório de Custo Mensal', pageWidth / 2, 25, { align: 'center' });
