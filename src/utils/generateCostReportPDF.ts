@@ -221,8 +221,9 @@ export const generateCostReportPDF = (
     // Check if we need a new page before this section
     if (currentY > pageHeight - 100) {
       doc.addPage();
-      currentY = 20;
       addHeader();
+      // Posiciona o conteúdo logo abaixo do cabeçalho
+      currentY = 50;
     }
     
     // Section title
@@ -293,8 +294,9 @@ export const generateCostReportPDF = (
     // Check if we need a new page - more space for insights
     if (currentY > pageHeight - 80) {
       doc.addPage();
-      currentY = 20;
       addHeader();
+      // Posiciona o conteúdo de insights logo abaixo do cabeçalho
+      currentY = 50;
     }
     
     // Section title
@@ -343,8 +345,9 @@ export const generateCostReportPDF = (
     // Check if box fits in current page
     if (currentY + boxHeight > pageHeight - 30) {
       doc.addPage();
-      currentY = 20;
       addHeader();
+      // Reinicia a posição abaixo do cabeçalho na nova página
+      currentY = 50;
       doc.setTextColor(COLORS.dark[0], COLORS.dark[1], COLORS.dark[2]);
       doc.setFontSize(14);
       doc.text('Insights e Recomendações', 20, currentY);
