@@ -25,10 +25,14 @@ export const generateCostReportPDF = (
   filters: DashboardFilters,
   userName?: string
 ): void => {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.width;
-  const pageHeight = doc.internal.pageSize.height;
-  let currentY = 20;
+  try {
+    console.log('[PDF] Iniciando geração do PDF...');
+    console.log('[PDF] Dados recebidos:', { data, filters, userName });
+    
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    let currentY = 20;
 
   // Helper functions
   const addHeader = () => {
@@ -56,17 +60,29 @@ export const generateCostReportPDF = (
     doc.setFontSize(11);
     doc.setTextColor(COLORS.gray[0], COLORS.gray[1], COLORS.gray[2]);
     
-    const formatDate = (dateStr: string) => {
-      if (!dateStr) return 'Não definido';
+    const formatDate = (dateStr: string | undefined) => {
+      if (!dateStr) return null;
       const [year, month, day] = dateStr.split('-');
       return `${day}/${month}/${year}`;
     };
     
-    const startDate = formatDate(filters.startDate || '');
-    const endDate = formatDate(filters.endDate || '');
-    const branch = filters.branch === 'all' ? 'Todas as filiais' : filters.branch || 'Todas as filiais';
+    const startDate = formatDate(filters.startDate);
+    const endDate = formatDate(filters.endDate);
+    const branch = filters.branch === 'all' || !filters.branch ? 'Todas as filiais' : filters.branch;
     
-    doc.text(`Período: ${startDate} a ${endDate}`, 20, currentY);
+    // Formatar período
+    let periodText = 'Período: ';
+    if (startDate && endDate) {
+      periodText += `${startDate} a ${endDate}`;
+    } else if (startDate) {
+      periodText += `A partir de ${startDate}`;
+    } else if (endDate) {
+      periodText += `Até ${endDate}`;
+    } else {
+      periodText += 'Todo o histórico disponível';
+    }
+    
+    doc.text(periodText, 20, currentY);
     currentY += 6;
     doc.text(`Filial: ${branch}`, 20, currentY);
     currentY += 6;
@@ -333,16 +349,23 @@ export const generateCostReportPDF = (
     doc.text('Relatório gerado pelo App Frota - Sistema de Gestão de Frotas', pageWidth / 2, footerY + 5, { align: 'center' });
   };
 
-  // Generate PDF content
-  addHeader();
-  addFiltersInfo();
-  addSummaryCards();
-  addMonthlyBreakdown();
-  addBranchBreakdown();
-  addInsights();
-  addFooter(1);
+    // Generate PDF content
+    console.log('[PDF] Gerando conteúdo do PDF...');
+    addHeader();
+    addFiltersInfo();
+    addSummaryCards();
+    addMonthlyBreakdown();
+    addBranchBreakdown();
+    addInsights();
+    addFooter(1);
 
-  // Save the PDF
-  const fileName = `relatorio-custo-mensal-${new Date().toISOString().split('T')[0]}.pdf`;
-  doc.save(fileName);
+    // Save the PDF
+    const fileName = `relatorio-custo-mensal-${new Date().toISOString().split('T')[0]}.pdf`;
+    console.log('[PDF] Salvando PDF:', fileName);
+    doc.save(fileName);
+    console.log('[PDF] PDF gerado com sucesso!');
+  } catch (error) {
+    console.error('[PDF] Erro ao gerar PDF:', error);
+    alert('Erro ao gerar o relatório PDF. Verifique o console para mais detalhes.');
+  }
 };

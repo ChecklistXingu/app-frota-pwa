@@ -52,7 +52,17 @@ const DashboardPage = () => {
   const { data, loading } = useDashboardData(filters);
 
   const handleExportPDF = () => {
-    if (!data) return;
+    console.log('[Dashboard] Botão clicado - Iniciando exportação PDF');
+    console.log('[Dashboard] Data disponível:', !!data);
+    console.log('[Dashboard] Filtros:', filters);
+    
+    if (!data) {
+      console.error('[Dashboard] Dados não disponíveis para gerar PDF');
+      alert('Aguarde o carregamento dos dados antes de gerar o relatório.');
+      return;
+    }
+    
+    console.log('[Dashboard] Chamando generateCostReportPDF...');
     generateCostReportPDF(data, filters, profile?.name);
   };
 
