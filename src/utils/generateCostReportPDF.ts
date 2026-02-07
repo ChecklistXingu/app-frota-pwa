@@ -205,8 +205,8 @@ export const generateCostReportPDF = (
   const addBranchBreakdown = () => {
     if (data.costsByBranch.length === 0) return;
     
-    // Check if we need a new page
-    if (currentY > pageHeight - 80) {
+    // Check if we need a new page before this section
+    if (currentY > pageHeight - 100) {
       doc.addPage();
       currentY = 20;
       addHeader();
@@ -216,7 +216,7 @@ export const generateCostReportPDF = (
     doc.setTextColor(COLORS.dark[0], COLORS.dark[1], COLORS.dark[2]);
     doc.setFontSize(14);
     doc.text('Análise por Filial', 20, currentY);
-    currentY += 10;
+    currentY += 15;
     
     // Table headers
     const headers = [['Filial', 'Manutenção', 'Combustível', 'Custo Total', '% do Total']];
@@ -245,7 +245,7 @@ export const generateCostReportPDF = (
       return valueA - valueB;
     });
     
-    // Create table
+    // Create table with better pagination
     doc.autoTable({
       head: headers,
       body: tableData,
@@ -253,7 +253,7 @@ export const generateCostReportPDF = (
       theme: 'striped',
       styles: {
         fontSize: 10,
-        cellPadding: 5,
+        cellPadding: 4,
       },
       headStyles: {
         fillColor: [COLORS.secondary[0], COLORS.secondary[1], COLORS.secondary[2]],
@@ -269,15 +269,16 @@ export const generateCostReportPDF = (
         2: { cellWidth: 45 },
         3: { cellWidth: 45 },
         4: { cellWidth: 25 },
-      }
+      },
+      margin: { top: 20, bottom: 30 }
     });
     
-    currentY = doc.lastAutoTable.finalY + 15;
+    currentY = doc.lastAutoTable.finalY + 20;
   };
 
   const addInsights = () => {
-    // Check if we need a new page
-    if (currentY > pageHeight - 60) {
+    // Check if we need a new page - more space for insights
+    if (currentY > pageHeight - 80) {
       doc.addPage();
       currentY = 20;
       addHeader();
@@ -287,16 +288,7 @@ export const generateCostReportPDF = (
     doc.setTextColor(COLORS.dark[0], COLORS.dark[1], COLORS.dark[2]);
     doc.setFontSize(14);
     doc.text('Insights e Recomendações', 20, currentY);
-    currentY += 10;
-    
-    // Insights box
-    doc.setFillColor(COLORS.light[0], COLORS.light[1], COLORS.light[2]);
-    doc.rect(15, currentY - 5, pageWidth - 30, 50, 'F');
-    doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
-    doc.rect(15, currentY - 5, pageWidth - 30, 50);
-    
-    doc.setTextColor(COLORS.dark[0], COLORS.dark[1], COLORS.dark[2]);
-    doc.setFontSize(11);
+    currentY += 15;
     
     // Calculate insights
     const totalMaintenance = data.monthlyCosts.reduce((sum, item) => sum + item.maintenance, 0);
@@ -328,6 +320,33 @@ export const generateCostReportPDF = (
       insights.push(`• Análise comparativa entre ${data.costsByBranch.length} filiais disponível para otimização de custos`);
     }
     
+    // Dynamic box height based on content
+    let boxHeight = 30;
+    insights.forEach(insight => {
+      const lines = doc.splitTextToSize(insight, pageWidth - 50);
+      boxHeight += lines.length * 6 + 3;
+    });
+    
+    // Check if box fits in current page
+    if (currentY + boxHeight > pageHeight - 30) {
+      doc.addPage();
+      currentY = 20;
+      addHeader();
+      doc.setTextColor(COLORS.dark[0], COLORS.dark[1], COLORS.dark[2]);
+      doc.setFontSize(14);
+      doc.text('Insights e Recomendações', 20, currentY);
+      currentY += 15;
+    }
+    
+    // Insights box with dynamic height
+    doc.setFillColor(COLORS.light[0], COLORS.light[1], COLORS.light[2]);
+    doc.rect(15, currentY - 5, pageWidth - 30, boxHeight, 'F');
+    doc.setDrawColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
+    doc.rect(15, currentY - 5, pageWidth - 30, boxHeight);
+    
+    doc.setTextColor(COLORS.dark[0], COLORS.dark[1], COLORS.dark[2]);
+    doc.setFontSize(11);
+    
     // Add insights text
     let insightY = currentY + 5;
     insights.forEach(insight => {
@@ -336,34 +355,34 @@ export const generateCostReportPDF = (
         doc.text(line, 20, insightY);
         insightY += 6;
       });
+      insightY += 3; // Extra space between insights
     });
     
     currentY = insightY + 10;
   };
 
-  const addFooter = (pageNumber: number) => {
+  // Generate PDF content
+  console.log('[PDF] Gerando conteúdo do PDF...');
+  addHeader();
+  addFiltersInfo();
+  addSummaryCards();
+  addMonthlyBreakdown();
+  addBranchBreakdown();
+  addInsights();
+
+  // Add final footer if not on last page
+  if (currentY < pageHeight - 30) {
     const footerY = pageHeight - 15;
     doc.setTextColor(COLORS.gray[0], COLORS.gray[1], COLORS.gray[2]);
     doc.setFontSize(9);
-    doc.text(`Página ${pageNumber}`, pageWidth / 2, footerY, { align: 'center' });
     doc.text('Relatório gerado pelo App Frota - Sistema de Gestão de Frotas', pageWidth / 2, footerY + 5, { align: 'center' });
-  };
+  }
 
-    // Generate PDF content
-    console.log('[PDF] Gerando conteúdo do PDF...');
-    addHeader();
-    addFiltersInfo();
-    addSummaryCards();
-    addMonthlyBreakdown();
-    addBranchBreakdown();
-    addInsights();
-    addFooter(1);
-
-    // Save the PDF
-    const fileName = `relatorio-custo-mensal-${new Date().toISOString().split('T')[0]}.pdf`;
-    console.log('[PDF] Salvando PDF:', fileName);
-    doc.save(fileName);
-    console.log('[PDF] PDF gerado com sucesso!');
+  // Save the PDF
+  const fileName = `relatorio-custo-mensal-${new Date().toISOString().split('T')[0]}.pdf`;
+  console.log('[PDF] Salvando PDF:', fileName);
+  doc.save(fileName);
+  console.log('[PDF] PDF gerado com sucesso!');
   } catch (error) {
     console.error('[PDF] Erro ao gerar PDF:', error);
     alert('Erro ao gerar o relatório PDF. Verifique o console para mais detalhes.');
