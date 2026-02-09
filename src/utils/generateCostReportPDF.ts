@@ -26,7 +26,7 @@ export const generateCostReportPDF = (
   userName?: string
 ): void => {
   try {
-    console.log('[PDF v2.1] Iniciando geração do PDF - Build 2026-02-07...');
+    console.log('[PDF v2.2] Iniciando geração do PDF - Build 2026-02-09 08:42 - COM PAGINAÇÃO CORRIGIDA');
     console.log('[PDF] Dados recebidos:', { data, filters, userName });
     
     const doc = new jsPDF();
