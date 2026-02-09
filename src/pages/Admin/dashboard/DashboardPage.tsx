@@ -8,6 +8,7 @@ import { listenRefuelings } from "../../../services/refuelingService";
 import type { DashboardData, DashboardFilters } from "./types/dashboard.types";
 import { useMemo, useState, useEffect } from "react";
 import { exportCostReportNew } from "../../../utils/exportPDFNew";
+import { useAuth } from "../../../contexts/AuthContext";
 import {
   ResponsiveContainer,
   BarChart,
@@ -42,6 +43,7 @@ const BRANCH_COLOR_MAP: Record<string, string> = {
 const FALLBACK_COLORS = ["#2563eb", "#16a34a", "#dc2626", "#f97316", "#9333ea", "#0ea5e9"];
 
 const DashboardPage = () => {
+  const { profile } = useAuth();
   const [filters, setFilters] = useState<DashboardFilters>({
     branch: "all",
     startDate: undefined,
@@ -111,7 +113,7 @@ const DashboardPage = () => {
     
     try {
       console.log('[Dashboard NEW] Iniciando exportação PDF NOVA...');
-      await exportCostReportNew(data, filters);
+      await exportCostReportNew(data, filters, profile?.name);
     } catch (error) {
       console.error('[Dashboard NEW] Erro:', error);
       alert('Erro ao gerar PDF. Tente novamente.');

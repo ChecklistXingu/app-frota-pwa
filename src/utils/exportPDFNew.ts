@@ -63,13 +63,18 @@ export const exportCostReportNew = async (
           img.src = imgUrl;
         });
         
-        // Adiciona a imagem no PDF
-        doc.addImage(img, 'PNG', 15, 10, 30, 20);
+        // Calcula proporção para não esticar
+        const aspectRatio = img.naturalWidth / img.naturalHeight;
+        const logoHeight = 20;
+        const logoWidth = logoHeight * aspectRatio;
+        
+        // Adiciona a imagem no PDF com proporção correta
+        doc.addImage(img, 'PNG', 15, 10, logoWidth, logoHeight);
         
         // Texto "FROTA" ao lado da logo
         doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
         doc.setFontSize(12);
-        doc.text('FROTA', 50, 22);
+        doc.text('FROTA', 15 + logoWidth + 5, 22);
         
       } catch (error) {
         console.warn('[PDF NEW] Não foi possível carregar logo, usando placeholder');
@@ -86,7 +91,7 @@ export const exportCostReportNew = async (
     const addHeader = async () => {
       // Background
       doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      doc.rect(0, 0, pageWidth, 35, 'F');
+      doc.rect(0, 0, pageWidth, 40, 'F'); // Aumentado para 40px
       
       await addLogo();
       
@@ -94,11 +99,15 @@ export const exportCostReportNew = async (
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(20);
       doc.text('Relatório de Custos', pageWidth / 2, 25, { align: 'center' });
+      
+      // Subtítulo
+      doc.setFontSize(12);
+      doc.text('App Frota - Sistema de Gestão', pageWidth / 2, 35, { align: 'center' });
     };
 
     // Info
     const addInfo = () => {
-      y = 45;
+      y = 50; // Ajustado para header maior
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(12);
       doc.text('Período e Filtros', 20, y);
