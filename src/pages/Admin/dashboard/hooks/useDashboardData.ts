@@ -257,6 +257,19 @@ export const useDashboardData = (filters?: DashboardFilters) => {
     console.log('[DEBUG] effectiveRefuelings:', effectiveRefuelings.length);
     console.log('[DEBUG] refuelsByVehicle:', refuelsByVehicle);
     
+    // Mostra detalhes dos abastecimentos
+    effectiveRefuelings.slice(0, 5).forEach((r, i) => {
+      console.log(`[DEBUG] Abastecimento ${i}:`, {
+        id: r.id,
+        vehicleId: r.vehicleId,
+        userId: r.userId,
+        km: r.km,
+        liters: r.liters,
+        value: r.value,
+        date: r.date?.toDate?.() || r.date
+      });
+    });
+    
     let totalDistance = 0;
     let validSamples = 0;
     let skippedVehicles = 0;
