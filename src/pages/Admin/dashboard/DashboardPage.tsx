@@ -1,11 +1,13 @@
-import { Fuel, Filter, AlertTriangle, Wrench } from "lucide-react";
+import { Fuel, Filter, AlertTriangle, Wrench, Download } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
+import { Button } from "../../../components/ui/button";
 import { Skeleton } from "../../../components/ui/skeleton.tsx";
 import { useDashboardData } from "./hooks/useDashboardData";
 import type { Maintenance } from "../../../services/maintenanceService";
 import { listenRefuelings } from "../../../services/refuelingService";
 import type { DashboardData, DashboardFilters } from "./types/dashboard.types";
 import { useMemo, useState, useEffect } from "react";
+import { exportCostReportNew } from "../../../utils/exportPDFNew";
 import {
   ResponsiveContainer,
   BarChart,
@@ -97,6 +99,24 @@ const DashboardPage = () => {
       worstBranch.aboveBenchmark
     } deles e ${trendText}.`;
   }, [data]);
+
+  const handleExportPDFNew = () => {
+    console.log('[Dashboard NEW] Botão NOVO clicado - Exportação PDF Nova');
+    
+    if (!data) {
+      console.error('[Dashboard NEW] Dados não disponíveis');
+      alert('Aguarde o carregamento dos dados.');
+      return;
+    }
+    
+    try {
+      console.log('[Dashboard NEW] Iniciando exportação PDF NOVA...');
+      exportCostReportNew(data, filters);
+    } catch (error) {
+      console.error('[Dashboard NEW] Erro:', error);
+      alert('Erro ao gerar PDF. Tente novamente.');
+    }
+  };
 
   if (loading || !data) {
     return (
@@ -191,9 +211,15 @@ const DashboardPage = () => {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="space-y-1">
-            <CardTitle>Custo mensal</CardTitle>
-            <CardDescription>Comparativo entre manutenção e combustível</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Custo mensal</CardTitle>
+              <CardDescription>Comparativo entre manutenção e combustível</CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" onClick={handleExportPDFNew} className="flex items-center gap-2">
+              <Download className="w-4 h-4" />
+              Exportar PDF
+            </Button>
           </CardHeader>
           <CardContent>
             <ChartPlaceholder data={monthlyCosts} />
