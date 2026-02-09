@@ -162,7 +162,7 @@ const DashboardPage = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       <header className="space-y-1">
         <p className="text-sm uppercase tracking-widest text-muted-foreground">Painel de gestão</p>
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Dashboard</h1>

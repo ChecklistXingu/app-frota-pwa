@@ -40,7 +40,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
         </div>
       </header>
 
-      <div className="max-w-[1400px] mx-auto px-4 lg:px-6 pt-6 pb-20 lg:pb-6 flex flex-col gap-6 lg:flex-row">
+      <div className="max-w-[1400px] mx-auto px-2 lg:px-3 pt-6 pb-20 lg:pb-6 flex flex-col gap-6 lg:flex-row">
         <aside className="hidden lg:flex w-64 flex-shrink-0 flex-col rounded-3xl bg-white pt-8 pb-6 shadow-[0_20px_45px_rgba(0,32,91,0.12)] border border-[#e4e7ec]">
           <div className="flex flex-col items-center px-6 text-center gap-3 pb-6 border-b border-[#edf0f6]">
             <img src={LogoApp} alt="Logotipo Xingu" className="h-12 w-12 object-contain rounded-full" />
@@ -68,7 +68,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
         </aside>
 
         <main className="flex-1 w-full">
-          <div className="rounded-[32px] bg-white/80 p-4 sm:p-6 shadow-[0_25px_60px_rgba(15,23,42,0.07)] border border-white">
+          <div className="rounded-[32px] bg-white/80 p-3 sm:p-4 lg:p-4 shadow-[0_25px_60px_rgba(15,23,42,0.07)] border border-white">
             {children}
           </div>
         </main>
