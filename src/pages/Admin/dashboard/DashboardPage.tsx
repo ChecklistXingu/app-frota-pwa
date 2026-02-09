@@ -1,14 +1,15 @@
-import { Fuel, Filter, AlertTriangle, Wrench, Download } from "lucide-react";
+import { Fuel, Filter, AlertTriangle, Download } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
 import { Button } from "../../../components/ui/button";
 import { Skeleton } from "../../../components/ui/skeleton.tsx";
 import { useDashboardData } from "./hooks/useDashboardData";
 import type { Maintenance } from "../../../services/maintenanceService";
-import { listenRefuelings } from "../../../services/refuelingService";
 import type { DashboardData, DashboardFilters } from "./types/dashboard.types";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { exportCostReportNew } from "../../../utils/exportPDFNew";
+import { calculateTopConsumptionByBranch } from "../../../utils/calculateTopConsumption";
 import { useAuth } from "../../../contexts/AuthContext";
+import TopConsumptionCard from "../../../components/TopConsumptionCard";
 import {
   ResponsiveContainer,
   BarChart,
@@ -101,6 +102,11 @@ const DashboardPage = () => {
       worstBranch.aboveBenchmark
     } deles e ${trendText}.`;
   }, [data]);
+
+  const topConsumptionData = useMemo(() => {
+    if (!data) return [];
+    return calculateTopConsumptionByBranch(data, filters);
+  }, [data, filters]);
 
   const handleExportPDFNew = async () => {
     console.log('[Dashboard NEW] Botão NOVO clicado - Exportação PDF Nova');
@@ -208,8 +214,9 @@ const DashboardPage = () => {
         <CompactMaintCard stats={maintenanceStats} />
         <CompactPendenciesCard maintenances={data.maintenances} stats={maintenanceStats} />
         <CompactFuelCard stats={refuelingStats} monthlyCosts={data.monthlyCosts} />
-        <TopConsumersCard maintenances={data.maintenances} vehicles={data.vehicles} users={data.users} filters={filters} />
       </section>
+
+      <TopConsumptionCard data={topConsumptionData} loading={loading} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
@@ -494,112 +501,3 @@ const ChartPlaceholder = ({ data }: { data: { month: string; maintenance: number
   </div>
 );
 export default DashboardPage;
-
-const TopConsumersCard = ({ maintenances, vehicles, users, filters }: { maintenances: Maintenance[]; vehicles: Array<{ id: string; plate?: string; model?: string }>; users: Array<{ id: string; filial?: string }>; filters: DashboardFilters }) => {
-  const [refuelings, setRefuelings] = useState<any[]>([]);
-
-  useEffect(() => {
-    const unsub = listenRefuelings(setRefuelings);
-    return () => unsub();
-  }, []);
-
-  const parseInputDate = (value?: string | null, endOfDay = false): Date | null => {
-    if (!value) return null;
-    const [year, month, day] = value.split("-").map(Number);
-    if (!year || !month || !day) return null;
-    return new Date(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
-  };
-
-  const toDate = (value: any): Date | null => {
-    if (!value) return null;
-    if (value.toDate) return value.toDate();
-    if (value.seconds) return new Date(value.seconds * 1000);
-    if (value instanceof Date) return value;
-    if (typeof value === "string") {
-      const d = new Date(value);
-      return Number.isNaN(d.getTime()) ? null : d;
-    }
-    return null;
-  };
-
-  const startDate = parseInputDate(filters?.startDate, false);
-  const endDate = parseInputDate(filters?.endDate, true);
-  const branchFilter = filters?.branch && filters.branch !== "all" ? filters.branch : null;
-  const userBranchMap = new Map(users.map((u: any) => [u.id, u.filial || "--"]));
-
-  const isBranchAllowed = (userId: string) => !branchFilter || userBranchMap.get(userId) === branchFilter;
-  const isDateAllowed = (date: any) => {
-    const d = toDate(date);
-    if (!d) return false;
-    if (startDate && d < startDate) return false;
-    if (endDate && d > endDate) return false;
-    return true;
-  };
-
-  const top = useMemo(() => {
-    const fuelByVehicle: Record<string, number> = {};
-    refuelings
-      .filter((r) => isBranchAllowed(r.userId) && (!startDate && !endDate ? true : isDateAllowed(r.date)))
-      .forEach((r) => {
-        if (!r.vehicleId) return;
-        fuelByVehicle[r.vehicleId] = (fuelByVehicle[r.vehicleId] || 0) + (Number(r.value) || 0);
-      });
-
-    const maintByVehicle: Record<string, number> = {};
-    maintenances
-      .filter((m) => isBranchAllowed(m.userId) && (!startDate && !endDate ? true : isDateAllowed((m as any).createdAt || (m as any).date)))
-      .forEach((m) => {
-        if (!m.vehicleId) return;
-        const cost = Number((m as any).finalCost ?? m.finalCost ?? (m as any).cost ?? (m as any).totalCost ?? m.forecastedCost ?? 0);
-        maintByVehicle[m.vehicleId] = (maintByVehicle[m.vehicleId] || 0) + cost;
-      });
-
-    const toTop = (map: Record<string, number>) => {
-      const entries = Object.entries(map);
-      if (!entries.length) return null as { vehicleId: string; value: number } | null;
-      return entries.reduce((max, [vehicleId, value]) => (value > (max?.value || 0) ? { vehicleId, value } : max), null as any);
-    };
-
-    return { fuel: toTop(fuelByVehicle), maint: toTop(maintByVehicle) };
-  }, [refuelings, maintenances, filters?.startDate, filters?.endDate, filters?.branch]);
-
-  const getVehicleLabel = (vehicleId?: string) => {
-    if (!vehicleId) return "—";
-    const v = vehicles.find((x: any) => x.id === vehicleId);
-    if (!v) return "Veículo";
-    const dot = v.plate && v.model ? " • " : "";
-    return `${v.plate || ""}${dot}${v.model || ""}`.trim();
-  };
-
-  const fmt = (n?: number) => (typeof n === "number" ? n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—");
-  const rows = [
-    { label: "Combustível", icon: <Fuel className="h-4 w-4 text-amber-700" />, vehicle: getVehicleLabel(top.fuel?.vehicleId), value: fmt(top.fuel?.value) },
-    { label: "Manutenção", icon: <Wrench className="h-4 w-4 text-rose-700" />, vehicle: getVehicleLabel(top.maint?.vehicleId), value: fmt(top.maint?.value) },
-  ];
-
-  const isEmpty = !top.fuel && !top.maint;
-
-  return (
-    <Card>
-      <CardHeader className="space-y-1">
-        <CardTitle>Maior Consumo</CardTitle>
-        <CardDescription>Top veículos por gasto</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {isEmpty ? (
-          <p className="text-sm text-muted-foreground">Sem dados de consumo disponíveis.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-            {rows.map((r) => (
-              <div key={r.label} className="rounded-xl bg-gray-50 px-3 py-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 flex items-center gap-1">{r.icon}{r.label}</p>
-                <p className="text-base font-semibold text-gray-900 whitespace-normal break-words leading-snug">{r.vehicle || "—"}</p>
-                <p className="text-xs text-gray-600">{r.value}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
