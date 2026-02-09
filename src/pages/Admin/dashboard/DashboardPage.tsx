@@ -1,5 +1,4 @@
-import { Fuel, Filter, AlertTriangle, Wrench, Download } from "lucide-react";
-import { Button } from "../../../components/ui/button";
+import { Fuel, Filter, AlertTriangle, Wrench } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card.tsx";
 import { Skeleton } from "../../../components/ui/skeleton.tsx";
 import { useDashboardData } from "./hooks/useDashboardData";
@@ -7,8 +6,6 @@ import type { Maintenance } from "../../../services/maintenanceService";
 import { listenRefuelings } from "../../../services/refuelingService";
 import type { DashboardData, DashboardFilters } from "./types/dashboard.types";
 import { useMemo, useState, useEffect } from "react";
-import { useAuth } from "../../../contexts/AuthContext";
-import { generateCostReportPDF } from "../../../utils/generateCostReportPDF";
 import {
   ResponsiveContainer,
   BarChart,
@@ -43,7 +40,6 @@ const BRANCH_COLOR_MAP: Record<string, string> = {
 const FALLBACK_COLORS = ["#2563eb", "#16a34a", "#dc2626", "#f97316", "#9333ea", "#0ea5e9"];
 
 const DashboardPage = () => {
-  const { profile } = useAuth();
   const [filters, setFilters] = useState<DashboardFilters>({
     branch: "all",
     startDate: undefined,
@@ -101,26 +97,6 @@ const DashboardPage = () => {
       worstBranch.aboveBenchmark
     } deles e ${trendText}.`;
   }, [data]);
-
-  const handleExportPDF = () => {
-    console.log('[Dashboard] Botão clicado - Iniciando exportação PDF');
-    console.log('[Dashboard] Data disponível:', !!data);
-    console.log('[Dashboard] Filtros:', filters);
-    
-    if (!data) {
-      console.error('[Dashboard] Dados não disponíveis para gerar PDF');
-      alert('Aguarde o carregamento dos dados antes de gerar o relatório.');
-      return;
-    }
-    
-    try {
-      console.log('[Dashboard] Chamando generateCostReportPDF...');
-      generateCostReportPDF(data, filters, profile?.name);
-    } catch (error) {
-      console.error('[Dashboard] Erro ao gerar PDF:', error);
-      alert('Erro ao gerar o relatório PDF. Tente novamente.');
-    }
-  };
 
   if (loading || !data) {
     return (
@@ -215,15 +191,9 @@ const DashboardPage = () => {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Custo mensal</CardTitle>
-              <CardDescription>Comparativo entre manutenção e combustível</CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" onClick={handleExportPDF} className="flex items-center gap-2">
-              <Download className="w-4 h-4" />
-              Ver relatórios
-            </Button>
+          <CardHeader className="space-y-1">
+            <CardTitle>Custo mensal</CardTitle>
+            <CardDescription>Comparativo entre manutenção e combustível</CardDescription>
           </CardHeader>
           <CardContent>
             <ChartPlaceholder data={monthlyCosts} />
