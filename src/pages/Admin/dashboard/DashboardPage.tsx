@@ -100,7 +100,7 @@ const DashboardPage = () => {
     } deles e ${trendText}.`;
   }, [data]);
 
-  const handleExportPDFNew = () => {
+  const handleExportPDFNew = async () => {
     console.log('[Dashboard NEW] Botão NOVO clicado - Exportação PDF Nova');
     
     if (!data) {
@@ -111,7 +111,7 @@ const DashboardPage = () => {
     
     try {
       console.log('[Dashboard NEW] Iniciando exportação PDF NOVA...');
-      exportCostReportNew(data, filters);
+      await exportCostReportNew(data, filters);
     } catch (error) {
       console.error('[Dashboard NEW] Erro:', error);
       alert('Erro ao gerar PDF. Tente novamente.');

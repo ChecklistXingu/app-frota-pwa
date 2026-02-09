@@ -27,11 +27,11 @@ interface CostFilters {
   endDate?: string;
 }
 
-export const exportCostReportNew = (
+export const exportCostReportNew = async (
   data: CostData,
   filters: CostFilters,
   userName?: string
-): void => {
+): Promise<void> => {
   try {
     console.log('[PDF NEW] Iniciando exportação PDF - Versão Nova 2026');
     
@@ -50,21 +50,45 @@ export const exportCostReportNew = (
     };
 
     // Logo
-    const addLogo = () => {
-      doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      doc.rect(15, 10, 30, 20, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(10);
-      doc.text('FROTA', 30, 22, { align: 'center' });
+    const addLogo = async () => {
+      try {
+        // Carrega a imagem do public/icons
+        const imgUrl = '/icons/icon-192.png';
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = imgUrl;
+        });
+        
+        // Adiciona a imagem no PDF
+        doc.addImage(img, 'PNG', 15, 10, 30, 20);
+        
+        // Texto "FROTA" ao lado da logo
+        doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.setFontSize(12);
+        doc.text('FROTA', 50, 22);
+        
+      } catch (error) {
+        console.warn('[PDF NEW] Não foi possível carregar logo, usando placeholder');
+        // Fallback para placeholder
+        doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
+        doc.rect(15, 10, 30, 20, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(10);
+        doc.text('FROTA', 30, 22, { align: 'center' });
+      }
     };
 
     // Header
-    const addHeader = () => {
+    const addHeader = async () => {
       // Background
       doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
       doc.rect(0, 0, pageWidth, 35, 'F');
       
-      addLogo();
+      await addLogo();
       
       // Título
       doc.setTextColor(255, 255, 255);
@@ -239,7 +263,7 @@ export const exportCostReportNew = (
     };
 
     // Gerar PDF
-    addHeader();
+    await addHeader();
     addInfo();
     addSummary();
     addMonthlyTable();
