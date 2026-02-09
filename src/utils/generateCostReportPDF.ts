@@ -209,6 +209,14 @@ export const generateCostReportPDF = (
         1: { cellWidth: 50 },
         2: { cellWidth: 50 },
         3: { cellWidth: 50 },
+      },
+      margin: { top: 50, bottom: 30 },
+      didDrawPage: (data: any) => {
+        // Adiciona cabeçalho em cada página da tabela
+        if (data.pageNumber > 1) {
+          addHeader();
+          addFooter(data.pageNumber);
+        }
       }
     });
     
@@ -284,7 +292,14 @@ export const generateCostReportPDF = (
         3: { cellWidth: 45 },
         4: { cellWidth: 25 },
       },
-      margin: { top: 20, bottom: 30 }
+      margin: { top: 50, bottom: 30 },
+      didDrawPage: (data: any) => {
+        // Adiciona cabeçalho e rodapé em cada página da tabela
+        if (data.pageNumber > 1) {
+          addHeader();
+          addFooter(data.pageNumber);
+        }
+      }
     });
     
     currentY = doc.lastAutoTable.finalY + 20;
@@ -377,6 +392,17 @@ export const generateCostReportPDF = (
     currentY = insightY + 10;
   };
 
+  // Função para adicionar rodapé
+  const addFooter = (pageNum?: number) => {
+    const footerY = pageHeight - 15;
+    doc.setTextColor(COLORS.gray[0], COLORS.gray[1], COLORS.gray[2]);
+    doc.setFontSize(9);
+    doc.text('Relatório gerado pelo App Frota - Sistema de Gestão de Frotas', pageWidth / 2, footerY, { align: 'center' });
+    if (pageNum) {
+      doc.text(`Página ${pageNum}`, pageWidth - 20, footerY, { align: 'right' });
+    }
+  };
+
   // Generate PDF content
   console.log('[PDF] Gerando conteúdo do PDF...');
   addHeader();
@@ -386,13 +412,8 @@ export const generateCostReportPDF = (
   addBranchBreakdown();
   addInsights();
 
-  // Add final footer if not on last page
-  if (currentY < pageHeight - 30) {
-    const footerY = pageHeight - 15;
-    doc.setTextColor(COLORS.gray[0], COLORS.gray[1], COLORS.gray[2]);
-    doc.setFontSize(9);
-    doc.text('Relatório gerado pelo App Frota - Sistema de Gestão de Frotas', pageWidth / 2, footerY + 5, { align: 'center' });
-  }
+  // Add footer to first page
+  addFooter(1);
 
   // Save the PDF
   const fileName = `relatorio-custo-mensal-${new Date().toISOString().split('T')[0]}.pdf`;
