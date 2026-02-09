@@ -10,7 +10,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
   return (
     <div className="min-h-screen bg-[#f4f6fb] text-[#0a1633]">
       <header className="bg-[#00205b] text-white shadow-lg">
-        <div className="max-w-[1400px] mx-auto flex flex-wrap items-center justify-between gap-4 px-4 lg:px-6 py-4">
+        <div className="max-w-[1800px] mx-auto flex flex-wrap items-center justify-between gap-4 px-4 lg:px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="hidden md:flex items-center gap-2">
               <img src={LogoApp} alt="Logotipo Xingu" className="h-9 w-9 object-contain rounded-full" />
@@ -40,7 +40,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
         </div>
       </header>
 
-      <div className="max-w-[1400px] mx-auto px-2 lg:px-3 pt-6 pb-20 lg:pb-6 flex flex-col gap-3 lg:flex-row lg:gap-3">
+      <div className="max-w-[1800px] mx-auto px-2 lg:px-3 pt-6 pb-20 lg:pb-6 flex flex-col gap-3 lg:flex-row lg:gap-3">
         <aside className="hidden lg:flex w-64 flex-shrink-0 flex-col rounded-3xl bg-white pt-8 pb-6 shadow-[0_20px_45px_rgba(0,32,91,0.12)] border border-[#e4e7ec]">
           <div className="flex flex-col items-center px-6 text-center gap-3 pb-6 border-b border-[#edf0f6]">
             <img src={LogoApp} alt="Logotipo Xingu" className="h-12 w-12 object-contain rounded-full" />
