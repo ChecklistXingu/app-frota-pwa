@@ -274,7 +274,6 @@ export const useDashboardData = (filters?: DashboardFilters) => {
     let validSamples = 0;
     let skippedVehicles = 0;
     let vehiclesWithInsufficientData = 0;
-    const monthlyDistances = new Map<string, number>();
 
     // Calcula a distância percorrida para cada veículo
     refuelsByVehicle.forEach((vehicleRefuels, vehicleId) => {
@@ -317,8 +316,15 @@ export const useDashboardData = (filters?: DashboardFilters) => {
           if (refuelDate) {
             const date = refuelDate instanceof Date ? refuelDate : new Date(refuelDate);
             const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            const currentTotal = monthlyDistances.get(monthKey) || 0;
-            monthlyDistances.set(monthKey, currentTotal + distance);
+            
+            // Pega a filial do usuário que fez o abastecimento
+            const branch = userBranchMap.get(current.userId) || '--';
+            
+            const monthData = monthMap.get(monthKey);
+            if (monthData) {
+              const monthEntry = ensureBranchMonthEntry(monthKey, monthData.label, branch);
+              monthEntry.distance = (monthEntry.distance || 0) + distance;
+            }
           }
         } else {
           // Registra abastecimentos com dados inválidos
@@ -330,16 +336,6 @@ export const useDashboardData = (filters?: DashboardFilters) => {
             skippedVehicles++;
           }
         }
-      }
-    });
-
-    // Atualiza as distâncias mensais no monthMap
-    monthlyDistances.forEach((distance, monthKey) => {
-      const monthData = monthMap.get(monthKey);
-      if (monthData) {
-        const branch = '--'; // Usa '--' como branch padrão para distância
-        const monthEntry = ensureBranchMonthEntry(monthKey, monthData.label, branch);
-        monthEntry.distance = (monthEntry.distance || 0) + distance;
       }
     });
 
