@@ -303,7 +303,20 @@ const DashboardPage = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           {costPerKmTimeline.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Ainda não há dados suficientes para projetar a tendência.</p>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                <strong>Para exibir a evolução do custo por km:</strong>
+              </p>
+              <div className="text-xs text-muted-foreground space-y-1 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p>• <strong>Abasteça o mesmo veículo múltiplas vezes</strong></p>
+                <p>• <strong>Preencha o campo KM</strong> em cada abastecimento</p>
+                <p>• <strong>O KM deve ser crescente</strong> (ex: 1000, 1500, 2000)</p>
+                <p>• <strong>Adicione manutenções</strong> para calcular o custo total</p>
+              </div>
+              <p className="text-xs text-gray-500">
+                O sistema calcula: (Custo Combustível + Manutenção) ÷ Distância Percorrida
+              </p>
+            </div>
           ) : (
             <>
               <div className="w-full" style={{ height: '320px', minHeight: '320px' }}>

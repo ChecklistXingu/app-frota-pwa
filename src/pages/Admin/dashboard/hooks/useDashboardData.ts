@@ -422,14 +422,26 @@ export const useDashboardData = (filters?: DashboardFilters) => {
         branches.forEach((values, branch) => {
           const totalCost = values.maintenance + values.fuel;
           const distance = values.distance || 0;
+          
+          console.log(`[DEBUG] Timeline ${label} - ${branch}:`);
+          console.log(`  - distance: ${distance}`);
+          console.log(`  - totalCost: ${totalCost}`);
+          console.log(`  - vai exibir?: ${distance > 0 && totalCost > 0}`);
+          
           if (distance > 0 && totalCost > 0) {
             point[branch] = Number((totalCost / distance).toFixed(2));
             timelineBranchesSet.add(branch);
+            console.log(`  - ✓ Adicionado: ${point[branch]} R$/km`);
+          } else {
+            console.log(`  - ✗ Ignorado (distance=${distance}, cost=${totalCost})`);
           }
         });
         return point;
       })
       .filter(point => Object.keys(point).length > 1);
+
+    console.log('[DEBUG] costPerKmTimeline final:', costPerKmTimeline);
+    console.log('[DEBUG] timelineBranches final:', timelineBranchesSet);
 
     const timelineBranches = Array.from(timelineBranchesSet).sort();
 
