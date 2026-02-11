@@ -61,6 +61,9 @@ const AdminMaintenancePage = () => {
     duration: null,
     maintenance: null,
   });
+  const [selectedNotes, setSelectedNotes] = useState<string | null>(null);
+  const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<any | null>(null);
 
   useEffect(() => {
     const unsub1 = listenMaintenances(
@@ -300,6 +303,20 @@ const AdminMaintenancePage = () => {
     return Number.isNaN(date.getTime()) ? 0 : date.getTime();
   };
 
+  const closeNotesModal = () => {
+    setSelectedNotes(null);
+    setSelectedTitle(null);
+    setSelectedDate(null);
+  };
+
+  const openNotesModal = (m: Maintenance) => {
+    const notes = getNotes(m);
+    if (!notes) return;
+    setSelectedNotes(notes);
+    setSelectedTitle(getMaintenanceItems(m));
+    setSelectedDate(m.createdAt || (m as any).date || null);
+  };
+
   const formatDurationSeconds = (value?: number | null) => {
     if (value == null || Number.isNaN(value)) return "";
     const totalSeconds = Math.max(0, Math.round(value));
@@ -372,7 +389,13 @@ const AdminMaintenancePage = () => {
                       <div>
                         <p className="font-medium truncate max-w-[340px]">{getMaintenanceItems(m)}</p>
                         {getNotes(m) && (
-                          <p className="text-gray-600 text-xs truncate max-w-[340px]">Obs: {getNotes(m)}</p>
+                          <p
+                            className="text-gray-600 text-xs truncate max-w-[340px] cursor-pointer hover:underline"
+                            onClick={() => openNotesModal(m)}
+                            title="Clique para ver a observação completa"
+                          >
+                            Obs: {getNotes(m)}
+                          </p>
                         )}
                         <p className="text-gray-400 text-xs">{formatDate(m.createdAt || (m as any).date)}</p>
                       </div>
@@ -486,6 +509,35 @@ const AdminMaintenancePage = () => {
               </div>
             )}
 
+            {selectedNotes && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl w-full max-w-lg p-6 shadow-xl">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {selectedTitle || "Observação da solicitação"}
+                    </h3>
+                    {selectedDate && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formatDate(selectedDate)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-800 whitespace-pre-wrap mb-6 max-h-72 overflow-y-auto">
+                    {selectedNotes}
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={closeNotesModal}
+                      className="rounded-lg bg-[#0d2d6c] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0b2559]"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
           {/* Layout mobile */}
           <div className="md:hidden divide-y border-t">
             {sortedItems.length === 0 && (
@@ -500,7 +552,13 @@ const AdminMaintenancePage = () => {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm text-[#0d2d6c] leading-tight">{getMaintenanceItems(m)}</p>
                     {getNotes(m) && (
-                      <p className="text-xs text-gray-600 truncate">Obs: {getNotes(m)}</p>
+                      <p
+                        className="text-xs text-gray-600 truncate cursor-pointer hover:underline"
+                        onClick={() => openNotesModal(m)}
+                        title="Clique para ver a observação completa"
+                      >
+                        Obs: {getNotes(m)}
+                      </p>
                     )}
                     <p className="text-[11px] text-gray-400">{formatDate(m.createdAt || (m as any).date)}</p>
                   </div>
