@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { LayoutDashboard, Wrench, Car, Users, LogOut, Fuel, RefreshCw } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import LogoApp from "../../assets/logo app (2).png";
+import VirtualAssistant from "../../assistant/VirtualAssistant";
 
 const AdminLayout = ({ children }: { children: ReactNode }) => {
   const { logout, profile } = useAuth();
@@ -101,6 +102,7 @@ const AdminLayout = ({ children }: { children: ReactNode }) => {
           </div>
         </div>
       </nav>
+      <VirtualAssistant />
     </div>
   );
 };
