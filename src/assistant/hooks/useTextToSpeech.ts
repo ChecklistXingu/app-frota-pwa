@@ -57,7 +57,7 @@ export const useTextToSpeech = (
     };
   }, [preferredLangs]);
 
-  const cancel = () => {
+const cancel = () => {
     if (!isSupported) return;
     const synth = window.speechSynthesis;
     synth.cancel();

@@ -71,12 +71,64 @@ e remover esses pontos conforme necessário.
 
 ---
 
-## 5. Resumo rápido
+## 5. Remover a Naya também do backend (projeto "3 nps")
+
+Se quiser desligar totalmente a assistente, além do App Frota você precisa limpar o backend `3 nps-dashboard-newholland`, que hoje roda na Render (`backend-nps.onrender.com`).
+
+### 5.1 Rotas e imports
+
+1. Abra `3 nps-dashboard-newholland/backend/src/index.ts`.
+2. Remova a linha de import:
+   ```ts
+   import nayaRoutes from './routes/nayaRoutes';
+   ```
+3. Apague o uso correspondente:
+   ```ts
+   app.use('/api/naya', nayaRoutes);
+   ```
+
+### 5.2 Arquivos exclusivos da Naya
+
+Excluir os arquivos/pastas abaixo:
+
+- `src/routes/nayaRoutes.ts`
+- Diretório `src/services/naya/` inteiro (contém controller, chamadas ao GPT, integrações com Firestore e logger).
+- `src/models/NayaUnhandledQuery.ts` (modelo que salva perguntas não atendidas).
+
+Após apagar, rode `npm run build` para garantir que não sobrou nenhum import quebrado.
+
+### 5.3 Variáveis de ambiente na Render
+
+No serviço da Render (backend NPS), remova estas env vars:
+
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `FROTA_FIREBASE_PROJECT_ID`
+- `FROTA_FIREBASE_CLIENT_EMAIL`
+- `FROTA_FIREBASE_PRIVATE_KEY`
+
+Sem elas, o backend não tentará mais acessar o GPT nem o Firestore do App Frota.
+
+### 5.4 Deploy
+
+1. Faça `git add`, `git commit` e `git push` no repositório `ChecklistXingu/backend-nps`.
+2. Aguarde a Render fazer o deploy automático (ou force um "Deploy latest").
+3. Teste `https://backend-nps.onrender.com/api/health` para confirmar que o backend subiu.
+
+### 5.5 Conferência final no App Frota
+
+Depois de remover o backend, o componente do App Frota vai tentar chamar `/api/naya/query` e receber 404. Para evitar requisições desnecessárias:
+
+- Apague também o arquivo `src/assistant/services/nayaBackendClient.ts` (ou ajuste o componente para não chamar o backend quando a Naya estiver desativada).
+- Rode o build do App Frota novamente.
+
+## 6. Resumo rápido
 
 Para excluir a Naya do projeto:
 
 1. **Remova o import e o JSX** do componente `VirtualAssistant` do layout admin (ou onde ele estiver montado).
 2. **Apague a pasta** `src/assistant/` inteira.
-3. **Rode o build/dev** para confirmar que não existe mais nenhuma referência à Naya.
+3. No backend `3 nps`, **remova as rotas/serviços** descritos acima, delete as env vars e redeploy.
+4. **Rode o build/dev** do App Frota e do backend para confirmar que não existe mais nenhuma referência à Naya.
 
 Seguindo esses passos, toda a lógica, UI e integrações da assistente Naya serão removidas do App Frota, sem impactar o restante do sistema.

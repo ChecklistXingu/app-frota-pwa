@@ -7,6 +7,7 @@ import { useTextToSpeech } from "./hooks/useTextToSpeech";
 import { answerQuestion } from "./services/assistantEngine";
 import { callNayaBackend } from "./services/nayaBackendClient";
 import { useAuth } from "../contexts/AuthContext";
+import "./VirtualAssistant.css";
 
 const VirtualAssistant = () => {
   const [mode, setMode] = useState<AssistantMode>("idle");
@@ -15,7 +16,6 @@ const VirtualAssistant = () => {
   // posição em coordenadas de tela (left/top) em pixels
   const [position, setPosition] = useState<{ left: number; top: number }>({ left: 24, top: 24 });
   const [_isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [inputValue, setInputValue] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [answersHistory, setAnswersHistory] = useState<string[]>([]);
@@ -35,17 +35,22 @@ const VirtualAssistant = () => {
       },
     });
 
-  const { isSupported: ttsSupported, speak } = useTextToSpeech();
+  const { isSupported: ttsSupported, speak, isSpeaking: ttsIsSpeaking } = useTextToSpeech();
+  const shouldAnimateVoice = voiceEnabled && ttsSupported && ttsIsSpeaking;
 
   const handleToggleOpen = () => {
     setIsOpen((prev) => !prev);
   };
 
   const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.detail > 1) {
+      return;
+    }
+
     const target = event.currentTarget;
     const rect = target.getBoundingClientRect();
+    const offset = { x: event.clientX - rect.left, y: event.clientY - rect.top };
     setIsDragging(true);
-    setDragOffset({ x: event.clientX - rect.left, y: event.clientY - rect.top });
 
     const handleMouseMove = (e: MouseEvent) => {
       const panelWidth = 320; // largura aproximada do painel da Naya
@@ -56,29 +61,13 @@ const VirtualAssistant = () => {
       const maxTop = Math.max(margin, window.innerHeight - bubbleSize - margin);
 
       setPosition({
-        left: Math.max(margin, Math.min(maxLeft, e.clientX - dragOffset.x)),
-        top: Math.max(margin, Math.min(maxTop, e.clientY - dragOffset.y)),
+        left: Math.max(margin, Math.min(maxLeft, e.clientX - offset.x)),
+        top: Math.max(margin, Math.min(maxTop, e.clientY - offset.y)),
       });
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
-
-      // snap horizontal para o lado mais próximo, respeitando o limite do painel
-      setPosition((prev) => {
-        const panelWidth = 320;
-        const bubbleSize = 80;
-        const margin = 16;
-        const maxLeft = Math.max(margin, window.innerWidth - panelWidth - margin);
-
-        const centerX = prev.left + bubbleSize / 2;
-        const snapToRight = centerX > window.innerWidth / 2;
-        return {
-          ...prev,
-          left: snapToRight ? maxLeft : margin,
-        };
-      });
-
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
@@ -155,18 +144,19 @@ const VirtualAssistant = () => {
     >
       <div className="relative flex flex-col items-end gap-3">
         {isOpen && (
-          <div className="mb-2 w-80 max-w-[90vw] rounded-2xl bg-white/95 shadow-2xl border border-gray-200 p-3 text-xs text-gray-700">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <MessageCircle size={14} className="text-[color:var(--color-primary)]" />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
-                  Assistente
+          <div className="naya-gradient-border mb-2 w-80 max-w-[90vw]">
+            <div className="naya-panel border border-transparent p-3 text-xs text-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <MessageCircle size={14} className="text-[color:var(--color-primary)]" />
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+                    Assistente
+                  </span>
+                </div>
+                <span className="text-[11px] font-semibold text-[color:var(--color-primary)]">
+                  {ASSISTANT_NAME}
                 </span>
               </div>
-              <span className="text-[11px] font-semibold text-[color:var(--color-primary)]">
-                {ASSISTANT_NAME}
-              </span>
-            </div>
 
             <div className="mb-2 rounded-xl bg-gray-50 border border-gray-100 px-2.5 py-2 text-[11px] text-gray-600">
               Faça uma pergunta sobre sua frota e eu ajudo com base nos dados do sistema.
@@ -247,18 +237,21 @@ const VirtualAssistant = () => {
                 </>
               )}
             </button>
+            </div>
           </div>
         )}
 
         <div
           onMouseDown={handleMouseDown}
+          onDoubleClick={handleToggleOpen}
           className="cursor-grab active:cursor-grabbing select-none"
         >
           <div
-            className="relative flex items-center justify-center rounded-full bg-white/90 shadow-[0_10px_30px_rgba(15,23,42,0.35)] border border-white/70 p-2"
-            onClick={handleToggleOpen}
+            className={`naya-bubble-border${shouldAnimateVoice ? " naya-bubble-border--speaking" : ""}`}
           >
-            <VoiceWave mode={mode} />
+            <div className={`naya-bubble-core${shouldAnimateVoice ? " naya-bubble-core--speaking" : ""}`}>
+              <VoiceWave mode={mode} />
+            </div>
           </div>
         </div>
       </div>
