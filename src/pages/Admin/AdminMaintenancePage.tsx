@@ -41,12 +41,16 @@ const AdminMaintenancePage = () => {
     maintenance: Maintenance | null; 
     date: string; 
     cost: string;
+    laborCost: string;
+    itemCosts: Record<string, string>;
     managerNote: string;
   }>({
     open: false,
     maintenance: null,
     date: "",
     cost: "",
+    laborCost: "",
+    itemCosts: {},
     managerNote: ""
   });
   const [completing, setCompleting] = useState(false);
@@ -88,11 +92,21 @@ const AdminMaintenancePage = () => {
       // Usa a previsão de finalização se existir, senão usa a data atual
       const defaultDate = toInputDateTime(maintenance.forecastedCompletion) || currentDateTime;
       
+      // Inicializar custos por item
+      const itemCosts: Record<string, string> = {};
+      maintenance.items?.forEach(item => {
+        if (item.status && item.cost) {
+          itemCosts[item.name] = item.cost.toString();
+        }
+      });
+      
       setCompletionModal({
         open: true,
         maintenance,
         date: defaultDate,
         cost: seedCost ? seedCost.toString() : "",
+        laborCost: maintenance.laborCost ? maintenance.laborCost.toString() : "",
+        itemCosts,
         managerNote: maintenance.managerNote || ""
       });
       return;
@@ -145,7 +159,7 @@ const AdminMaintenancePage = () => {
   };
 
   const closeCompletionModal = () => {
-    setCompletionModal({ open: false, maintenance: null, date: "", cost: "", managerNote: "" });
+    setCompletionModal({ open: false, maintenance: null, date: "", cost: "", laborCost: "", itemCosts: {}, managerNote: "" });
   };
 
   const handleTicketSubmit = async () => {
@@ -206,14 +220,30 @@ const AdminMaintenancePage = () => {
     setCompleting(true);
     try {
       const completedDate = completionModal.date ? new Date(completionModal.date) : new Date();
-      const finalCost = completionModal.cost ? Number(completionModal.cost) : undefined;
+      
+      // Atualizar items com custos
+      const updatedItems = completionModal.maintenance.items?.map(item => ({
+        ...item,
+        cost: item.status && completionModal.itemCosts[item.name] 
+          ? Number(completionModal.itemCosts[item.name]) 
+          : (item.cost || 0)
+      }));
+      
+      // Calcular custos
+      const laborCost = completionModal.laborCost ? Number(completionModal.laborCost) : 0;
+      const partsCost = updatedItems?.reduce((sum, item) => sum + (item.cost || 0), 0) || 0;
+      const finalCost = laborCost + partsCost;
+      
       await updateMaintenanceStatus(completionModal.maintenance.id, "done", {
         completedAt: completedDate,
-        finalCost: finalCost && !Number.isNaN(finalCost) ? finalCost : undefined,
+        items: updatedItems,
+        finalCost: finalCost > 0 ? finalCost : undefined,
+        laborCost: laborCost > 0 ? laborCost : undefined,
+        partsCost: partsCost > 0 ? partsCost : undefined,
         managerId: profile?.id,
         managerNote: completionModal.managerNote || undefined,
       });
-      setCompletionModal({ open: false, maintenance: null, date: "", cost: "", managerNote: "" });
+      setCompletionModal({ open: false, maintenance: null, date: "", cost: "", laborCost: "", itemCosts: {}, managerNote: "" });
     } catch (error) {
       console.error("Erro ao finalizar manutenção", error);
     } finally {
@@ -716,9 +746,9 @@ const AdminMaintenancePage = () => {
 
       {completionModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-1">Finalizar manutenção</h3>
-            <p className="text-sm text-gray-500 mb-4">Informe a data/hora real da finalização.</p>
+            <p className="text-sm text-gray-500 mb-4">Informe os custos e data de finalização.</p>
 
             <div className="space-y-4">
               <div className="space-y-1">
@@ -729,30 +759,70 @@ const AdminMaintenancePage = () => {
                   maxDate={new Date()}
                 />
               </div>
+
+              {/* Custos por item */}
               <div>
-                <label className="text-xs font-semibold text-gray-600">Valor final do serviço</label>
+                <label className="text-xs font-semibold text-gray-700 mb-2 block">Custos por serviço realizado</label>
+                <div className="space-y-2 bg-gray-50 p-3 rounded-lg">
+                  {completionModal.maintenance?.items?.filter(item => item.status).map((item) => (
+                    <div key={item.name} className="flex items-center gap-2">
+                      <span className="text-sm flex-1">{item.name}</span>
+                      <div className="flex items-center rounded-lg border bg-white px-2 py-1 text-sm w-32">
+                        <span className="text-gray-400 mr-1 text-xs">R$</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={completionModal.itemCosts[item.name] || ""}
+                          onChange={(e) => setCompletionModal(prev => ({
+                            ...prev,
+                            itemCosts: { ...prev.itemCosts, [item.name]: e.target.value }
+                          }))}
+                          className="w-full bg-transparent focus:outline-none text-sm"
+                          placeholder="0,00"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mão de obra */}
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Mão de obra</label>
                 <div className="mt-1 flex items-center rounded-lg border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-[#0d2d6c]">
                   <span className="text-gray-400 mr-2">R$</span>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
-                    value={completionModal.cost}
-                    onChange={(e) => setCompletionModal((prev) => ({ ...prev, cost: e.target.value }))}
+                    value={completionModal.laborCost}
+                    onChange={(e) => setCompletionModal((prev) => ({ ...prev, laborCost: e.target.value }))}
                     className="w-full bg-transparent focus:outline-none"
                     placeholder="0,00"
                   />
                 </div>
-                {completionModal.maintenance?.forecastedCost && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Previsão original: R$ {completionModal.maintenance?.forecastedCost?.toFixed(2)}
-                  </p>
-                )}
-                {completionModal.maintenance?.forecastedCost && completionModal.cost && (
-                  <p className="text-xs mt-1 text-gray-500">
-                    Diferença: R$ {(Number(completionModal.cost) - (completionModal.maintenance?.forecastedCost || 0)).toFixed(2)}
-                  </p>
-                )}
+              </div>
+
+              {/* Total calculado */}
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="flex justify-between text-sm">
+                  <span className="font-semibold">Total de peças:</span>
+                  <span>R$ {Object.values(completionModal.itemCosts).reduce((sum, val) => sum + (Number(val) || 0), 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm mt-1">
+                  <span className="font-semibold">Mão de obra:</span>
+                  <span>R$ {(Number(completionModal.laborCost) || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-base font-bold mt-2 pt-2 border-t border-blue-200">
+                  <span>Total final:</span>
+                  <span className="text-[#0d2d6c]">
+                    R$ {(
+                      Object.values(completionModal.itemCosts).reduce((sum, val) => sum + (Number(val) || 0), 0) +
+                      (Number(completionModal.laborCost) || 0)
+                    ).toFixed(2)}
+                  </span>
+                </div>
               </div>
               
               <div>

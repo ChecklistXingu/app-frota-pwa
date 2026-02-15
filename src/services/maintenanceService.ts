@@ -24,12 +24,19 @@ export type StatusHistoryItem = {
   note?: string;
 };
 
+export type MaintenanceItem = {
+  name: string;
+  status?: boolean;
+  cost?: number;
+  description?: string;
+};
+
 export type Maintenance = {
   id: string;
   userId: string;
   vehicleId: string;
   description?: string;
-  items?: Array<{ name: string; status?: boolean }>;
+  items?: MaintenanceItem[];
   status: MaintenanceStatus;
   photos?: string[];
   createdAt?: any;
@@ -44,8 +51,11 @@ export type Maintenance = {
   forecastedCompletion?: any;
   forecastedCost?: number;
   finalCost?: number;
+  laborCost?: number;
+  partsCost?: number;
   km?: number;
   statusHistory?: StatusHistoryItem[];
+  isMigrated?: boolean; // Flag para indicar dados migrados
 };
 
 export const listenMaintenances = (
