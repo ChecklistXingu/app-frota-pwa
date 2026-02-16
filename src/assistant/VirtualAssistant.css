@@ -52,6 +52,22 @@
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
   cursor: pointer;
   display: inline-flex;
+  transition: all 0.2s ease;
+}
+
+.naya-bubble-border:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.18);
+}
+
+.naya-bubble-border--speaking {
+  animation: naya-gradient-spin 4.5s linear infinite;
+  cursor: pointer !important;
+}
+
+.naya-bubble-border--speaking:hover {
+  transform: scale(1.08);
+  box-shadow: 0 8px 20px rgba(143, 107, 255, 0.3);
 }
 
 .naya-bubble-border::before {
@@ -63,10 +79,6 @@
   filter: blur(10px);
   opacity: 0.25;
   z-index: -1;
-}
-
-.naya-bubble-border--speaking {
-  animation: naya-gradient-spin 4.5s linear infinite;
 }
 
 .naya-bubble-border--speaking::after {

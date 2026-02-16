@@ -35,11 +35,20 @@ const VirtualAssistant = () => {
       },
     });
 
-  const { isSupported: ttsSupported, speak, isSpeaking: ttsIsSpeaking } = useTextToSpeech();
+  const { isSupported: ttsSupported, speak, isSpeaking: ttsIsSpeaking, cancel: stopSpeaking } = useTextToSpeech();
   const shouldAnimateVoice = voiceEnabled && ttsSupported && ttsIsSpeaking;
 
   const handleToggleOpen = () => {
     setIsOpen((prev) => !prev);
+  };
+
+  const handleBubbleClick = () => {
+    // Se estiver falando, para a voz com clique simples
+    if (ttsIsSpeaking && voiceEnabled) {
+      stopSpeaking();
+      setMode("idle");
+    }
+    // Se não estiver falando, não faz nada (aguarda duplo clique para abrir)
   };
 
   const handleMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -244,7 +253,9 @@ const VirtualAssistant = () => {
         <div
           onMouseDown={handleMouseDown}
           onDoubleClick={handleToggleOpen}
-          className="cursor-grab active:cursor-grabbing select-none"
+          onClick={handleBubbleClick}
+          className={`cursor-pointer select-none ${ttsIsSpeaking && voiceEnabled ? 'cursor-pointer' : 'cursor-grab'} active:cursor-grabbing`}
+          title={ttsIsSpeaking && voiceEnabled ? "Clique para parar a voz" : "Duplo clique para abrir"}
         >
           <div
             className={`naya-bubble-border${shouldAnimateVoice ? " naya-bubble-border--speaking" : ""}`}
