@@ -10,6 +10,7 @@ import {
   doc,
   arrayUnion,
   serverTimestamp,
+  getDoc,
 } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -113,6 +114,7 @@ const MaintenancePage = () => {
   const [loadingMaintenance, setLoadingMaintenance] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<"success" | "offline" | "error">("success");
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
   const [checklistState, setChecklistState] = useState<Record<string, boolean>>(
     {},
   );
@@ -133,6 +135,34 @@ const MaintenancePage = () => {
   const { uploadAudio, uploading: uploadingAudio, error: audioUploadError } = useAudioUpload();
   const [audioDraft, setAudioDraft] = useState<{ blob: Blob; previewUrl: string; duration: number } | null>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  // Função para buscar nome do usuário pelo UID
+  const getUserName = async (uid: string): Promise<string> => {
+    // Se já tiver no cache, retorna
+    if (userNames[uid]) {
+      return userNames[uid];
+    }
+
+    // Se for o usuário atual, usa o profile
+    if (user?.uid === uid && user?.profile?.name) {
+      setUserNames(prev => ({ ...prev, [uid]: user.profile!.name }));
+      return user.profile.name;
+    }
+
+    try {
+      const userDoc = await getDoc(doc(db, "users", uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const name = userData.name || "Motorista";
+        setUserNames(prev => ({ ...prev, [uid]: name }));
+        return name;
+      }
+    } catch (error) {
+      console.warn("Erro ao buscar nome do usuário:", error);
+    }
+
+    return "Motorista";
+  };
 
   // Estado para edição
   const [editingRecord, setEditingRecord] = useState<MaintenanceRecord | null>(null);
@@ -265,6 +295,35 @@ const MaintenancePage = () => {
 
     return () => unsub();
   }, [user]);
+
+  // Carrega nomes dos usuários das manutenções
+  useEffect(() => {
+    const loadUserNames = async () => {
+      const userIds = new Set<string>();
+      
+      // Coleta todos os UIDs únicos do statusHistory
+      maintenanceList.forEach(maintenance => {
+        if (maintenance.statusHistory && maintenance.statusHistory.length > 0) {
+          maintenance.statusHistory.forEach(history => {
+            if (history.by) {
+              userIds.add(history.by);
+            }
+          });
+        }
+      });
+
+      // Busca nomes para cada UID
+      const promises = Array.from(userIds).map(async (uid) => {
+        await getUserName(uid);
+      });
+
+      await Promise.all(promises);
+    };
+
+    if (maintenanceList.length > 0) {
+      loadUserNames();
+    }
+  }, [maintenanceList]);
 
   const onToggleItem = (name: string) => {
     setChecklistState((prev) => ({
@@ -862,6 +921,17 @@ const MaintenancePage = () => {
                   </p>
                 )}
               </div>
+
+              {/* Informações de criação */}
+              {m.statusHistory && m.statusHistory.length > 0 && (
+                <div className="text-[10px] text-gray-500 mb-2 space-y-0.5 border-t border-gray-100 pt-2">
+                  <p>
+                    <span className="font-medium">Criado:</span>{" "}
+                    {m.statusHistory[0].at ? formatDateTime(parseDateField(m.statusHistory[0].at)) : "Data não informada"}{" "}
+                    por {m.statusHistory[0].by ? userNames[m.statusHistory[0].by] || "Carregando..." : "Motorista"}
+                  </p>
+                </div>
+              )}
 
               {/* Dados do gerente */}
               {(m.workshopName || m.scheduledFor || m.forecastedCompletion || m.completedAt) && (
