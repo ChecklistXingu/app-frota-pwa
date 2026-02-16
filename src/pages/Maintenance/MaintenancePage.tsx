@@ -105,7 +105,7 @@ const CHECKLIST_ITEMS = [
 ];
 
 const MaintenancePage = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
   const [maintenanceList, setMaintenanceList] = useState<MaintenanceRecord[]>(
     [],
@@ -144,9 +144,9 @@ const MaintenancePage = () => {
     }
 
     // Se for o usuário atual, usa o profile
-    if (user?.uid === uid && user?.profile?.name) {
-      setUserNames(prev => ({ ...prev, [uid]: user.profile!.name }));
-      return user.profile.name;
+    if (user?.uid === uid && profile?.name) {
+      setUserNames(prev => ({ ...prev, [uid]: profile.name }));
+      return profile.name;
     }
 
     try {
