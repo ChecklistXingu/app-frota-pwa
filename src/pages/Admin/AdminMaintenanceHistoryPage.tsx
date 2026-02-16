@@ -98,7 +98,7 @@ const AdminMaintenanceHistoryPage = () => {
 
                   <div className="mt-2 text-[12px] text-gray-600">
                     <p className="font-medium">Registros do motorista:</p>
-                    <p className="mt-1">Criado: {formatDateField(m.createdAt)}</p>
+                    <p className="mt-1">Criado: {usersById[m.userId] || "Motorista não identificado"}</p>
                     {m.items && m.items.length > 0 && (
                       <p className="mt-1">Itens: {m.items.filter((i:any)=> i.status).map((i:any)=> i.name).join(", ")}</p>
                     )}
