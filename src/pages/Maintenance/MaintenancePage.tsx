@@ -70,6 +70,7 @@ type MaintenanceForm = {
 
 type MaintenanceRecord = {
   id: string;
+  userId: string;
   vehicleId: string;
   type: MaintenanceType;
   km: number;
@@ -269,6 +270,7 @@ const MaintenancePage = () => {
         const data = doc.data as any;
         return {
           id: doc.id,
+          userId: data.userId,
           vehicleId: data.vehicleId,
           type: data.type ?? "solicitacao",
           km: data.km ?? 0,
@@ -301,8 +303,14 @@ const MaintenancePage = () => {
     const loadUserNames = async () => {
       const userIds = new Set<string>();
       
-      // Coleta todos os UIDs únicos do statusHistory
+      // Coleta todos os UIDs únicos do userId e statusHistory
       maintenanceList.forEach(maintenance => {
+        // Adiciona o userId direto do registro
+        if (maintenance.userId) {
+          userIds.add(maintenance.userId);
+        }
+        
+        // Também coleta do statusHistory
         if (maintenance.statusHistory && maintenance.statusHistory.length > 0) {
           maintenance.statusHistory.forEach(history => {
             if (history.by) {
@@ -923,12 +931,12 @@ const MaintenancePage = () => {
               </div>
 
               {/* Informações de criação */}
-              {m.statusHistory && m.statusHistory.length > 0 && (
+              {m.userId && (
                 <div className="text-[10px] text-gray-500 mb-2 space-y-0.5 border-t border-gray-100 pt-2">
                   <p>
                     <span className="font-medium">Criado:</span>{" "}
-                    {m.statusHistory[0].at ? formatDateTime(parseDateField(m.statusHistory[0].at)) : "Data não informada"}{" "}
-                    por {m.statusHistory[0].by ? userNames[m.statusHistory[0].by] || "Carregando..." : "Motorista"}
+                    {m.date ? formatDateTime(m.date) : "Data não informada"}{" "}
+                    por {userNames[m.userId] || "Carregando..."}
                   </p>
                 </div>
               )}
