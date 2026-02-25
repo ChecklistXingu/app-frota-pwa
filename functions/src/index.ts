@@ -2,9 +2,93 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import axios from "axios";
 
+const APP_BASE_URL = functions.config().app?.base_url || "https://app-frota-pwa.vercel.app";
+const ATTACHMENT_LINKS_COLLECTION = "attachmentLinks";
+
+const normalizeSlug = (value: string) =>
+  (value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+const getShortUrl = (slug: string) => `${APP_BASE_URL}/o/${slug}`;
+
 admin.initializeApp();
 
 const db = admin.firestore();
+
+export const registerAttachmentLink = functions
+  .region("southamerica-east1")
+  .https.onCall(async (data: {
+    slug: string;
+    url: string;
+    maintenanceId: string;
+    attachmentName?: string;
+    vehiclePlate?: string;
+  }, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "Usuário não autenticado");
+    }
+
+    const { slug, url, maintenanceId, attachmentName, vehiclePlate } = data;
+    if (!slug || !url || !maintenanceId) {
+      throw new functions.https.HttpsError("invalid-argument", "Dados obrigatórios ausentes");
+    }
+
+    const normalizedSlug = normalizeSlug(slug);
+    if (!normalizedSlug) {
+      throw new functions.https.HttpsError("invalid-argument", "Slug inválido");
+    }
+
+    const docRef = db.collection(ATTACHMENT_LINKS_COLLECTION).doc(normalizedSlug);
+    await docRef.set(
+      {
+        slug: normalizedSlug,
+        url,
+        maintenanceId,
+        attachmentName: attachmentName || null,
+        vehiclePlate: vehiclePlate || null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdBy: context.auth.uid,
+      },
+      { merge: true }
+    );
+
+    return {
+      shortUrl: getShortUrl(normalizedSlug),
+      slug: normalizedSlug,
+    };
+  });
+
+export const redirectBudgetAttachment = functions
+  .region("southamerica-east1")
+  .https.onRequest(async (req, res) => {
+    const slug = normalizeSlug(req.path.replace(/^\//, ""));
+    if (!slug) {
+      res.status(400).send("Slug inválido");
+      return;
+    }
+
+    try {
+      const doc = await db.collection(ATTACHMENT_LINKS_COLLECTION).doc(slug).get();
+      if (!doc.exists) {
+        res.status(404).send("Link não encontrado");
+        return;
+      }
+      const { url } = doc.data() || {};
+      if (!url) {
+        res.status(404).send("URL não configurada");
+        return;
+      }
+      res.redirect(302, url);
+    } catch (error) {
+      console.error("Erro no redirectBudgetAttachment", error);
+      res.status(500).send("Erro interno");
+    }
+  });
 
 type SendDirectorApprovalData = {
   maintenanceId: string;

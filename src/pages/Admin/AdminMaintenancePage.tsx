@@ -6,6 +6,7 @@ import { ChevronDown, Loader2, Paperclip, Trash2, Wrench } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import DateTimePicker from "../../components/DateTimePicker";
 import { uploadApprovalAttachment, deleteApprovalAttachment } from "../../services/approvalAttachmentService";
+import { registerAttachmentLink } from "../../services/attachmentLinkService";
 import { openEmailClient } from "../../utils/emailHelper";
 
 const statusOptions: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
@@ -45,6 +46,20 @@ const formatBytes = (bytes: number) => {
   return `${value.toFixed(value > 10 || i === 0 ? 0 : 1)} ${sizes[i]}`;
 };
 
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+
+const createAttachmentSlugBase = (plate: string, maintenanceId: string) => {
+  const sanitizedPlate = slugify(plate || "");
+  if (sanitizedPlate) return `orcamento${sanitizedPlate}`;
+  const fallback = slugify(maintenanceId).slice(-6) || "file";
+  return `orcamento${fallback}`;
+};
+
 const mapExistingApprovalAttachments = (attachments?: DirectorApprovalAttachment[]): ApprovalAttachmentItem[] => {
   if (!attachments?.length) return [];
   return attachments.map((attachment, index) => ({
@@ -57,6 +72,8 @@ const mapExistingApprovalAttachments = (attachments?: DirectorApprovalAttachment
     storagePath: attachment.storagePath,
     uploadedAt: attachment.uploadedAt,
     uploadedBy: attachment.uploadedBy,
+    shortUrl: attachment.shortUrl,
+    slug: attachment.slug,
   }));
 };
 
@@ -80,6 +97,12 @@ const sanitizeAttachment = (attachment: Partial<DirectorApprovalAttachment>): Di
   }
   if (attachment.uploadedBy) {
     sanitized.uploadedBy = attachment.uploadedBy;
+  }
+  if (attachment.shortUrl) {
+    sanitized.shortUrl = attachment.shortUrl;
+  }
+  if (attachment.slug) {
+    sanitized.slug = attachment.slug;
   }
 
   return sanitized;
@@ -113,11 +136,13 @@ type ApprovalAttachmentItem = {
   name: string;
   size: number;
   contentType?: string;
+  file?: File;
   url?: string;
   storagePath?: string;
   uploadedAt?: any;
   uploadedBy?: string;
-  file?: File;
+  shortUrl?: string;
+  slug?: string;
 };
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -426,6 +451,9 @@ const AdminMaintenancePage = () => {
     extra?: Partial<DirectorApproval>
   ): Promise<DirectorApprovalAttachment[]> => {
     const phoneDigits = normalizePhone(approvalForm.phone);
+    const vehicleLabel = getVehicleInfo(maintenance.vehicleId);
+    const vehiclePlate = vehicleLabel.split("•")[0]?.trim() || maintenance.vehicleId || "";
+    const slugBase = createAttachmentSlugBase(vehiclePlate, maintenance.id);
 
     const cleanedItems = approvalForm.items
       .filter((item) => item.name.trim() || item.unitCost.trim() || item.quantity.trim())
@@ -476,7 +504,29 @@ const AdminMaintenancePage = () => {
       );
 
     const sanitizedUploaded = uploadedAttachments.map((att) => sanitizeAttachment(att));
-    const finalAttachments = [...existingAttachments, ...sanitizedUploaded];
+    const preliminaryAttachments = [...existingAttachments, ...sanitizedUploaded];
+
+    const finalAttachments: DirectorApprovalAttachment[] = [];
+    for (let index = 0; index < preliminaryAttachments.length; index += 1) {
+      const attachment = preliminaryAttachments[index];
+      if (attachment.url && (!attachment.shortUrl || !attachment.slug)) {
+        const desiredSlug = `${slugBase}-${index + 1}`;
+        try {
+          const { shortUrl, slug } = await registerAttachmentLink({
+            slug: desiredSlug,
+            url: attachment.url,
+            maintenanceId: maintenance.id,
+            attachmentName: attachment.name,
+            vehiclePlate,
+          });
+          attachment.shortUrl = shortUrl;
+          attachment.slug = slug;
+        } catch (error) {
+          console.warn("[Approval] Falha ao registrar link curto para anexo", error);
+        }
+      }
+      finalAttachments.push(attachment);
+    }
 
     const directorApprovalPayload: DirectorApproval = {
       status: "pending",
@@ -541,7 +591,8 @@ const AdminMaintenancePage = () => {
               const baseLabel = vehiclePlate ? `Orçamento ${vehiclePlate}` : "Orçamento";
               const label = savedAttachments.length > 1 ? `${baseLabel} ${index + 1}` : baseLabel;
               const sizeLabel = att.size ? ` (${formatBytes(att.size)})` : "";
-              return `${label}${sizeLabel}\n${att.url}`;
+              const link = att.shortUrl || att.url;
+              return link ? `${label}${sizeLabel}\n${link}` : `${label}${sizeLabel}`;
             })
             .join("\n\n")
         : null;

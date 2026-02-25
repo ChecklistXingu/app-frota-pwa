@@ -17,6 +17,10 @@
     ],
     "rewrites": [
       {
+        "source": "/o/{slug}",
+        "function": "redirectBudgetAttachment"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

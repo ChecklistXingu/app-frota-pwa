@@ -20,6 +20,8 @@ export type DirectorApprovalAttachment = {
   storagePath?: string;
   uploadedBy?: string;
   uploadedAt?: any;
+  shortUrl?: string;
+  slug?: string;
 };
 
 export type DirectorApproval = {
