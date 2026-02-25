@@ -85,9 +85,10 @@ const sanitizeAttachment = (attachment: Partial<DirectorApprovalAttachment>): Di
   return sanitized;
 };
 
-const buildEmailSubject = (vehicle: string, requestTitle: string, total?: number) => {
+const buildEmailSubject = (vehicle: string, driver: string, requestTitle: string, total?: number) => {
+  const driverSegment = driver ? ` - ${driver}` : "";
   const amount = typeof total === "number" ? ` - ${formatCurrency(total)}` : "";
-  return `[Orçamento] ${vehicle} - ${requestTitle}${amount}`;
+  return `[Orçamento] ${vehicle}${driverSegment} - ${requestTitle}${amount}`;
 };
 
 type ApprovalFormItem = {
@@ -528,10 +529,11 @@ const AdminMaintenancePage = () => {
       // 2. Prepare email data for client launcher
       const maintenance = approvalModal.maintenance;
       const vehicleLabel = getVehicleInfo(maintenance.vehicleId);
+      const driverName = getUserName(maintenance.userId);
       const requestTitle = getMaintenanceItems(maintenance);
 
       const previewText = approvalPreview;
-      const subject = buildEmailSubject(vehicleLabel, requestTitle, approvalGrandTotal);
+      const subject = buildEmailSubject(vehicleLabel, driverName, requestTitle, approvalGrandTotal);
       const attachmentLines = savedAttachments.length
         ? savedAttachments
             .map((att, index) => `${index + 1}) ${att.name}${att.size ? ` (${formatBytes(att.size)})` : ""}\n${att.url}`)
@@ -539,12 +541,13 @@ const AdminMaintenancePage = () => {
         : null;
 
       const emailBody = [
+        "Olá diretoria 👋,\nSegue abaixo o orçamento para análise e aprovação:",
         previewText,
-        attachmentLines ? "\nDocumentos anexos:\n" + attachmentLines : "",
-        "\n--\nSistema App Frota",
+        attachmentLines ? "\n📎 Documentos anexos:\n" + attachmentLines : "",
+        "\nAtenciosamente,\nEquipe App Frota 🚚",
       ]
         .filter(Boolean)
-        .join("\n");
+        .join("\n\n");
 
       openEmailClient({
         to: emailRecipients.to,
