@@ -536,14 +536,18 @@ const AdminMaintenancePage = () => {
       const subject = buildEmailSubject(vehicleLabel, driverName, requestTitle, approvalGrandTotal);
       const attachmentLines = savedAttachments.length
         ? savedAttachments
-            .map((att, index) => `${index + 1}) ${att.name}${att.size ? ` (${formatBytes(att.size)})` : ""}\n${att.url}`)
+            .map((att, index) => {
+              const label = `Orçamento ${index + 1}`;
+              const sizeLabel = att.size ? ` (${formatBytes(att.size)})` : "";
+              return `${label}${sizeLabel}\n${att.url}`;
+            })
             .join("\n\n")
         : null;
 
       const emailBody = [
         "Olá diretoria 👋,\nSegue abaixo o orçamento para análise e aprovação:",
         previewText,
-        attachmentLines ? "\n📎 Documentos anexos:\n" + attachmentLines : "",
+        attachmentLines ? "Clique no link para abrir o orçamento:\n\n📎 Documentos anexos:\n" + attachmentLines : "",
         "\nAtenciosamente,\nEquipe App Frota 🚚",
       ]
         .filter(Boolean)
