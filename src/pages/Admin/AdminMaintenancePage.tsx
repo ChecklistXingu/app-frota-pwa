@@ -295,7 +295,7 @@ const AdminMaintenancePage = () => {
       workshopLocation: maintenance.workshopName || "",
       laborCost: typeof maintenance.laborCost === "number" ? maintenance.laborCost.toFixed(2) : "",
       phone: "",
-      note: maintenance.managerNote || "",
+      note: "",
       items: derivedItems.length ? derivedItems : [createEmptyApprovalItem()],
     };
   };
