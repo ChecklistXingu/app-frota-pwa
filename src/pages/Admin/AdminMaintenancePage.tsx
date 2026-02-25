@@ -153,9 +153,26 @@ const createInitialApprovalForm = (): ApprovalFormState => ({
 
 const parseCurrencyInput = (value: string) => {
   if (!value) return 0;
-  const normalized = value.replace(/\./g, "").replace(",", ".");
+
+  const sanitized = value.replace(/[^0-9.,-]/g, "");
+  if (!sanitized) return 0;
+
+  const lastComma = sanitized.lastIndexOf(",");
+  const lastDot = sanitized.lastIndexOf(".");
+  const decimalIndex = Math.max(lastComma, lastDot);
+
+  let normalized = sanitized;
+
+  if (decimalIndex > -1) {
+    const integerPart = sanitized.slice(0, decimalIndex).replace(/[.,]/g, "");
+    const decimalPart = sanitized.slice(decimalIndex + 1).replace(/[^0-9]/g, "");
+    normalized = `${integerPart}.${decimalPart}`;
+  } else {
+    normalized = sanitized.replace(/[^0-9-]/g, "");
+  }
+
   const parsed = Number(normalized);
-  return Number.isNaN(parsed) ? 0 : parsed;
+  return Number.isFinite(parsed) ? parsed : 0;
 };
 
 const AdminMaintenancePage = () => {
@@ -861,10 +878,10 @@ const AdminMaintenancePage = () => {
       `Veículo: ${vehicle}`,
       `Solicitação: ${requestTitle}`,
       approvalNote ? `Observação do motorista: ${approvalNote}` : "",
-      "",
-      itemsText ? `*Itens:*\n${itemsText}` : "",
-      `Mão de obra: ${formatCurrency(approvalLaborCost)}`,
-      `Total: *${formatCurrency(approvalGrandTotal)}*`,
+      approvalNote ? "------------------------------" : "",
+      itemsText ? `*Itens do orçamento*\n${itemsText}` : "",
+      `*Mão de obra:* ${formatCurrency(approvalLaborCost)}`,
+      `*Total:* ${formatCurrency(approvalGrandTotal)}`,
       "",
       approvalForm.note ? `Obs gestor: ${approvalForm.note}` : "",
       approvalPhotos.length ? `Fotos anexas: ${approvalPhotos.length} arquivo(s).` : "",
