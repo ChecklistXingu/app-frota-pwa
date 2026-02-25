@@ -60,6 +60,31 @@ const mapExistingApprovalAttachments = (attachments?: DirectorApprovalAttachment
   }));
 };
 
+const sanitizeAttachment = (attachment: Partial<DirectorApprovalAttachment>): DirectorApprovalAttachment => {
+  const sanitized: DirectorApprovalAttachment = {
+    name: attachment.name || "Anexo",
+    url: attachment.url || "",
+  };
+
+  if (typeof attachment.size === "number") {
+    sanitized.size = attachment.size;
+  }
+  if (attachment.contentType) {
+    sanitized.contentType = attachment.contentType;
+  }
+  if (attachment.storagePath) {
+    sanitized.storagePath = attachment.storagePath;
+  }
+  if (attachment.uploadedAt) {
+    sanitized.uploadedAt = attachment.uploadedAt;
+  }
+  if (attachment.uploadedBy) {
+    sanitized.uploadedBy = attachment.uploadedBy;
+  }
+
+  return sanitized;
+};
+
 const buildEmailSubject = (vehicle: string, requestTitle: string, total?: number) => {
   const amount = typeof total === "number" ? ` - ${formatCurrency(total)}` : "";
   return `[Orçamento] ${vehicle} - ${requestTitle}${amount}`;
@@ -350,7 +375,10 @@ const AdminMaintenancePage = () => {
 
   const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
-  const persistApproval = async (maintenance: Maintenance, extra?: Partial<DirectorApproval>) => {
+  const persistApproval = async (
+    maintenance: Maintenance,
+    extra?: Partial<DirectorApproval>
+  ): Promise<DirectorApprovalAttachment[]> => {
     const phoneDigits = normalizePhone(approvalForm.phone);
 
     const cleanedItems = approvalForm.items
@@ -384,36 +412,46 @@ const AdminMaintenancePage = () => {
     // 2. Merge existing attachments (not marked for deletion) with newly uploaded
     const existingAttachments = approvalAttachments
       .filter((att) => att.status === "existing")
-      .map((att) => ({
-        name: att.name,
-        url: att.url || "",
-        size: att.size,
-        contentType: att.contentType,
-        storagePath: att.storagePath,
-        uploadedAt: att.uploadedAt,
-        uploadedBy: att.uploadedBy,
-      }));
+      .map((att) =>
+        sanitizeAttachment({
+          name: att.name,
+          url: att.url,
+          size: att.size,
+          contentType: att.contentType,
+          storagePath: att.storagePath,
+          uploadedAt: att.uploadedAt,
+          uploadedBy: att.uploadedBy,
+        })
+      );
 
-    const finalAttachments = [...existingAttachments, ...uploadedAttachments];
+    const sanitizedUploaded = uploadedAttachments.map((att) => sanitizeAttachment(att));
+    const finalAttachments = [...existingAttachments, ...sanitizedUploaded];
+
+    const directorApprovalPayload: DirectorApproval = {
+      status: "pending",
+      requestedBy: profile?.id,
+      requestedAt: new Date(),
+      targetPhone: phoneDigits || null,
+      vendor: approvalForm.vendor || undefined,
+      workshopLocation: approvalForm.workshopLocation || undefined,
+      laborCost: approvalLaborCost || undefined,
+      items: cleanedItems,
+      total: approvalGrandTotal || undefined,
+      notes: approvalForm.note || undefined,
+      deliveryMethod: "manual",
+      ...extra,
+    };
+
+    if (finalAttachments.length) {
+      directorApprovalPayload.attachments = finalAttachments;
+    }
 
     // 3. Update Firestore with approval data
     await updateMaintenanceStatus(maintenance.id, "in_review", {
-      directorApproval: {
-        status: "pending",
-        requestedBy: profile?.id,
-        requestedAt: new Date(),
-        targetPhone: phoneDigits || null,
-        vendor: approvalForm.vendor || undefined,
-        workshopLocation: approvalForm.workshopLocation || undefined,
-        laborCost: approvalLaborCost || undefined,
-        items: cleanedItems,
-        total: approvalGrandTotal || undefined,
-        notes: approvalForm.note || undefined,
-        deliveryMethod: "manual",
-        attachments: finalAttachments.length ? finalAttachments : undefined,
-        ...extra,
-      },
+      directorApproval: directorApprovalPayload,
     });
+
+    setApprovalAttachments(mapExistingApprovalAttachments(finalAttachments));
 
     // 4. Delete attachments marked for deletion from Storage
     for (const att of attachmentsMarkedForDeletion) {
@@ -425,6 +463,8 @@ const AdminMaintenancePage = () => {
         }
       }
     }
+
+    return finalAttachments;
   };
 
   const handleApprovalSubmit = async () => {
@@ -433,7 +473,7 @@ const AdminMaintenancePage = () => {
     setSavingApproval(true);
     try {
       // 1. Persist approval data and upload attachments
-      await persistApproval(approvalModal.maintenance);
+      const savedAttachments = await persistApproval(approvalModal.maintenance);
 
       // 2. Send email with attachments
       const maintenance = approvalModal.maintenance;
@@ -475,13 +515,11 @@ const AdminMaintenancePage = () => {
             audioUrl: maintenance.audioUrl || null,
             audioDurationSeconds: maintenance.audioDurationSeconds || null,
           },
-          attachments: approvalAttachments
-            .filter((att) => att.url)
-            .map((att) => ({
-              name: att.name,
-              url: att.url!,
-              contentType: att.contentType,
-            })),
+          attachments: savedAttachments.map((att) => ({
+            name: att.name,
+            url: att.url,
+            contentType: att.contentType,
+          })),
         });
         alert("Orçamento salvo e e-mail enviado com sucesso!");
       } catch (emailError: any) {
