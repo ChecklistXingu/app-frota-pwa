@@ -534,10 +534,12 @@ const AdminMaintenancePage = () => {
 
       const previewText = approvalPreview;
       const subject = buildEmailSubject(vehicleLabel, driverName, requestTitle, approvalGrandTotal);
+      const vehiclePlate = vehicleLabel.split("•")[0]?.trim() || "";
       const attachmentLines = savedAttachments.length
         ? savedAttachments
             .map((att, index) => {
-              const label = `Orçamento ${index + 1}`;
+              const baseLabel = vehiclePlate ? `Orçamento ${vehiclePlate}` : "Orçamento";
+              const label = savedAttachments.length > 1 ? `${baseLabel} ${index + 1}` : baseLabel;
               const sizeLabel = att.size ? ` (${formatBytes(att.size)})` : "";
               return `${label}${sizeLabel}\n${att.url}`;
             })
