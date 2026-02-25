@@ -8,6 +8,8 @@ import DateTimePicker from "../../components/DateTimePicker";
 import { uploadApprovalAttachment, deleteApprovalAttachment } from "../../services/approvalAttachmentService";
 import { registerAttachmentLink } from "../../services/attachmentLinkService";
 import { openEmailClient } from "../../utils/emailHelper";
+import { db } from "../../services/firebase";
+import { doc, setDoc } from "firebase/firestore";
 
 const statusOptions: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
 
@@ -509,18 +511,25 @@ const AdminMaintenancePage = () => {
     const finalAttachments: DirectorApprovalAttachment[] = [];
     for (let index = 0; index < preliminaryAttachments.length; index += 1) {
       const attachment = preliminaryAttachments[index];
+      // Gerar short URL diretamente sem depender de Firebase Function
       if (attachment.url && (!attachment.shortUrl || !attachment.slug)) {
         const desiredSlug = `${slugBase}-${index + 1}`;
+        const shortUrl = `https://app-frota-pwa.vercel.app/o/${desiredSlug}`;
+        
+        // Salvar no Firestore diretamente
         try {
-          const { shortUrl, slug } = await registerAttachmentLink({
+          await setDoc(doc(db, 'attachmentLinks', desiredSlug), {
             slug: desiredSlug,
             url: attachment.url,
             maintenanceId: maintenance.id,
             attachmentName: attachment.name,
             vehiclePlate,
+            updatedAt: new Date(),
+            createdBy: profile?.id,
           });
+          
           attachment.shortUrl = shortUrl;
-          attachment.slug = slug;
+          attachment.slug = desiredSlug;
         } catch (error) {
           console.warn("[Approval] Falha ao registrar link curto para anexo", error);
         }

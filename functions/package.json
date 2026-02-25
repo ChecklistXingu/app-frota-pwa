@@ -2,11 +2,12 @@
   "name": "app-frota-functions",
   "scripts": {
     "build": "tsc",
+    "lint": "echo 'No linting configured'",
     "serve": "firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions"
   },
   "engines": {
-    "node": "18"
+    "node": "20"
   },
   "main": "lib/index.js",
   "dependencies": {
