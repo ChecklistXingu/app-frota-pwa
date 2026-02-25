@@ -5,6 +5,7 @@ import { listenUsers, type AppUser } from "../../services/usersService";
 import { ChevronDown, Wrench } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import DateTimePicker from "../../components/DateTimePicker";
+import { sendDirectorApprovalRequest } from "../../services/directorApprovalService";
 
 const statusOptions: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
 
@@ -85,6 +86,7 @@ const AdminMaintenancePage = () => {
   });
   const [approvalForm, setApprovalForm] = useState<ApprovalFormState>(createInitialApprovalForm());
   const [savingApproval, setSavingApproval] = useState(false);
+  const [sendingZapi, setSendingZapi] = useState(false);
   const [hasCopiedPreview, setHasCopiedPreview] = useState(false);
 
   const [ticketModal, setTicketModal] = useState<{ open: boolean; maintenance: Maintenance | null }>({
@@ -212,13 +214,10 @@ const AdminMaintenancePage = () => {
 
   const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
-  const handleApprovalSubmit = async () => {
-    if (!approvalModal.maintenance) return;
-
+  const persistApproval = async (maintenance: Maintenance, method: "manual" | "zapi", extra?: Partial<DirectorApproval>) => {
     const phoneDigits = normalizePhone(approvalForm.phone);
     if (!phoneDigits) {
-      alert("Informe o telefone do diretor para salvar o orçamento.");
-      return;
+      throw new Error("Informe o telefone do diretor");
     }
 
     const cleanedItems = approvalForm.items
@@ -229,18 +228,75 @@ const AdminMaintenancePage = () => {
       }));
 
     if (!cleanedItems.length) {
-      alert("Adicione pelo menos um item no orçamento.");
-      return;
+      throw new Error("Adicione pelo menos um item");
     }
+
+    await updateMaintenanceStatus(maintenance.id, "in_review", {
+      directorApproval: {
+        status: "pending",
+        requestedBy: profile?.id,
+        requestedAt: new Date(),
+        targetPhone: phoneDigits,
+        vendor: approvalForm.vendor || undefined,
+        workshopLocation: approvalForm.workshopLocation || undefined,
+        laborCost: approvalLaborCost || undefined,
+        items: cleanedItems,
+        total: approvalGrandTotal || undefined,
+        notes: approvalForm.note || undefined,
+        deliveryMethod: method,
+        ...extra,
+      },
+    });
+  };
+
+  const handleApprovalSubmit = async () => {
+    if (!approvalModal.maintenance) return;
 
     setSavingApproval(true);
     try {
-      await updateMaintenanceStatus(approvalModal.maintenance.id, "in_review", {
-        directorApproval: {
-          status: "pending",
-          requestedBy: profile?.id,
-          requestedAt: new Date(),
-          targetPhone: phoneDigits,
+      await persistApproval(approvalModal.maintenance, "manual");
+      closeApprovalModal();
+    } catch (error: any) {
+      console.error("Erro ao salvar solicitação de aprovação:", error);
+      if (error?.message) {
+        alert(error.message);
+      } else if (error?.code === "permission-denied") {
+        alert("Permissão negada para atualizar esta manutenção.");
+      } else {
+        alert("Erro ao salvar orçamento. Tente novamente.");
+      }
+    } finally {
+      setSavingApproval(false);
+    }
+  };
+
+  const handleSendZapi = async () => {
+    if (!approvalModal.maintenance) return;
+
+    setSendingZapi(true);
+    try {
+      const maintenance = approvalModal.maintenance;
+      const driver = getUserName(maintenance.userId);
+      const branch = getUserBranch(maintenance.userId);
+      const vehicle = getVehicleInfo(maintenance.vehicleId);
+      const requestTitle = getMaintenanceItems(maintenance);
+
+      const phoneDigits = normalizePhone(approvalForm.phone);
+      if (!phoneDigits) throw new Error("Informe o telefone do diretor");
+
+      const cleanedItems = approvalForm.items
+        .filter((item) => item.name.trim() || item.cost.trim())
+        .map((item) => ({
+          name: item.name.trim() || "Item",
+          cost: parseCurrencyInput(item.cost),
+        }));
+      if (!cleanedItems.length) throw new Error("Adicione pelo menos um item");
+
+      const response = await sendDirectorApprovalRequest({
+        maintenanceId: maintenance.id,
+        targetPhone: phoneDigits,
+        previewText: approvalPreview,
+        quote: {
           vendor: approvalForm.vendor || undefined,
           workshopLocation: approvalForm.workshopLocation || undefined,
           laborCost: approvalLaborCost || undefined,
@@ -248,17 +304,35 @@ const AdminMaintenancePage = () => {
           total: approvalGrandTotal || undefined,
           notes: approvalForm.note || undefined,
         },
+        metadata: {
+          driverName: driver,
+          branch,
+          vehicleLabel: vehicle,
+          requestTitle,
+          observation: approvalNote || undefined,
+          managerNote: approvalForm.note || undefined,
+          photoCount: approvalPhotos.length || undefined,
+          audioUrl: approvalAudioUrl,
+          audioDurationSeconds: approvalAudioDuration,
+        },
       });
+
+      await persistApproval(maintenance, "zapi", {
+        messageId: response.messageId,
+        lastMessageSentAt: new Date(),
+      });
+
+      alert("Mensagem enviada para a diretoria via Z-API.");
       closeApprovalModal();
     } catch (error: any) {
-      console.error("Erro ao salvar solicitação de aprovação:", error);
-      if (error?.code === "permission-denied") {
-        alert("Permissão negada para atualizar esta manutenção.");
+      console.error("Erro ao enviar via Z-API:", error);
+      if (error?.message) {
+        alert(error.message);
       } else {
-        alert("Erro ao salvar orçamento. Tente novamente.");
+        alert("Não foi possível enviar a mensagem automática. Verifique os logs.");
       }
     } finally {
-      setSavingApproval(false);
+      setSendingZapi(false);
     }
   };
 
@@ -1173,22 +1247,32 @@ const AdminMaintenancePage = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3">
+              <div className="flex flex-col sm:flex-row justify-end gap-3">
+                <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:justify-start">
+                  <button
+                    type="button"
+                    onClick={handleSendZapi}
+                    className="rounded-lg bg-[#0d2d6c] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0b2559] disabled:opacity-60"
+                    disabled={sendingZapi || savingApproval}
+                  >
+                    {sendingZapi ? "Enviando..." : "Enviar via Z-API"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApprovalSubmit}
+                    className="rounded-lg border border-green-600 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50 disabled:opacity-60"
+                    disabled={savingApproval || sendingZapi}
+                  >
+                    {savingApproval ? "Salvando..." : "Salvar orçamento"}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={closeApprovalModal}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600"
-                  disabled={savingApproval}
+                  disabled={savingApproval || sendingZapi}
                 >
                   Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleApprovalSubmit}
-                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
-                  disabled={savingApproval}
-                >
-                  {savingApproval ? "Salvando..." : "Salvar orçamento"}
                 </button>
               </div>
             </div>

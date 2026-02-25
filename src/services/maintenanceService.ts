@@ -23,6 +23,9 @@ export type DirectorApproval = {
   items?: DirectorApprovalItem[];
   total?: number;
   notes?: string;
+  deliveryMethod?: "manual" | "zapi";
+  messageId?: string;
+  lastMessageSentAt?: any;
 };
 
 export const normalizeMaintenanceStatus = (status?: string): MaintenanceStatus => {
