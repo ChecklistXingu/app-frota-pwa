@@ -1396,7 +1396,7 @@ const AdminMaintenancePage = () => {
                 </div>
                 <div className="mt-2 space-y-3">
                   {approvalForm.items.map((item) => {
-                    const { quantity, unitCost, total } = computeItemValues(item);
+                    const { total } = computeItemValues(item);
                     return (
                       <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 rounded-lg border p-3">
                         <div className="md:col-span-5">
