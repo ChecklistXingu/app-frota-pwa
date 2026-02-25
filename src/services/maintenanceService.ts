@@ -8,6 +8,8 @@ export type DirectorApprovalStatus = "pending" | "approved" | "rejected";
 export type DirectorApprovalItem = {
   name: string;
   cost?: number;
+  quantity?: number;
+  unitCost?: number;
 };
 
 export type DirectorApprovalAttachment = {
