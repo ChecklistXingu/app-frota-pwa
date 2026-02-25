@@ -7,7 +7,7 @@
   "rewrites": [
     {
       "source": "/o/(.*)",
-      "destination": "/api/redirect/$1"
+      "destination": "/api/redirect?slug=$1"
     },
     {
       "source": "/(.*)",
