@@ -402,7 +402,7 @@ const AdminMaintenancePage = () => {
         status: "pending",
         requestedBy: profile?.id,
         requestedAt: new Date(),
-        targetPhone: phoneDigits || undefined,
+        targetPhone: phoneDigits || null,
         vendor: approvalForm.vendor || undefined,
         workshopLocation: approvalForm.workshopLocation || undefined,
         laborCost: approvalLaborCost || undefined,

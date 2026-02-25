@@ -26,7 +26,7 @@ export type DirectorApproval = {
   requestedAt?: any;
   responseBy?: string;
   responseAt?: any;
-  targetPhone?: string;
+  targetPhone?: string | null;
   vendor?: string;
   workshopLocation?: string;
   laborCost?: number;
