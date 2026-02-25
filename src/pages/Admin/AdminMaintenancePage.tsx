@@ -6,7 +6,7 @@ import { ChevronDown, Loader2, Paperclip, Trash2, Wrench } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import DateTimePicker from "../../components/DateTimePicker";
 import { uploadApprovalAttachment, deleteApprovalAttachment } from "../../services/approvalAttachmentService";
-import { sendDirectorApprovalEmail } from "../../services/directorApprovalService";
+import { openEmailClient } from "../../utils/emailHelper";
 
 const statusOptions: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
 
@@ -475,59 +475,33 @@ const AdminMaintenancePage = () => {
       // 1. Persist approval data and upload attachments
       const savedAttachments = await persistApproval(approvalModal.maintenance);
 
-      // 2. Send email with attachments
+      // 2. Prepare email data for client launcher
       const maintenance = approvalModal.maintenance;
-      const driverName = getUserName(maintenance.userId);
-      const branch = getUserBranch(maintenance.userId);
       const vehicleLabel = getVehicleInfo(maintenance.vehicleId);
       const requestTitle = getMaintenanceItems(maintenance);
 
       const previewText = approvalPreview;
-
       const subject = buildEmailSubject(vehicleLabel, requestTitle, approvalGrandTotal);
+      const attachmentLines = savedAttachments.length
+        ? savedAttachments
+            .map((att, index) => `${index + 1}) ${att.name}${att.size ? ` (${formatBytes(att.size)})` : ""}\n${att.url}`)
+            .join("\n\n")
+        : null;
 
-      try {
-        await sendDirectorApprovalEmail({
-          maintenanceId: maintenance.id,
-          previewText,
-          subject,
-          to: emailRecipients.to,
-          cc: emailRecipients.cc,
-          quote: {
-            vendor: approvalForm.vendor,
-            workshopLocation: approvalForm.workshopLocation,
-            laborCost: approvalLaborCost,
-            items: approvalForm.items.map((item) => ({
-              name: item.name,
-              cost: parseCurrencyInput(item.cost),
-            })),
-            total: approvalGrandTotal,
-            notes: approvalForm.note,
-          },
-          metadata: {
-            driverName,
-            branch,
-            vehicleLabel,
-            requestTitle,
-            observation: maintenance.description,
-            managerNote: approvalForm.note,
-            photoCount: maintenance.photos?.length,
-            audioUrl: maintenance.audioUrl || null,
-            audioDurationSeconds: maintenance.audioDurationSeconds || null,
-          },
-          attachments: savedAttachments.map((att) => ({
-            name: att.name,
-            url: att.url,
-            contentType: att.contentType,
-          })),
-        });
-        alert("Orçamento salvo e e-mail enviado com sucesso!");
-      } catch (emailError: any) {
-        console.error("Erro ao enviar e-mail:", emailError);
-        alert(
-          "Orçamento salvo, mas houve erro ao enviar o e-mail. Verifique os logs ou envie manualmente."
-        );
-      }
+      const emailBody = [
+        previewText,
+        attachmentLines ? "\nDocumentos anexos:\n" + attachmentLines : "",
+        "\n--\nSistema App Frota",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      openEmailClient({
+        to: emailRecipients.to,
+        cc: emailRecipients.cc,
+        subject,
+        body: emailBody,
+      });
 
       closeApprovalModal();
     } catch (error: any) {

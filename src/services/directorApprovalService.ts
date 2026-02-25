@@ -53,6 +53,8 @@ export type SendApprovalEmailParams = {
     name: string;
     url: string;
     contentType?: string;
+    storagePath?: string;
+    size?: number;
   }[];
 };
 
