@@ -3,6 +3,28 @@ import { db } from "./firebase";
 
 export type MaintenanceStatus = "pending" | "in_review" | "scheduled" | "done";
 
+export type DirectorApprovalStatus = "pending" | "approved" | "rejected";
+
+export type DirectorApprovalItem = {
+  name: string;
+  cost?: number;
+};
+
+export type DirectorApproval = {
+  status: DirectorApprovalStatus;
+  requestedBy?: string;
+  requestedAt?: any;
+  responseBy?: string;
+  responseAt?: any;
+  targetPhone?: string;
+  vendor?: string;
+  workshopLocation?: string;
+  laborCost?: number;
+  items?: DirectorApprovalItem[];
+  total?: number;
+  notes?: string;
+};
+
 export const normalizeMaintenanceStatus = (status?: string): MaintenanceStatus => {
   const map: Record<string, MaintenanceStatus> = {
     pending: "pending",
@@ -56,6 +78,7 @@ export type Maintenance = {
   km?: number;
   statusHistory?: StatusHistoryItem[];
   isMigrated?: boolean; // Flag para indicar dados migrados
+  directorApproval?: DirectorApproval;
 };
 
 export const listenMaintenances = (

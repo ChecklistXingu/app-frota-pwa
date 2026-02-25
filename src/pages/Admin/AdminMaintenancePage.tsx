@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { listenMaintenances, updateMaintenanceStatus, type Maintenance, type MaintenanceStatus } from "../../services/maintenanceService";
+import { listenMaintenances, updateMaintenanceStatus, type DirectorApproval, type Maintenance, type MaintenanceStatus } from "../../services/maintenanceService";
 import { listenAllVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { ChevronDown, Wrench } from "lucide-react";
@@ -16,6 +16,61 @@ const statusLabels: Record<string, string> = {
   all: "Todas",
 };
 
+type ApprovalFormItem = {
+  id: string;
+  name: string;
+  cost: string;
+};
+
+type ApprovalFormState = {
+  vendor: string;
+  workshopLocation: string;
+  laborCost: string;
+  phone: string;
+  note: string;
+  items: ApprovalFormItem[];
+};
+
+const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
+
+const getDirectorHighlightClass = (approval?: DirectorApproval) => {
+  if (!approval) return "";
+  if (approval.status === "approved") return "bg-emerald-50";
+  if (approval.status === "rejected") return "bg-red-50";
+  return "";
+};
+
+const createRandomId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).slice(2, 11);
+};
+
+const createEmptyApprovalItem = (name = ""): ApprovalFormItem => ({
+  id: createRandomId(),
+  name,
+  cost: "",
+});
+
+const createInitialApprovalForm = (): ApprovalFormState => ({
+  vendor: "",
+  workshopLocation: "",
+  laborCost: "",
+  phone: "",
+  note: "",
+  items: [createEmptyApprovalItem()],
+});
+
+const parseCurrencyInput = (value: string) => {
+  if (!value) return 0;
+  const normalized = value.replace(/\./g, "").replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
 const AdminMaintenancePage = () => {
   const [items, setItems] = useState<Maintenance[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -23,6 +78,14 @@ const AdminMaintenancePage = () => {
   const [filter, setFilter] = useState<MaintenanceStatus | "all">("all");
   const [branchFilter, setBranchFilter] = useState<string>("all");
   const { profile } = useAuth();
+
+  const [approvalModal, setApprovalModal] = useState<{ open: boolean; maintenance: Maintenance | null }>({
+    open: false,
+    maintenance: null,
+  });
+  const [approvalForm, setApprovalForm] = useState<ApprovalFormState>(createInitialApprovalForm());
+  const [savingApproval, setSavingApproval] = useState(false);
+  const [hasCopiedPreview, setHasCopiedPreview] = useState(false);
 
   const [ticketModal, setTicketModal] = useState<{ open: boolean; maintenance: Maintenance | null }>({
     open: false,
@@ -69,6 +132,150 @@ const AdminMaintenancePage = () => {
   const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<any | null>(null);
 
+  const mapMaintenanceToApprovalForm = (maintenance: Maintenance): ApprovalFormState => {
+    const director = maintenance.directorApproval;
+    if (director) {
+      const directorItems = (director.items || []).map((item) => ({
+        id: createRandomId(),
+        name: item.name,
+        cost: typeof item.cost === "number" ? item.cost.toFixed(2) : "",
+      }));
+      return {
+        vendor: director.vendor || "",
+        workshopLocation: director.workshopLocation || maintenance.workshopName || "",
+        laborCost: typeof director.laborCost === "number" ? director.laborCost.toFixed(2) : "",
+        phone: director.targetPhone || "",
+        note: director.notes || "",
+        items: directorItems.length ? directorItems : [createEmptyApprovalItem()],
+      };
+    }
+
+    const derivedItems = (maintenance.items || [])
+      .filter((item) => item.status)
+      .map((item) => ({
+        id: createRandomId(),
+        name: item.name,
+        cost: typeof item.cost === "number" ? item.cost.toFixed(2) : "",
+      }));
+
+    return {
+      vendor: "",
+      workshopLocation: maintenance.workshopName || "",
+      laborCost: typeof maintenance.laborCost === "number" ? maintenance.laborCost.toFixed(2) : "",
+      phone: "",
+      note: maintenance.managerNote || "",
+      items: derivedItems.length ? derivedItems : [createEmptyApprovalItem()],
+    };
+  };
+
+  const openApprovalModal = (maintenance: Maintenance) => {
+    setApprovalModal({ open: true, maintenance });
+    setApprovalForm(mapMaintenanceToApprovalForm(maintenance));
+    setHasCopiedPreview(false);
+  };
+
+  const closeApprovalModal = () => {
+    setApprovalModal({ open: false, maintenance: null });
+    setApprovalForm(createInitialApprovalForm());
+    setSavingApproval(false);
+    setHasCopiedPreview(false);
+  };
+
+  const handleApprovalFieldChange = <K extends keyof ApprovalFormState>(field: K, value: ApprovalFormState[K]) => {
+    setApprovalForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleApprovalItemChange = (itemId: string, field: keyof ApprovalFormItem, value: string) => {
+    setApprovalForm((prev) => ({
+      ...prev,
+      items: prev.items.map((item) => (item.id === itemId ? { ...item, [field]: value } : item)),
+    }));
+  };
+
+  const handleAddApprovalItem = () => {
+    setApprovalForm((prev) => ({ ...prev, items: [...prev.items, createEmptyApprovalItem()] }));
+  };
+
+  const handleRemoveApprovalItem = (itemId: string) => {
+    setApprovalForm((prev) => {
+      if (prev.items.length === 1) return prev;
+      return { ...prev, items: prev.items.filter((item) => item.id !== itemId) };
+    });
+  };
+
+  const approvalItemsTotal = useMemo(() => {
+    return approvalForm.items.reduce((sum, item) => sum + parseCurrencyInput(item.cost), 0);
+  }, [approvalForm.items]);
+
+  const approvalLaborCost = useMemo(() => parseCurrencyInput(approvalForm.laborCost), [approvalForm.laborCost]);
+  const approvalGrandTotal = useMemo(() => approvalItemsTotal + approvalLaborCost, [approvalItemsTotal, approvalLaborCost]);
+
+  const normalizePhone = (value: string) => value.replace(/\D/g, "");
+
+  const handleApprovalSubmit = async () => {
+    if (!approvalModal.maintenance) return;
+
+    const phoneDigits = normalizePhone(approvalForm.phone);
+    if (!phoneDigits) {
+      alert("Informe o telefone do diretor para salvar o orçamento.");
+      return;
+    }
+
+    const cleanedItems = approvalForm.items
+      .filter((item) => item.name.trim() || item.cost.trim())
+      .map((item) => ({
+        name: item.name.trim() || "Item",
+        cost: parseCurrencyInput(item.cost),
+      }));
+
+    if (!cleanedItems.length) {
+      alert("Adicione pelo menos um item no orçamento.");
+      return;
+    }
+
+    setSavingApproval(true);
+    try {
+      await updateMaintenanceStatus(approvalModal.maintenance.id, "in_review", {
+        directorApproval: {
+          status: "pending",
+          requestedBy: profile?.id,
+          requestedAt: new Date(),
+          targetPhone: phoneDigits,
+          vendor: approvalForm.vendor || undefined,
+          workshopLocation: approvalForm.workshopLocation || undefined,
+          laborCost: approvalLaborCost || undefined,
+          items: cleanedItems,
+          total: approvalGrandTotal || undefined,
+          notes: approvalForm.note || undefined,
+        },
+      });
+      closeApprovalModal();
+    } catch (error: any) {
+      console.error("Erro ao salvar solicitação de aprovação:", error);
+      if (error?.code === "permission-denied") {
+        alert("Permissão negada para atualizar esta manutenção.");
+      } else {
+        alert("Erro ao salvar orçamento. Tente novamente.");
+      }
+    } finally {
+      setSavingApproval(false);
+    }
+  };
+
+  const handleCopyPreview = async (text: string) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setHasCopiedPreview(true);
+    } catch (error) {
+      console.error("Erro ao copiar mensagem:", error);
+    }
+  };
+
+  useEffect(() => {
+    setHasCopiedPreview(false);
+  }, [approvalForm, approvalModal.open]);
+
   useEffect(() => {
     const unsub1 = listenMaintenances(
       filter === "all" ? {} : { status: filter },
@@ -80,6 +287,11 @@ const AdminMaintenancePage = () => {
   }, [filter]);
 
   const onChangeStatus = async (maintenance: Maintenance, status: MaintenanceStatus) => {
+    if (status === "in_review") {
+      openApprovalModal(maintenance);
+      return;
+    }
+
     if (status === "scheduled") {
       openTicketModal(maintenance);
       return;
@@ -368,6 +580,37 @@ const AdminMaintenancePage = () => {
     return [...filteredItems].sort((a, b) => getSortTime(b) - getSortTime(a));
   }, [filteredItems]);
 
+  const approvalPreview = useMemo(() => {
+    if (!approvalModal.maintenance) return "";
+    const maintenance = approvalModal.maintenance;
+    const driver = getUserName(maintenance.userId);
+    const branch = getUserBranch(maintenance.userId);
+    const vehicle = getVehicleInfo(maintenance.vehicleId);
+    const requestTitle = getMaintenanceItems(maintenance);
+    const itemsText = approvalForm.items
+      .filter((item) => item.name.trim() || item.cost.trim())
+      .map((item, index) => `(${index + 1}) ${item.name.trim() || "Item"} - ${formatCurrency(parseCurrencyInput(item.cost))}`)
+      .join("\n");
+
+    const lines = [
+      "*Solicitação de aprovação de manutenção*",
+      "",
+      `Motorista: ${driver}`,
+      `Filial: ${branch}`,
+      `Veículo: ${vehicle}`,
+      `Solicitação: ${requestTitle}`,
+      "",
+      itemsText ? `*Itens:*\n${itemsText}` : "",
+      `Mão de obra: ${formatCurrency(approvalLaborCost)}`,
+      `Total: *${formatCurrency(approvalGrandTotal)}*`,
+      "",
+      approvalForm.note ? `Obs: ${approvalForm.note}` : "",
+      "Selecione uma opção: ✅ Aprovar | ❌ Não aprovar",
+    ].filter(Boolean);
+
+    return lines.join("\n");
+  }, [approvalModal.maintenance, approvalForm.items, approvalForm.note, approvalLaborCost, approvalGrandTotal, getUserName, getUserBranch, getVehicleInfo]);
+
   return (
     <>
       <div className="space-y-4">
@@ -412,7 +655,7 @@ const AdminMaintenancePage = () => {
             </thead>
             <tbody>
               {sortedItems.map((m) => (
-                <tr key={m.id} className="border-t">
+                <tr key={m.id} className={`border-t ${getDirectorHighlightClass(m.directorApproval)}`}>
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded bg-[#ffd300]/30 flex items-center justify-center text-[#0d2d6c]"><Wrench size={16} /></div>
@@ -454,6 +697,16 @@ const AdminMaintenancePage = () => {
                     {typeof m.finalCost !== "number" && typeof m.forecastedCost === "number" && (
                       <p className="text-xs text-gray-500">Previsão de valor: R$ {m.forecastedCost.toFixed(2)}</p>
                     )}
+                    {m.directorApproval && (
+                      <div className="mt-2">
+                        <DirectorApprovalBadge approval={m.directorApproval} />
+                        {typeof m.directorApproval.total === "number" && (
+                          <p className="text-[11px] text-gray-600 mt-1">
+                            Orçamento: {formatCurrency(m.directorApproval.total)}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="p-3">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end sm:gap-2">
@@ -470,6 +723,13 @@ const AdminMaintenancePage = () => {
                       </div>
 
                       <div className="flex gap-2 flex-wrap mt-2 sm:mt-0">
+                        <button
+                          type="button"
+                          onClick={() => openApprovalModal(m)}
+                          className="w-36 h-10 rounded-lg border border-green-600 text-green-700 text-xs font-semibold hover:bg-green-50"
+                        >
+                          {m.directorApproval ? "Editar orçamento" : "Solicitar aprovação"}
+                        </button>
                         <button
                           type="button"
                           onClick={() => openTicketModal(m)}
@@ -574,7 +834,7 @@ const AdminMaintenancePage = () => {
               <p className="p-6 text-center text-gray-500">Nenhuma solicitação encontrada</p>
             )}
             {sortedItems.map((m) => (
-              <div key={`card-${m.id}`} className="p-4 space-y-3">
+              <div key={`card-${m.id}`} className={`p-4 space-y-3 ${getDirectorHighlightClass(m.directorApproval)}`}>
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-xl bg-[#ffd300]/30 flex items-center justify-center text-[#0d2d6c]">
                     <Wrench size={18} />
@@ -646,6 +906,13 @@ const AdminMaintenancePage = () => {
                   <div className="flex flex-col sm:flex-row gap-2">
                     <button
                       type="button"
+                      onClick={() => openApprovalModal(m)}
+                      className="flex-1 inline-flex items-center justify-center rounded-md border border-green-600 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-50"
+                    >
+                      {m.directorApproval ? "Editar orçamento" : "Solicitar aprovação"}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => openTicketModal(m)}
                       className="flex-1 inline-flex items-center justify-center rounded-md border border-[#0d2d6c] px-3 py-2 text-xs font-semibold text-[#0d2d6c] hover:bg-[#0d2d6c]/10"
                     >
@@ -667,6 +934,199 @@ const AdminMaintenancePage = () => {
           </div>
         </div>
       </div>
+
+      {approvalModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-lg font-semibold">Solicitar aprovação da diretoria</h3>
+                {approvalModal.maintenance && (
+                  <p className="text-sm text-gray-500">
+                    Motorista: <strong>{getUserName(approvalModal.maintenance.userId)}</strong> • Filial: {getUserBranch(approvalModal.maintenance.userId)} • Veículo: {getVehicleInfo(approvalModal.maintenance.vehicleId)}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={closeApprovalModal}
+                className="rounded-md border border-gray-200 px-3 py-1 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">Fornecedor (peças)</label>
+                  <input
+                    type="text"
+                    value={approvalForm.vendor}
+                    onChange={(e) => handleApprovalFieldChange("vendor", e.target.value)}
+                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                    placeholder="Empresa responsável pela compra"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">Local da oficina</label>
+                  <input
+                    type="text"
+                    value={approvalForm.workshopLocation}
+                    onChange={(e) => handleApprovalFieldChange("workshopLocation", e.target.value)}
+                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                    placeholder="Ex: Oficina Centro"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">Telefone do diretor (WhatsApp)</label>
+                  <input
+                    type="tel"
+                    value={approvalForm.phone}
+                    onChange={(e) => handleApprovalFieldChange("phone", e.target.value)}
+                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                    placeholder="(66) 9 9999-9999"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600">Mão de obra (R$)</label>
+                  <div className="mt-1 flex items-center rounded-lg border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-[#0d2d6c]">
+                    <span className="text-gray-400 mr-2">R$</span>
+                    <input
+                      type="text"
+                      value={approvalForm.laborCost}
+                      onChange={(e) => handleApprovalFieldChange("laborCost", e.target.value)}
+                      className="w-full bg-transparent focus:outline-none"
+                      placeholder="0,00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-700">Itens do orçamento</label>
+                  <button
+                    type="button"
+                    onClick={handleAddApprovalItem}
+                    className="text-xs font-semibold text-[#0d2d6c] hover:underline"
+                  >
+                    + Adicionar item
+                  </button>
+                </div>
+                <div className="mt-2 space-y-3">
+                  {approvalForm.items.map((item) => (
+                    <div key={item.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 rounded-lg border p-3">
+                      <div className="md:col-span-7">
+                        <label className="text-[11px] font-semibold text-gray-500">Descrição</label>
+                        <input
+                          type="text"
+                          value={item.name}
+                          onChange={(e) => handleApprovalItemChange(item.id, "name", e.target.value)}
+                          className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                          placeholder="Ex: Troca de pastilha dianteira"
+                        />
+                      </div>
+                      <div className="md:col-span-4">
+                        <label className="text-[11px] font-semibold text-gray-500">Valor (R$)</label>
+                        <div className="mt-1 flex items-center rounded-lg border px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-[#0d2d6c]">
+                          <span className="text-gray-400 mr-2">R$</span>
+                          <input
+                            type="text"
+                            value={item.cost}
+                            onChange={(e) => handleApprovalItemChange(item.id, "cost", e.target.value)}
+                            className="w-full bg-transparent focus:outline-none"
+                            placeholder="0,00"
+                          />
+                        </div>
+                      </div>
+                      <div className="md:col-span-1 flex items-end">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveApprovalItem(item.id)}
+                          className="w-full rounded-lg border border-red-200 text-red-500 text-xs font-semibold py-2 disabled:opacity-40"
+                          disabled={approvalForm.items.length === 1}
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Observações para o diretor</label>
+                <textarea
+                  value={approvalForm.note}
+                  onChange={(e) => handleApprovalFieldChange("note", e.target.value)}
+                  className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
+                  rows={3}
+                  placeholder="Detalhes adicionais relevantes para aprovação"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-blue-50 rounded-xl p-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-semibold">Subtotal de itens</span>
+                    <span>{formatCurrency(approvalItemsTotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="font-semibold">Mão de obra</span>
+                    <span>{formatCurrency(approvalLaborCost)}</span>
+                  </div>
+                  <div className="flex justify-between text-base font-bold border-t border-blue-200 pt-2">
+                    <span>Total previsto</span>
+                    <span className="text-[#0d2d6c]">{formatCurrency(approvalGrandTotal)}</span>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-700">Prévia da mensagem</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPreview(approvalPreview)}
+                      className="text-xs font-semibold text-[#0d2d6c] hover:underline"
+                    >
+                      Copiar texto
+                    </button>
+                  </div>
+                  <textarea
+                    readOnly
+                    value={approvalPreview}
+                    className="w-full rounded-lg border px-3 py-2 text-xs text-gray-700 bg-white focus:outline-none"
+                    rows={approvalPreview.split("\n").length < 8 ? 8 : undefined}
+                  />
+                  {hasCopiedPreview && (
+                    <p className="text-[11px] text-emerald-600">Copiado! Cole no WhatsApp enquanto a automação não estiver ativa.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeApprovalModal}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600"
+                  disabled={savingApproval}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApprovalSubmit}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                  disabled={savingApproval}
+                >
+                  {savingApproval ? "Salvando..." : "Salvar orçamento"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {ticketModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -915,6 +1375,21 @@ const StatusBadge = ({ status }: { status: MaintenanceStatus }) => {
     done: "bg-emerald-100 text-emerald-800",
   };
   return <span className={`px-2 py-1 rounded-md text-xs font-medium ${map[status]}`}>{statusLabels[status]}</span>;
+};
+
+const directorStatusLabels: Record<DirectorApproval["status"], { label: string; className: string }> = {
+  pending: { label: "Aguardando diretoria", className: "bg-yellow-100 text-yellow-800" },
+  approved: { label: "Aprovado pela diretoria", className: "bg-emerald-100 text-emerald-800" },
+  rejected: { label: "Reprovado pela diretoria", className: "bg-red-100 text-red-700" },
+};
+
+const DirectorApprovalBadge = ({ approval }: { approval: DirectorApproval }) => {
+  const data = directorStatusLabels[approval.status];
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium ${data.className}`}>
+      {data.label}
+    </span>
+  );
 };
 
 export default AdminMaintenancePage;
