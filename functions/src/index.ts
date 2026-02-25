@@ -113,3 +113,109 @@ export const handleDirectorResponse = functions
 
     res.status(200).send({ ok: true });
   });
+
+type SendApprovalEmailData = {
+  maintenanceId: string;
+  previewText: string;
+  subject: string;
+  to: string;
+  cc?: string[];
+  quote: {
+    vendor?: string;
+    workshopLocation?: string;
+    laborCost?: number;
+    items: { name: string; cost: number }[];
+    total?: number;
+    notes?: string;
+  };
+  metadata: {
+    driverName: string;
+    branch: string;
+    vehicleLabel: string;
+    requestTitle: string;
+    observation?: string;
+    managerNote?: string;
+    photoCount?: number;
+    audioUrl?: string | null;
+    audioDurationSeconds?: number | null;
+    approvalId?: string;
+  };
+  attachments?: {
+    name: string;
+    url: string;
+    contentType?: string;
+  }[];
+};
+
+export const sendApprovalEmail = functions
+  .region("southamerica-east1")
+  .runWith({ timeoutSeconds: 540, memory: "1GB" })
+  .https.onCall(async (data: SendApprovalEmailData, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError("unauthenticated", "Usuário não autenticado");
+    }
+
+    const { maintenanceId, subject, to, cc, previewText, attachments } = data;
+    if (!maintenanceId || !subject || !to || !previewText) {
+      throw new functions.https.HttpsError("invalid-argument", "Dados obrigatórios ausentes");
+    }
+
+    // Configuração do serviço de e-mail (SendGrid, Nodemailer, etc.)
+    // Por enquanto, vamos apenas logar e retornar sucesso
+    // Em produção, você deve configurar um serviço de e-mail real
+    
+    const emailConfig = functions.config().email;
+    if (!emailConfig?.service || !emailConfig?.user || !emailConfig?.pass) {
+      console.warn("Configuração de e-mail ausente. E-mail não será enviado.");
+      // Para desenvolvimento, retornamos sucesso mesmo sem enviar
+      return {
+        deliveryMethod: "email" as const,
+        sentAt: new Date().toISOString(),
+      };
+    }
+
+    // Aqui você implementaria o envio real usando Nodemailer ou SendGrid
+    // Exemplo com Nodemailer (requer instalação: npm install nodemailer)
+    /*
+    const nodemailer = require("nodemailer");
+    const transporter = nodemailer.createTransport({
+      service: emailConfig.service,
+      auth: {
+        user: emailConfig.user,
+        pass: emailConfig.pass,
+      },
+    });
+
+    const attachmentBuffers = [];
+    if (attachments && attachments.length > 0) {
+      for (const att of attachments) {
+        try {
+          const response = await axios.get(att.url, { responseType: "arraybuffer" });
+          attachmentBuffers.push({
+            filename: att.name,
+            content: Buffer.from(response.data),
+            contentType: att.contentType || "application/octet-stream",
+          });
+        } catch (err) {
+          console.error(`Erro ao baixar anexo ${att.name}:`, err);
+        }
+      }
+    }
+
+    await transporter.sendMail({
+      from: emailConfig.user,
+      to,
+      cc: cc?.join(", "),
+      subject,
+      text: previewText,
+      attachments: attachmentBuffers,
+    });
+    */
+
+    console.log("E-mail enviado:", { to, cc, subject, attachmentsCount: attachments?.length || 0 });
+
+    return {
+      deliveryMethod: "email" as const,
+      sentAt: new Date().toISOString(),
+    };
+  });

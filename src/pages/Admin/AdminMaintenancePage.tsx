@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
-import { listenMaintenances, updateMaintenanceStatus, type DirectorApproval, type Maintenance, type MaintenanceStatus } from "../../services/maintenanceService";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { listenMaintenances, updateMaintenanceStatus, type DirectorApproval, type DirectorApprovalAttachment, type Maintenance, type MaintenanceStatus } from "../../services/maintenanceService";
 import { listenAllVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
-import { ChevronDown, Wrench } from "lucide-react";
+import { ChevronDown, Loader2, Paperclip, Trash2, Wrench } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import DateTimePicker from "../../components/DateTimePicker";
+import { uploadApprovalAttachment, deleteApprovalAttachment } from "../../services/approvalAttachmentService";
+import { sendDirectorApprovalEmail } from "../../services/directorApprovalService";
 
 const statusOptions: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
 
@@ -14,6 +16,53 @@ const statusLabels: Record<string, string> = {
   scheduled: "Agendado",
   done: "Finalizado",
   all: "Todas",
+};
+
+const MAX_APPROVAL_ATTACHMENTS = 5;
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024; // 20 MB
+const ATTACHMENT_ALLOWED_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+];
+const ATTACHMENT_ACCEPT_ATTRIBUTE = ".pdf,.doc,.docx,image/*";
+
+const emailRecipients = {
+  to: "amauri@xingumaquinas.com",
+  cc: ["silvana.bacca@xingumaquinas.com", "gleidione.resende@xingumaquinas.com"],
+};
+
+const formatBytes = (bytes: number) => {
+  if (!bytes || Number.isNaN(bytes)) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const value = bytes / Math.pow(k, i);
+  return `${value.toFixed(value > 10 || i === 0 ? 0 : 1)} ${sizes[i]}`;
+};
+
+const mapExistingApprovalAttachments = (attachments?: DirectorApprovalAttachment[]): ApprovalAttachmentItem[] => {
+  if (!attachments?.length) return [];
+  return attachments.map((attachment, index) => ({
+    id: attachment.storagePath || attachment.url || `existing-${index}`,
+    status: "existing" as const,
+    name: attachment.name || `Anexo ${index + 1}`,
+    size: typeof attachment.size === "number" ? attachment.size : 0,
+    contentType: attachment.contentType,
+    url: attachment.url,
+    storagePath: attachment.storagePath,
+    uploadedAt: attachment.uploadedAt,
+    uploadedBy: attachment.uploadedBy,
+  }));
+};
+
+const buildEmailSubject = (vehicle: string, requestTitle: string, total?: number) => {
+  const amount = typeof total === "number" ? ` - ${formatCurrency(total)}` : "";
+  return `[Orçamento] ${vehicle} - ${requestTitle}${amount}`;
 };
 
 type ApprovalFormItem = {
@@ -29,6 +78,19 @@ type ApprovalFormState = {
   phone: string;
   note: string;
   items: ApprovalFormItem[];
+};
+
+type ApprovalAttachmentItem = {
+  id: string;
+  status: "existing" | "new";
+  name: string;
+  size: number;
+  contentType?: string;
+  url?: string;
+  storagePath?: string;
+  uploadedAt?: any;
+  uploadedBy?: string;
+  file?: File;
 };
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -84,6 +146,9 @@ const AdminMaintenancePage = () => {
     maintenance: null,
   });
   const [approvalForm, setApprovalForm] = useState<ApprovalFormState>(createInitialApprovalForm());
+  const [approvalAttachments, setApprovalAttachments] = useState<ApprovalAttachmentItem[]>([]);
+  const [attachmentsMarkedForDeletion, setAttachmentsMarkedForDeletion] = useState<DirectorApprovalAttachment[]>([]);
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
   const [savingApproval, setSavingApproval] = useState(false);
   const [hasCopiedPreview, setHasCopiedPreview] = useState(false);
 
@@ -171,12 +236,16 @@ const AdminMaintenancePage = () => {
   const openApprovalModal = (maintenance: Maintenance) => {
     setApprovalModal({ open: true, maintenance });
     setApprovalForm(mapMaintenanceToApprovalForm(maintenance));
+    setApprovalAttachments(mapExistingApprovalAttachments(maintenance.directorApproval?.attachments));
+    setAttachmentsMarkedForDeletion([]);
     setHasCopiedPreview(false);
   };
 
   const closeApprovalModal = () => {
     setApprovalModal({ open: false, maintenance: null });
     setApprovalForm(createInitialApprovalForm());
+    setApprovalAttachments([]);
+    setAttachmentsMarkedForDeletion([]);
     setSavingApproval(false);
     setHasCopiedPreview(false);
   };
@@ -210,6 +279,75 @@ const AdminMaintenancePage = () => {
   const approvalLaborCost = useMemo(() => parseCurrencyInput(approvalForm.laborCost), [approvalForm.laborCost]);
   const approvalGrandTotal = useMemo(() => approvalItemsTotal + approvalLaborCost, [approvalItemsTotal, approvalLaborCost]);
 
+  const approvalAttachmentsTotalSize = useMemo(() => {
+    return approvalAttachments.reduce((sum, att) => sum + (att.size || 0), 0);
+  }, [approvalAttachments]);
+
+  const handleAttachmentSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    const remainingSlots = MAX_APPROVAL_ATTACHMENTS - approvalAttachments.length;
+    if (remainingSlots <= 0) {
+      alert(`Você já anexou o máximo de ${MAX_APPROVAL_ATTACHMENTS} arquivos.`);
+      return;
+    }
+
+    const filesToAdd = files.slice(0, remainingSlots);
+    const invalidFiles = filesToAdd.filter(
+      (file) => !ATTACHMENT_ALLOWED_TYPES.includes(file.type)
+    );
+
+    if (invalidFiles.length > 0) {
+      alert(
+        `Alguns arquivos não são permitidos. Tipos aceitos: PDF, DOC, DOCX e imagens.`
+      );
+      return;
+    }
+
+    const newItems: ApprovalAttachmentItem[] = filesToAdd.map((file) => ({
+      id: createRandomId(),
+      status: "new" as const,
+      name: file.name,
+      size: file.size,
+      contentType: file.type,
+      file,
+    }));
+
+    const projectedTotal = approvalAttachmentsTotalSize + newItems.reduce((sum, item) => sum + item.size, 0);
+    if (projectedTotal > MAX_ATTACHMENT_BYTES) {
+      alert(
+        `O tamanho total dos anexos não pode ultrapassar ${formatBytes(MAX_ATTACHMENT_BYTES)}. Total atual: ${formatBytes(approvalAttachmentsTotalSize)}.`
+      );
+      return;
+    }
+
+    setApprovalAttachments((prev) => [...prev, ...newItems]);
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveAttachment = (id: string) => {
+    const item = approvalAttachments.find((att) => att.id === id);
+    if (!item) return;
+
+    if (item.status === "existing" && item.storagePath) {
+      const existing: DirectorApprovalAttachment = {
+        name: item.name,
+        url: item.url || "",
+        size: item.size,
+        contentType: item.contentType,
+        storagePath: item.storagePath,
+        uploadedAt: item.uploadedAt,
+        uploadedBy: item.uploadedBy,
+      };
+      setAttachmentsMarkedForDeletion((prev) => [...prev, existing]);
+    }
+
+    setApprovalAttachments((prev) => prev.filter((att) => att.id !== id));
+  };
+
   const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
   const persistApproval = async (maintenance: Maintenance, extra?: Partial<DirectorApproval>) => {
@@ -226,6 +364,39 @@ const AdminMaintenancePage = () => {
       throw new Error("Adicione pelo menos um item");
     }
 
+    // 1. Upload new attachments to Firebase Storage
+    const uploadedAttachments: DirectorApprovalAttachment[] = [];
+    const newAttachments = approvalAttachments.filter((att) => att.status === "new" && att.file);
+
+    for (const att of newAttachments) {
+      if (!att.file) continue;
+      try {
+        const uploaded = await uploadApprovalAttachment(att.file, maintenance.id, {
+          uploadedBy: profile?.id,
+        });
+        uploadedAttachments.push(uploaded);
+      } catch (err) {
+        console.error("Erro ao fazer upload de anexo:", err);
+        throw new Error(`Erro ao enviar anexo "${att.name}". Tente novamente.`);
+      }
+    }
+
+    // 2. Merge existing attachments (not marked for deletion) with newly uploaded
+    const existingAttachments = approvalAttachments
+      .filter((att) => att.status === "existing")
+      .map((att) => ({
+        name: att.name,
+        url: att.url || "",
+        size: att.size,
+        contentType: att.contentType,
+        storagePath: att.storagePath,
+        uploadedAt: att.uploadedAt,
+        uploadedBy: att.uploadedBy,
+      }));
+
+    const finalAttachments = [...existingAttachments, ...uploadedAttachments];
+
+    // 3. Update Firestore with approval data
     await updateMaintenanceStatus(maintenance.id, "in_review", {
       directorApproval: {
         status: "pending",
@@ -239,9 +410,21 @@ const AdminMaintenancePage = () => {
         total: approvalGrandTotal || undefined,
         notes: approvalForm.note || undefined,
         deliveryMethod: "manual",
+        attachments: finalAttachments.length ? finalAttachments : undefined,
         ...extra,
       },
     });
+
+    // 4. Delete attachments marked for deletion from Storage
+    for (const att of attachmentsMarkedForDeletion) {
+      if (att.storagePath) {
+        try {
+          await deleteApprovalAttachment(att.storagePath);
+        } catch (err) {
+          console.warn("Erro ao remover anexo do storage:", err);
+        }
+      }
+    }
   };
 
   const handleApprovalSubmit = async () => {
@@ -249,7 +432,65 @@ const AdminMaintenancePage = () => {
 
     setSavingApproval(true);
     try {
+      // 1. Persist approval data and upload attachments
       await persistApproval(approvalModal.maintenance);
+
+      // 2. Send email with attachments
+      const maintenance = approvalModal.maintenance;
+      const driverName = getUserName(maintenance.userId);
+      const branch = getUserBranch(maintenance.userId);
+      const vehicleLabel = getVehicleInfo(maintenance.vehicleId);
+      const requestTitle = getMaintenanceItems(maintenance);
+
+      const previewText = approvalPreview;
+
+      const subject = buildEmailSubject(vehicleLabel, requestTitle, approvalGrandTotal);
+
+      try {
+        await sendDirectorApprovalEmail({
+          maintenanceId: maintenance.id,
+          previewText,
+          subject,
+          to: emailRecipients.to,
+          cc: emailRecipients.cc,
+          quote: {
+            vendor: approvalForm.vendor,
+            workshopLocation: approvalForm.workshopLocation,
+            laborCost: approvalLaborCost,
+            items: approvalForm.items.map((item) => ({
+              name: item.name,
+              cost: parseCurrencyInput(item.cost),
+            })),
+            total: approvalGrandTotal,
+            notes: approvalForm.note,
+          },
+          metadata: {
+            driverName,
+            branch,
+            vehicleLabel,
+            requestTitle,
+            observation: maintenance.description,
+            managerNote: approvalForm.note,
+            photoCount: maintenance.photos?.length,
+            audioUrl: maintenance.audioUrl || null,
+            audioDurationSeconds: maintenance.audioDurationSeconds || null,
+          },
+          attachments: approvalAttachments
+            .filter((att) => att.url)
+            .map((att) => ({
+              name: att.name,
+              url: att.url!,
+              contentType: att.contentType,
+            })),
+        });
+        alert("Orçamento salvo e e-mail enviado com sucesso!");
+      } catch (emailError: any) {
+        console.error("Erro ao enviar e-mail:", emailError);
+        alert(
+          "Orçamento salvo, mas houve erro ao enviar o e-mail. Verifique os logs ou envie manualmente."
+        );
+      }
+
       closeApprovalModal();
     } catch (error: any) {
       console.error("Erro ao salvar solicitação de aprovação:", error);
@@ -1156,6 +1397,58 @@ const AdminMaintenancePage = () => {
                   </div>
                 </div>
 
+                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-700">Anexos do orçamento</span>
+                    <span className="text-xs text-gray-500">
+                      {approvalAttachments.length}/{MAX_APPROVAL_ATTACHMENTS} • {formatBytes(approvalAttachmentsTotalSize)}/{formatBytes(MAX_ATTACHMENT_BYTES)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {approvalAttachments.map((att) => (
+                      <div
+                        key={att.id}
+                        className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs"
+                      >
+                        <Paperclip size={14} className="text-gray-500 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-700 truncate">{att.name}</p>
+                          <p className="text-gray-500">{formatBytes(att.size)}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAttachment(att.id)}
+                          className="text-red-500 hover:text-red-700 flex-shrink-0"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {approvalAttachments.length < MAX_APPROVAL_ATTACHMENTS && (
+                    <div>
+                      <input
+                        ref={attachmentInputRef}
+                        type="file"
+                        accept={ATTACHMENT_ACCEPT_ATTRIBUTE}
+                        multiple
+                        onChange={handleAttachmentSelect}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => attachmentInputRef.current?.click()}
+                        className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-lg px-4 py-3 text-sm font-medium text-gray-600 hover:border-gray-400 hover:bg-gray-50"
+                      >
+                        <Paperclip size={16} />
+                        Anexar arquivos (PDF, DOC, imagens)
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="bg-gray-50 rounded-xl p-4 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-gray-700">Prévia da mensagem</span>
@@ -1184,10 +1477,11 @@ const AdminMaintenancePage = () => {
                   <button
                     type="button"
                     onClick={handleApprovalSubmit}
-                    className="rounded-lg border border-green-600 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50 disabled:opacity-60"
+                    className="rounded-lg border border-green-600 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50 disabled:opacity-60 flex items-center gap-2"
                     disabled={savingApproval}
                   >
-                    {savingApproval ? "Salvando..." : "Salvar orçamento"}
+                    {savingApproval && <Loader2 size={16} className="animate-spin" />}
+                    {savingApproval ? "Salvando e enviando..." : "Salvar orçamento"}
                   </button>
                 </div>
                 <button

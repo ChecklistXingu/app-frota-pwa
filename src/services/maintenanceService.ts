@@ -10,6 +10,16 @@ export type DirectorApprovalItem = {
   cost?: number;
 };
 
+export type DirectorApprovalAttachment = {
+  name: string;
+  url: string;
+  size?: number;
+  contentType?: string;
+  storagePath?: string;
+  uploadedBy?: string;
+  uploadedAt?: any;
+};
+
 export type DirectorApproval = {
   status: DirectorApprovalStatus;
   requestedBy?: string;
@@ -26,6 +36,7 @@ export type DirectorApproval = {
   deliveryMethod?: "manual" | "zapi";
   messageId?: string;
   lastMessageSentAt?: any;
+  attachments?: DirectorApprovalAttachment[];
 };
 
 export const normalizeMaintenanceStatus = (status?: string): MaintenanceStatus => {
