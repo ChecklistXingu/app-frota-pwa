@@ -580,6 +580,11 @@ const AdminMaintenancePage = () => {
     return [...filteredItems].sort((a, b) => getSortTime(b) - getSortTime(a));
   }, [filteredItems]);
 
+  const approvalNote = approvalModal.maintenance ? getNotes(approvalModal.maintenance) : "";
+  const approvalPhotos = approvalModal.maintenance?.photos || [];
+  const approvalAudioUrl = approvalModal.maintenance?.audioUrl || null;
+  const approvalAudioDuration = approvalModal.maintenance?.audioDurationSeconds || null;
+
   const approvalPreview = useMemo(() => {
     if (!approvalModal.maintenance) return "";
     const maintenance = approvalModal.maintenance;
@@ -604,12 +609,32 @@ const AdminMaintenancePage = () => {
       `Mão de obra: ${formatCurrency(approvalLaborCost)}`,
       `Total: *${formatCurrency(approvalGrandTotal)}*`,
       "",
-      approvalForm.note ? `Obs: ${approvalForm.note}` : "",
+      approvalNote ? `Observação do motorista: ${approvalNote}` : "",
+      approvalForm.note ? `Obs gestor: ${approvalForm.note}` : "",
+      approvalPhotos.length ? `Fotos anexas: ${approvalPhotos.length} arquivo(s).` : "",
+      approvalAudioUrl || approvalAudioDuration
+        ? `Áudio: ${approvalAudioUrl ? "disponível" : "registrado"}${
+            approvalAudioDuration ? ` (${formatDurationSeconds(approvalAudioDuration)})` : ""
+          }`
+        : "",
       "Selecione uma opção: ✅ Aprovar | ❌ Não aprovar",
     ].filter(Boolean);
 
     return lines.join("\n");
-  }, [approvalModal.maintenance, approvalForm.items, approvalForm.note, approvalLaborCost, approvalGrandTotal, getUserName, getUserBranch, getVehicleInfo]);
+  }, [
+    approvalModal.maintenance,
+    approvalForm.items,
+    approvalForm.note,
+    approvalLaborCost,
+    approvalGrandTotal,
+    approvalNote,
+    approvalPhotos.length,
+    approvalAudioUrl,
+    approvalAudioDuration,
+    getUserName,
+    getUserBranch,
+    getVehicleInfo,
+  ]);
 
   return (
     <>
@@ -942,9 +967,52 @@ const AdminMaintenancePage = () => {
               <div>
                 <h3 className="text-lg font-semibold">Solicitar aprovação da diretoria</h3>
                 {approvalModal.maintenance && (
-                  <p className="text-sm text-gray-500">
-                    Motorista: <strong>{getUserName(approvalModal.maintenance.userId)}</strong> • Filial: {getUserBranch(approvalModal.maintenance.userId)} • Veículo: {getVehicleInfo(approvalModal.maintenance.vehicleId)}
-                  </p>
+                  <div className="text-sm text-gray-600 space-y-2">
+                    <p>
+                      Motorista: <strong>{getUserName(approvalModal.maintenance.userId)}</strong> • Filial: {getUserBranch(approvalModal.maintenance.userId)} • Veículo: {getVehicleInfo(approvalModal.maintenance.vehicleId)}
+                    </p>
+                    {approvalNote && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700">
+                        <p className="font-semibold text-gray-600 mb-1">Observação enviada</p>
+                        <p className="whitespace-pre-wrap">{approvalNote}</p>
+                      </div>
+                    )}
+                    {(approvalPhotos.length > 0 || approvalAudioUrl) && (
+                      <div className="flex flex-col gap-3">
+                        {approvalPhotos.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-gray-500 mb-2">Fotos anexas ({approvalPhotos.length})</p>
+                            <div className="flex flex-wrap gap-2">
+                              {approvalPhotos.slice(0, 4).map((url, idx) => (
+                                <button
+                                  type="button"
+                                  key={`${url}-${idx}`}
+                                  onClick={() => setPhotoModal({ open: true, photos: approvalPhotos, maintenance: approvalModal.maintenance })}
+                                  className="w-16 h-16 rounded-lg border border-gray-200 overflow-hidden bg-white hover:shadow"
+                                >
+                                  <img src={url} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
+                                </button>
+                              ))}
+                              {approvalPhotos.length > 4 && (
+                                <div className="w-16 h-16 rounded-lg border border-dashed border-gray-300 flex items-center justify-center text-xs text-gray-500">
+                                  +{approvalPhotos.length - 4}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {approvalAudioUrl && (
+                          <div>
+                            <p className="text-xs font-semibold text-gray-500 mb-1">Áudio enviado</p>
+                            <audio controls className="w-full max-w-sm" src={approvalAudioUrl} />
+                            {typeof approvalAudioDuration === "number" && (
+                              <p className="text-[11px] text-gray-500 mt-1">Duração: {formatDurationSeconds(approvalAudioDuration)}</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
               <button

@@ -61,6 +61,8 @@ export type Maintenance = {
   items?: MaintenanceItem[];
   status: MaintenanceStatus;
   photos?: string[];
+  audioUrl?: string;
+  audioDurationSeconds?: number;
   createdAt?: any;
   updatedAt?: any;
   managerId?: string;
