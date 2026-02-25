@@ -5,7 +5,6 @@ import { listenUsers, type AppUser } from "../../services/usersService";
 import { ChevronDown, Wrench } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import DateTimePicker from "../../components/DateTimePicker";
-import { sendDirectorApprovalRequest } from "../../services/directorApprovalService";
 
 const statusOptions: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
 
@@ -86,7 +85,6 @@ const AdminMaintenancePage = () => {
   });
   const [approvalForm, setApprovalForm] = useState<ApprovalFormState>(createInitialApprovalForm());
   const [savingApproval, setSavingApproval] = useState(false);
-  const [sendingZapi, setSendingZapi] = useState(false);
   const [hasCopiedPreview, setHasCopiedPreview] = useState(false);
 
   const [ticketModal, setTicketModal] = useState<{ open: boolean; maintenance: Maintenance | null }>({
@@ -214,11 +212,8 @@ const AdminMaintenancePage = () => {
 
   const normalizePhone = (value: string) => value.replace(/\D/g, "");
 
-  const persistApproval = async (maintenance: Maintenance, method: "manual" | "zapi", extra?: Partial<DirectorApproval>) => {
+  const persistApproval = async (maintenance: Maintenance, extra?: Partial<DirectorApproval>) => {
     const phoneDigits = normalizePhone(approvalForm.phone);
-    if (!phoneDigits) {
-      throw new Error("Informe o telefone do diretor");
-    }
 
     const cleanedItems = approvalForm.items
       .filter((item) => item.name.trim() || item.cost.trim())
@@ -236,14 +231,14 @@ const AdminMaintenancePage = () => {
         status: "pending",
         requestedBy: profile?.id,
         requestedAt: new Date(),
-        targetPhone: phoneDigits,
+        targetPhone: phoneDigits || undefined,
         vendor: approvalForm.vendor || undefined,
         workshopLocation: approvalForm.workshopLocation || undefined,
         laborCost: approvalLaborCost || undefined,
         items: cleanedItems,
         total: approvalGrandTotal || undefined,
         notes: approvalForm.note || undefined,
-        deliveryMethod: method,
+        deliveryMethod: "manual",
         ...extra,
       },
     });
@@ -254,7 +249,7 @@ const AdminMaintenancePage = () => {
 
     setSavingApproval(true);
     try {
-      await persistApproval(approvalModal.maintenance, "manual");
+      await persistApproval(approvalModal.maintenance);
       closeApprovalModal();
     } catch (error: any) {
       console.error("Erro ao salvar solicitação de aprovação:", error);
@@ -267,72 +262,6 @@ const AdminMaintenancePage = () => {
       }
     } finally {
       setSavingApproval(false);
-    }
-  };
-
-  const handleSendZapi = async () => {
-    if (!approvalModal.maintenance) return;
-
-    setSendingZapi(true);
-    try {
-      const maintenance = approvalModal.maintenance;
-      const driver = getUserName(maintenance.userId);
-      const branch = getUserBranch(maintenance.userId);
-      const vehicle = getVehicleInfo(maintenance.vehicleId);
-      const requestTitle = getMaintenanceItems(maintenance);
-
-      const phoneDigits = normalizePhone(approvalForm.phone);
-      if (!phoneDigits) throw new Error("Informe o telefone do diretor");
-
-      const cleanedItems = approvalForm.items
-        .filter((item) => item.name.trim() || item.cost.trim())
-        .map((item) => ({
-          name: item.name.trim() || "Item",
-          cost: parseCurrencyInput(item.cost),
-        }));
-      if (!cleanedItems.length) throw new Error("Adicione pelo menos um item");
-
-      const response = await sendDirectorApprovalRequest({
-        maintenanceId: maintenance.id,
-        targetPhone: phoneDigits,
-        previewText: approvalPreview,
-        quote: {
-          vendor: approvalForm.vendor || undefined,
-          workshopLocation: approvalForm.workshopLocation || undefined,
-          laborCost: approvalLaborCost || undefined,
-          items: cleanedItems,
-          total: approvalGrandTotal || undefined,
-          notes: approvalForm.note || undefined,
-        },
-        metadata: {
-          driverName: driver,
-          branch,
-          vehicleLabel: vehicle,
-          requestTitle,
-          observation: approvalNote || undefined,
-          managerNote: approvalForm.note || undefined,
-          photoCount: approvalPhotos.length || undefined,
-          audioUrl: approvalAudioUrl,
-          audioDurationSeconds: approvalAudioDuration,
-        },
-      });
-
-      await persistApproval(maintenance, "zapi", {
-        messageId: response.messageId,
-        lastMessageSentAt: new Date(),
-      });
-
-      alert("Mensagem enviada para a diretoria via Z-API.");
-      closeApprovalModal();
-    } catch (error: any) {
-      console.error("Erro ao enviar via Z-API:", error);
-      if (error?.message) {
-        alert(error.message);
-      } else {
-        alert("Não foi possível enviar a mensagem automática. Verifique os logs.");
-      }
-    } finally {
-      setSendingZapi(false);
     }
   };
 
@@ -1122,14 +1051,16 @@ const AdminMaintenancePage = () => {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-gray-600">Telefone do diretor (WhatsApp)</label>
+                  <label className="text-xs font-semibold text-gray-400">Telefone do diretor (WhatsApp)</label>
                   <input
                     type="tel"
                     value={approvalForm.phone}
-                    onChange={(e) => handleApprovalFieldChange("phone", e.target.value)}
-                    className="mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0d2d6c]"
-                    placeholder="(66) 9 9999-9999"
+                    readOnly
+                    disabled
+                    className="mt-1 w-full rounded-lg border bg-gray-100 px-3 py-2 text-sm text-gray-500"
+                    placeholder="Automação desativada no momento"
                   />
+                  <p className="text-[11px] text-gray-500 mt-1">Campo usado apenas quando a automação via Z-API estiver ativa.</p>
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-gray-600">Mão de obra (R$)</label>
@@ -1252,17 +1183,9 @@ const AdminMaintenancePage = () => {
                 <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:justify-start">
                   <button
                     type="button"
-                    onClick={handleSendZapi}
-                    className="rounded-lg bg-[#0d2d6c] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0b2559] disabled:opacity-60"
-                    disabled={sendingZapi || savingApproval}
-                  >
-                    {sendingZapi ? "Enviando..." : "Enviar via Z-API"}
-                  </button>
-                  <button
-                    type="button"
                     onClick={handleApprovalSubmit}
                     className="rounded-lg border border-green-600 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-50 disabled:opacity-60"
-                    disabled={savingApproval || sendingZapi}
+                    disabled={savingApproval}
                   >
                     {savingApproval ? "Salvando..." : "Salvar orçamento"}
                   </button>
@@ -1271,7 +1194,7 @@ const AdminMaintenancePage = () => {
                   type="button"
                   onClick={closeApprovalModal}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600"
-                  disabled={savingApproval || sendingZapi}
+                  disabled={savingApproval}
                 >
                   Cancelar
                 </button>
