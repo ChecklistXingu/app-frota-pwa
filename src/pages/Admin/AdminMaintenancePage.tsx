@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { listenMaintenances, updateMaintenanceStatus, type DirectorApproval, type DirectorApprovalAttachment, type DirectorApprovalItem, type Maintenance, type MaintenanceStatus } from "../../services/maintenanceService";
+import { listenMaintenances, updateMaintenanceStatus, type DirectorApproval, type DirectorApprovalAttachment, type Maintenance, type MaintenanceStatus } from "../../services/maintenanceService";
 import { listenAllVehicles, type Vehicle } from "../../services/vehiclesService";
 import { listenUsers, type AppUser } from "../../services/usersService";
 import { ChevronDown, Loader2, Paperclip, Trash2, Wrench } from "lucide-react";
@@ -120,13 +120,8 @@ type ApprovalAttachmentItem = {
 };
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const quantityFormatter = new Intl.NumberFormat("pt-BR", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
-});
 
 const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
-const formatQuantity = (value: number) => quantityFormatter.format(value || 0);
 
 const getDirectorHighlightClass = (approval?: DirectorApproval) => {
   if (!approval) return "";
@@ -193,6 +188,10 @@ const computeItemValues = (item: ApprovalFormItem) => {
     unitCost,
     total: quantity * unitCost,
   };
+};
+
+const formatQuantity = (value: number) => {
+  return value.toString().replace(".", ",");
 };
 
 const AdminMaintenancePage = () => {
@@ -263,13 +262,8 @@ const AdminMaintenancePage = () => {
     const director = maintenance.directorApproval;
     if (director) {
       const directorItems = (director.items || []).map((item) => {
-        const quantity = typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1;
-        const unitCost =
-          typeof item.unitCost === "number"
-            ? item.unitCost
-            : typeof item.cost === "number"
-            ? item.cost / quantity
-            : 0;
+        const quantity = typeof item.quantity === "number" ? item.quantity : 1;
+        const unitCost = typeof item.unitCost === "number" ? item.unitCost : (typeof item.cost === "number" ? item.cost : 0);
         return {
           id: createRandomId(),
           name: item.name,
@@ -346,7 +340,10 @@ const AdminMaintenancePage = () => {
   };
 
   const approvalItemsTotal = useMemo(() => {
-    return approvalForm.items.reduce((sum, item) => sum + computeItemValues(item).total, 0);
+    return approvalForm.items.reduce((sum, item) => {
+      const { total } = computeItemValues(item);
+      return sum + total;
+    }, 0);
   }, [approvalForm.items]);
 
   const approvalLaborCost = useMemo(() => parseCurrencyInput(approvalForm.laborCost), [approvalForm.laborCost]);
@@ -432,13 +429,13 @@ const AdminMaintenancePage = () => {
     const cleanedItems = approvalForm.items
       .filter((item) => item.name.trim() || item.unitCost.trim() || item.quantity.trim())
       .map((item) => {
-        const { quantity, unitCost, total } = computeItemValues(item);
+        const { quantity, unitCost } = computeItemValues(item);
         return {
           name: item.name.trim() || "Item",
           quantity,
           unitCost,
-          cost: total,
-        } as DirectorApprovalItem & { quantity: number; unitCost: number };
+          cost: quantity * unitCost,
+        };
       });
 
     if (!cleanedItems.length) {
@@ -1397,9 +1394,7 @@ const AdminMaintenancePage = () => {
                     + Adicionar item
                   </button>
                 </div>
-
-                {/* Items list */}
-                <div className="space-y-2 mb-4">
+                <div className="mt-2 space-y-3">
                   {approvalForm.items.map((item) => {
                     const { quantity, unitCost, total } = computeItemValues(item);
                     return (
@@ -1419,7 +1414,7 @@ const AdminMaintenancePage = () => {
                           <input
                             type="text"
                             value={item.quantity}
-                            onChange={(e) => handleApprovalItemChange(item.id, "quantity", parseQuantityInput(e.target.value).toString())}
+                            onChange={(e) => handleApprovalItemChange(item.id, "quantity", e.target.value)}
                             className="mt-1 w-full rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#0d2d6c]"
                             placeholder="1"
                           />
@@ -1429,7 +1424,7 @@ const AdminMaintenancePage = () => {
                           <input
                             type="text"
                             value={item.unitCost}
-                            onChange={(e) => handleApprovalItemChange(item.id, "unitCost", parseCurrencyInput(e.target.value).toFixed(2))}
+                            onChange={(e) => handleApprovalItemChange(item.id, "unitCost", e.target.value)}
                             className="mt-1 w-full rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#0d2d6c]"
                             placeholder="0,00"
                           />
@@ -1454,73 +1449,10 @@ const AdminMaintenancePage = () => {
                     );
                   })}
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-blue-50 rounded-xl p-4 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-semibold">Subtotal de itens</span>
-                      <span>{formatCurrency(approvalItemsTotal)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="font-semibold">Mão de obra</span>
-                      <span>{formatCurrency(approvalLaborCost)}</span>
-                    </div>
-                    <div className="flex justify-between text-base font-bold border-t border-blue-200 pt-2">
-                      <span>Total previsto</span>
-                      <span className="text-[#0d2d6c]">{formatCurrency(approvalGrandTotal)}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-gray-700">Anexos do orçamento</span>
-                      <span className="text-xs text-gray-500">
-                        {approvalAttachments.length}/{MAX_APPROVAL_ATTACHMENTS} • {formatBytes(approvalAttachmentsTotalSize)}/{formatBytes(MAX_ATTACHMENT_BYTES)}
-                      </span>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2">
-                      {approvalAttachments.map((att) => (
-                        <div
-                          key={att.id}
-                          className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs"
-                        >
-                          <Paperclip size={14} className="text-gray-500 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-700 truncate">{att.name}</p>
-                            <p className="text-gray-500">{formatBytes(att.size)}</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveAttachment(att.id)}
-                            className="text-red-500 hover:text-red-700 flex-shrink-0"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-
-                    {approvalAttachments.length < MAX_APPROVAL_ATTACHMENTS && (
-                      <div>
-                        <input
-                          ref={attachmentInputRef}
-                          type="file"
-                          accept={ATTACHMENT_ACCEPT_ATTRIBUTE}
-                          multiple
-                          onChange={handleAttachmentSelect}
-                          className="hidden"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => attachmentInputRef.current?.click()}
-                          className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-300 rounded-lg px-4 py-3 text-sm font-medium text-gray-600 hover:border-gray-400 hover:bg-gray-50"
-                        >
-                          <Paperclip size={16} />
-                          Anexar arquivos (PDF, DOC, imagens)
-                        </button>
-                      </div>
-                    )}
+              <div>
+                <label className="text-xs font-semibold text-gray-600">Observações para o diretor</label>
                 <textarea
                   value={approvalForm.note}
                   onChange={(e) => handleApprovalFieldChange("note", e.target.value)}
