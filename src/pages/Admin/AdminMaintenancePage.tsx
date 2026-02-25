@@ -604,12 +604,12 @@ const AdminMaintenancePage = () => {
       `Filial: ${branch}`,
       `Veículo: ${vehicle}`,
       `Solicitação: ${requestTitle}`,
+      approvalNote ? `Observação do motorista: ${approvalNote}` : "",
       "",
       itemsText ? `*Itens:*\n${itemsText}` : "",
       `Mão de obra: ${formatCurrency(approvalLaborCost)}`,
       `Total: *${formatCurrency(approvalGrandTotal)}*`,
       "",
-      approvalNote ? `Observação do motorista: ${approvalNote}` : "",
       approvalForm.note ? `Obs gestor: ${approvalForm.note}` : "",
       approvalPhotos.length ? `Fotos anexas: ${approvalPhotos.length} arquivo(s).` : "",
       approvalAudioUrl || approvalAudioDuration
