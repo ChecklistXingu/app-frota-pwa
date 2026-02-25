@@ -1041,16 +1041,17 @@ const AdminMaintenancePage = () => {
               <div>
                 <h3 className="text-lg font-semibold">Solicitar aprovação da diretoria</h3>
                 {approvalModal.maintenance && (
-                  <div className="text-sm text-gray-600 space-y-2">
-                    <p>
-                      Motorista: <strong>{getUserName(approvalModal.maintenance.userId)}</strong> • Filial: {getUserBranch(approvalModal.maintenance.userId)} • Veículo: {getVehicleInfo(approvalModal.maintenance.vehicleId)}
-                    </p>
-                    {approvalNote && (
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700">
-                        <p className="font-semibold text-gray-600 mb-1">Observação enviada</p>
-                        <p className="whitespace-pre-wrap">{approvalNote}</p>
-                      </div>
-                    )}
+                  <div className="text-sm text-gray-600 space-y-3">
+                    <div className="space-y-1">
+                      <p>
+                        Motorista: <strong>{getUserName(approvalModal.maintenance.userId)}</strong> • Filial: {getUserBranch(approvalModal.maintenance.userId)} • Veículo: {getVehicleInfo(approvalModal.maintenance.vehicleId)}
+                      </p>
+                      {approvalNote && (
+                        <p className="text-gray-700">
+                          <span className="font-semibold text-gray-600">Observação do motorista:</span> {approvalNote}
+                        </p>
+                      )}
+                    </div>
                     {(approvalPhotos.length > 0 || approvalAudioUrl) && (
                       <div className="flex flex-col gap-3">
                         {approvalPhotos.length > 0 && (
