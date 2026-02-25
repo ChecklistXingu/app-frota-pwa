@@ -6,7 +6,6 @@ import { ChevronDown, Loader2, Paperclip, Trash2, Wrench } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import DateTimePicker from "../../components/DateTimePicker";
 import { uploadApprovalAttachment, deleteApprovalAttachment } from "../../services/approvalAttachmentService";
-import { registerAttachmentLink } from "../../services/attachmentLinkService";
 import { openEmailClient } from "../../utils/emailHelper";
 import { db } from "../../services/firebase";
 import { doc, setDoc } from "firebase/firestore";
