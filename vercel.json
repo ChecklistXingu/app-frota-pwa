@@ -6,6 +6,10 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/o/(.*)",
+      "destination": "/api/redirect/$1"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
