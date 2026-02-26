@@ -2,7 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import axios from "axios";
 
-const APP_BASE_URL = functions.config().app?.base_url || "https://app-frota-pwa.vercel.app";
+const APP_BASE_URL = functions.config().app?.base_url || "https://app-frota.firebaseapp.com";
 const ATTACHMENT_LINKS_COLLECTION = "attachmentLinks";
 
 const normalizeSlug = (value: string) =>
@@ -302,4 +302,42 @@ export const sendApprovalEmail = functions
       deliveryMethod: "email" as const,
       sentAt: new Date().toISOString(),
     };
+  });
+
+// Função para redirecionar URLs curtas de anexos diretamente para o Firebase Storage
+export const redirectAttachment = functions
+  .region("southamerica-east1")
+  .https.onRequest(async (req, res) => {
+    const slug = req.params.slug || req.path.replace('/o/', '').replace('/', '');
+    
+    if (!slug) {
+      res.status(400).send('Slug não fornecido');
+      return;
+    }
+
+    try {
+      // Buscar o link do anexo no Firestore
+      const docRef = db.collection(ATTACHMENT_LINKS_COLLECTION).doc(slug as string);
+      const docSnap = await docRef.get();
+
+      if (!docSnap.exists) {
+        res.status(404).send('Anexo não encontrado ou link expirado');
+        return;
+      }
+
+      const data = docSnap.data();
+      if (!data || !data.url) {
+        res.status(404).send('URL do anexo não encontrada');
+        return;
+      }
+
+      // Redirecionar permanentemente (301) para a URL original do Firebase Storage
+      res.redirect(301, data.url);
+      return;
+
+    } catch (error) {
+      console.error('Erro ao redirecionar anexo:', error);
+      res.status(500).send('Erro interno ao processar o link');
+      return;
+    }
   });

@@ -524,7 +524,7 @@ const AdminMaintenancePage = () => {
       // Gerar short URL diretamente sem depender de Firebase Function
       if (attachment.url && (!attachment.shortUrl || !attachment.slug)) {
         const desiredSlug = `${slugBase}-${index + 1}`;
-        const shortUrl = `https://app-frota-pwa.vercel.app/o/${desiredSlug}`;
+        const shortUrl = `https://app-frota.firebaseapp.com/o/${desiredSlug}`;
         
         console.log(`[Short URL] Gerando short URL para anexo ${index + 1}:`, {
           slug: desiredSlug,

@@ -7,7 +7,7 @@ import admin from "firebase-admin";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DEFAULT_BASE_URL = "https://app-frota-pwa.vercel.app";
+const DEFAULT_BASE_URL = "https://app-frota.firebaseapp.com";
 const APP_BASE_URL = process.env.APP_BASE_URL || DEFAULT_BASE_URL;
 const SERVICE_ACCOUNT_PATH =
   process.env.SERVICE_ACCOUNT_PATH || path.resolve(__dirname, "serviceAccountKey.json");
