@@ -2,9 +2,16 @@ const admin = require('firebase-admin');
 
 // Inicializar Firebase Admin
 if (!admin.apps.length) {
+  // Usar variáveis de ambiente na Vercel
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
+    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    : null;
+
   admin.initializeApp({
-    credential: admin.credential.applicationDefault(),
-    projectId: 'app-frota-1ce38'
+    credential: serviceAccount 
+      ? admin.credential.cert(serviceAccount)
+      : admin.credential.applicationDefault(),
+    projectId: process.env.FIREBASE_PROJECT_ID || 'app-frota-1ce38'
   });
 }
 
