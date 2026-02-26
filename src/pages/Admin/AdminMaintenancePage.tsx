@@ -600,45 +600,6 @@ const AdminMaintenancePage = () => {
     return finalAttachments;
   };
 
-  const sendEmailWithAttachments = async (
-    to: string,
-    cc: string[],
-    subject: string,
-    body: string,
-    attachments: DirectorApprovalAttachment[]
-  ) => {
-    try {
-      const response = await fetch('/api/send-email-simple', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to,
-          cc,
-          subject,
-          body,
-          attachments: attachments.map(att => ({
-            url: att.url,
-            name: att.name,
-            contentType: att.contentType,
-          })),
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Erro ao enviar email');
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Erro ao enviar email com anexos:', error);
-      throw error;
-    }
-  };
-
   const handleApprovalSubmit = async () => {
     if (!approvalModal.maintenance) return;
 
@@ -656,14 +617,30 @@ const AdminMaintenancePage = () => {
       const previewText = approvalPreview;
       const subject = buildEmailSubject(vehicleLabel, driverName, requestTitle, approvalGrandTotal);
 
-      // Corpo do email SEM links (anexos vão direto)
-      const emailBody = [
+      const vehiclePlate = vehicleLabel.split("•")[0]?.trim() || "";
+      const attachmentLines = savedAttachments.length
+        ? savedAttachments
+            .map((att, index) => {
+              const baseLabel = vehiclePlate ? `Orçamento ${vehiclePlate}` : "Orçamento";
+              const label = savedAttachments.length > 1 ? `${baseLabel} ${index + 1}` : baseLabel;
+              const sizeLabel = att.size ? ` (${formatBytes(att.size)})` : "";
+              const link = att.shortUrl || att.url;
+
+              if (link) {
+                return `📄 ${label}${sizeLabel}\n   ${link}`;
+              }
+              return `📄 ${label}${sizeLabel}`;
+            })
+            .join("\n\n")
+        : null;
+
+      const emailBodyWithLinks = [
         "Olá diretoria 👋",
         "Segue abaixo o orçamento para análise e aprovação:",
         "",
         previewText,
         "",
-        savedAttachments.length ? `📎 ${savedAttachments.length} arquivo(s) anexado(s)` : "",
+        attachmentLines ? "📎 DOCUMENTOS ANEXOS:\n\n" + attachmentLines + "\n\n👆 Clique nos links acima para visualizar/baixar os orçamentos" : "",
         "",
         "Atenciosamente,",
         "Equipe App Frota 🚚",
@@ -671,64 +648,12 @@ const AdminMaintenancePage = () => {
         .filter(Boolean)
         .join("\n");
 
-      // Perguntar ao usuário qual método usar
-      const useApiEmail = confirm(
-        "Escolha o método de envio:\n\n" +
-        "✅ OK = Enviar email automaticamente com anexos (recomendado)\n" +
-        "❌ Cancelar = Abrir cliente de email (Gmail, Outlook, etc.)\n\n" +
-        `Anexos: ${savedAttachments.length} arquivo(s)`
-      );
-
-      if (useApiEmail) {
-        // Enviar via API com anexos reais
-        await sendEmailWithAttachments(
-          emailRecipients.to,
-          emailRecipients.cc,
-          subject,
-          emailBody,
-          savedAttachments
-        );
-        alert('✅ Email enviado com sucesso com anexos!');
-      } else {
-        // Abrir cliente de email tradicional (sem anexos, com links)
-        const vehiclePlate = vehicleLabel.split("•")[0]?.trim() || "";
-        const attachmentLines = savedAttachments.length
-          ? savedAttachments
-              .map((att, index) => {
-                const baseLabel = vehiclePlate ? `Orçamento ${vehiclePlate}` : "Orçamento";
-                const label = savedAttachments.length > 1 ? `${baseLabel} ${index + 1}` : baseLabel;
-                const sizeLabel = att.size ? ` (${formatBytes(att.size)})` : "";
-                const link = att.shortUrl || att.url;
-                
-                if (link) {
-                  return `📄 ${label}${sizeLabel}\n   ${link}`;
-                }
-                return `📄 ${label}${sizeLabel}`;
-              })
-              .join("\n\n")
-          : null;
-
-        const emailBodyWithLinks = [
-          "Olá diretoria 👋",
-          "Segue abaixo o orçamento para análise e aprovação:",
-          "",
-          previewText,
-          "",
-          attachmentLines ? "📎 DOCUMENTOS ANEXOS:\n\n" + attachmentLines + "\n\n👆 Clique nos links acima para visualizar/baixar os orçamentos" : "",
-          "",
-          "Atenciosamente,",
-          "Equipe App Frota 🚚",
-        ]
-          .filter(Boolean)
-          .join("\n");
-
-        openEmailClient({
-          to: emailRecipients.to,
-          cc: emailRecipients.cc,
-          subject,
-          body: emailBodyWithLinks,
-        });
-      }
+      openEmailClient({
+        to: emailRecipients.to,
+        cc: emailRecipients.cc,
+        subject,
+        body: emailBodyWithLinks,
+      });
 
       closeApprovalModal();
     } catch (error: any) {
