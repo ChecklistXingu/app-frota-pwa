@@ -49,9 +49,41 @@ export default async function handler(req, res) {
       emailPayload.cc = cc;
     }
 
-    // TODO: Implementar anexos depois de testar sem anexos
+    // Processar anexos
+    const processedAttachments = [];
+    
     if (attachments && attachments.length > 0) {
-      console.log('[Email] Anexos ignorados temporariamente:', attachments.length);
+      console.log('[Email] Processando anexos:', attachments.length);
+      
+      for (const att of attachments) {
+        try {
+          console.log('[Email] Baixando anexo:', att.name, att.url);
+          
+          // Baixar arquivo do Firebase Storage
+          const fileResponse = await fetch(att.url);
+          if (!fileResponse.ok) {
+            throw new Error(`Falha ao baixar anexo: ${fileResponse.status}`);
+          }
+          
+          const buffer = await fileResponse.arrayBuffer();
+          const base64 = Buffer.from(buffer).toString('base64');
+          
+          processedAttachments.push({
+            filename: att.name || 'anexo.pdf',
+            content: base64,
+            type: att.contentType || 'application/pdf',
+          });
+          
+          console.log('[Email] Anexo processado:', att.name);
+        } catch (error) {
+          console.error('[Email] Erro ao processar anexo:', error);
+        }
+      }
+    }
+
+    // Adicionar anexos ao payload
+    if (processedAttachments.length > 0) {
+      emailPayload.attachments = processedAttachments;
     }
 
     const response = await fetch('https://api.resend.com/emails', {
