@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const fetch = require('node-fetch');
 
 // Inicializar Firebase Admin
 if (!admin.apps.length) {
@@ -54,6 +55,9 @@ module.exports = async (req, res) => {
         try {
           // Baixar arquivo do Firebase Storage URL
           const response = await fetch(att.url);
+          if (!response.ok) {
+            throw new Error(`Falha ao baixar anexo (${response.status})`);
+          }
           const buffer = await response.arrayBuffer();
           const base64 = Buffer.from(buffer).toString('base64');
           
@@ -96,7 +100,13 @@ module.exports = async (req, res) => {
       body: JSON.stringify(emailPayload),
     });
 
-    const result = await resendResponse.json();
+    const textResult = await resendResponse.text();
+    let result;
+    try {
+      result = JSON.parse(textResult);
+    } catch (jsonError) {
+      result = { raw: textResult };
+    }
 
     console.log('[Email] Resposta Resend:', {
       status: resendResponse.status,
@@ -118,6 +128,6 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error('Erro ao enviar email:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message || 'Erro interno' });
   }
 };
