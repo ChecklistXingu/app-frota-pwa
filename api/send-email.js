@@ -1,19 +1,4 @@
-const admin = require('firebase-admin');
 const fetch = require('node-fetch');
-
-// Inicializar Firebase Admin
-if (!admin.apps.length) {
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    : null;
-
-  admin.initializeApp({
-    credential: serviceAccount 
-      ? admin.credential.cert(serviceAccount)
-      : admin.credential.applicationDefault(),
-    projectId: process.env.FIREBASE_PROJECT_ID || 'app-frota-1ce38'
-  });
-}
 
 module.exports = async (req, res) => {
   // CORS
