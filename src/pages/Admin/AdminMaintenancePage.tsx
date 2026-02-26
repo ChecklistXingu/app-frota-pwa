@@ -501,6 +501,8 @@ const AdminMaintenancePage = () => {
           storagePath: att.storagePath,
           uploadedAt: att.uploadedAt,
           uploadedBy: att.uploadedBy,
+          shortUrl: att.shortUrl,
+          slug: att.slug,
         })
       );
 
