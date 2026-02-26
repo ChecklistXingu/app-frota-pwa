@@ -70,7 +70,7 @@ module.exports = async (req, res) => {
 
     // Enviar email via Resend
     const emailPayload = {
-      from: 'App Frota <noreply@app-frota.com>',
+      from: 'App Frota <onboarding@resend.dev>',
       to: Array.isArray(to) ? to : [to],
       subject,
       html: body.replace(/\n/g, '<br>'),
@@ -80,6 +80,12 @@ module.exports = async (req, res) => {
     if (cc && cc.length > 0) {
       emailPayload.cc = cc;
     }
+
+    console.log('[Email] Enviando para Resend:', {
+      to: emailPayload.to,
+      subject: emailPayload.subject,
+      attachmentCount: processedAttachments.length
+    });
 
     const resendResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -92,8 +98,14 @@ module.exports = async (req, res) => {
 
     const result = await resendResponse.json();
 
+    console.log('[Email] Resposta Resend:', {
+      status: resendResponse.status,
+      ok: resendResponse.ok,
+      result
+    });
+
     if (!resendResponse.ok) {
-      console.error('Erro Resend:', result);
+      console.error('[Email] Erro Resend:', result);
       res.status(500).json({ error: 'Erro ao enviar email', details: result });
       return;
     }
