@@ -508,12 +508,27 @@ const AdminMaintenancePage = () => {
     const preliminaryAttachments = [...existingAttachments, ...sanitizedUploaded];
 
     const finalAttachments: DirectorApprovalAttachment[] = [];
+    console.log("[Short URL] Processando anexos:", preliminaryAttachments.length);
+    
     for (let index = 0; index < preliminaryAttachments.length; index += 1) {
       const attachment = preliminaryAttachments[index];
+      console.log(`[Short URL] Anexo ${index + 1}:`, {
+        hasUrl: !!attachment.url,
+        hasShortUrl: !!attachment.shortUrl,
+        hasSlug: !!attachment.slug,
+        name: attachment.name
+      });
+      
       // Gerar short URL diretamente sem depender de Firebase Function
       if (attachment.url && (!attachment.shortUrl || !attachment.slug)) {
         const desiredSlug = `${slugBase}-${index + 1}`;
         const shortUrl = `https://app-frota-pwa.vercel.app/o/${desiredSlug}`;
+        
+        console.log(`[Short URL] Gerando short URL para anexo ${index + 1}:`, {
+          slug: desiredSlug,
+          shortUrl,
+          originalUrl: attachment.url.substring(0, 100) + '...'
+        });
         
         // Salvar no Firestore diretamente
         try {
@@ -529,12 +544,21 @@ const AdminMaintenancePage = () => {
           
           attachment.shortUrl = shortUrl;
           attachment.slug = desiredSlug;
+          console.log(`[Short URL] ✅ Short URL criada com sucesso:`, shortUrl);
         } catch (error) {
-          console.warn("[Approval] Falha ao registrar link curto para anexo", error);
+          console.error("[Short URL] ❌ Falha ao registrar link curto para anexo", error);
         }
+      } else {
+        console.log(`[Short URL] Anexo ${index + 1} já tem short URL ou não tem URL original`);
       }
       finalAttachments.push(attachment);
     }
+    
+    console.log("[Short URL] Anexos finais:", finalAttachments.map(a => ({
+      name: a.name,
+      shortUrl: a.shortUrl,
+      slug: a.slug
+    })));
 
     const directorApprovalPayload: DirectorApproval = {
       status: "pending",
