@@ -1,3 +1,4 @@
+// Versão 2.0 - Com suporte a anexos
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -37,7 +38,7 @@ export default async function handler(req, res) {
       attachmentCount: attachments?.length || 0
     });
 
-    // Por enquanto, enviar SEM anexos para testar
+    // Usar domínio padrão do Resend (já verificado)
     const emailPayload = {
       from: 'App Frota <onboarding@resend.dev>',
       to: Array.isArray(to) ? to : [to],
