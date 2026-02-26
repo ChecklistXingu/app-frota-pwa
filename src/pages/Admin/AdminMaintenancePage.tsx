@@ -600,19 +600,29 @@ const AdminMaintenancePage = () => {
               const label = savedAttachments.length > 1 ? `${baseLabel} ${index + 1}` : baseLabel;
               const sizeLabel = att.size ? ` (${formatBytes(att.size)})` : "";
               const link = att.shortUrl || att.url;
-              return link ? `${label}${sizeLabel}\n${link}` : `${label}${sizeLabel}`;
+              
+              // Formato melhorado: nome do arquivo + tamanho + link curto
+              if (link) {
+                return `📄 ${label}${sizeLabel}\n   ${link}`;
+              }
+              return `📄 ${label}${sizeLabel}`;
             })
             .join("\n\n")
         : null;
 
       const emailBody = [
-        "Olá diretoria 👋,\nSegue abaixo o orçamento para análise e aprovação:",
+        "Olá diretoria 👋",
+        "Segue abaixo o orçamento para análise e aprovação:",
+        "",
         previewText,
-        attachmentLines ? "Clique no link para abrir o orçamento:\n\n📎 Documentos anexos:\n" + attachmentLines : "",
-        "\nAtenciosamente,\nEquipe App Frota 🚚",
+        "",
+        attachmentLines ? "📎 DOCUMENTOS ANEXOS:\n\n" + attachmentLines + "\n\n👆 Clique nos links acima para visualizar/baixar os orçamentos" : "",
+        "",
+        "Atenciosamente,",
+        "Equipe App Frota 🚚",
       ]
         .filter(Boolean)
-        .join("\n\n");
+        .join("\n");
 
       openEmailClient({
         to: emailRecipients.to,

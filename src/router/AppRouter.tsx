@@ -18,6 +18,7 @@ import AdminRefuelingHistoryPage from "../pages/Admin/AdminRefuelingHistoryPage"
 import AdminVehiclesPage from "../pages/Admin/AdminVehiclesPage";
 import AdminUsersPage from "../pages/Admin/AdminUsersPage";
 import AdminRefuelingPage from "../pages/Admin/AdminRefuelingPage";
+import AttachmentPreview from "../pages/AttachmentPreview";
 
 const AppRouter = () => {
   const { user, loading, profile } = useAuth();
@@ -35,6 +36,7 @@ const AppRouter = () => {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/o/:slug" element={<AttachmentPreview />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
@@ -42,6 +44,9 @@ const AppRouter = () => {
 
   return (
     <Routes>
+      {/* Rota pública de preview de anexos */}
+      <Route path="/o/:slug" element={<AttachmentPreview />} />
+
       {/* Rotas do app (motorista) */}
       <Route
         path="/*"
