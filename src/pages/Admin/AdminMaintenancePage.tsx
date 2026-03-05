@@ -844,27 +844,43 @@ const AdminMaintenancePage = () => {
       const completedDate = completionModal.date ? new Date(completionModal.date) : new Date();
       
       // Atualizar items com custos
-      const updatedItems = completionModal.maintenance.items?.map(item => ({
-        ...item,
-        cost: item.status && completionModal.itemCosts[item.name] 
-          ? Number(completionModal.itemCosts[item.name]) 
-          : (item.cost || 0)
-      }));
+      const updatedItems = completionModal.maintenance.items?.map(item => {
+        const inputValue = completionModal.itemCosts[item.name] ?? "";
+        const parsedCost = item.status ? parseCurrencyInput(inputValue) : (item.cost || 0);
+        const normalizedCost = Number.isFinite(parsedCost) ? parsedCost : 0;
+
+        return {
+          ...item,
+          cost: normalizedCost,
+        };
+      });
       
       // Calcular custos
-      const laborCost = completionModal.laborCost ? Number(completionModal.laborCost) : 0;
+      const laborCost = parseCurrencyInput(completionModal.laborCost || "");
       const partsCost = updatedItems?.reduce((sum, item) => sum + (item.cost || 0), 0) || 0;
       const finalCost = laborCost + partsCost;
-      
-      await updateMaintenanceStatus(completionModal.maintenance.id, "done", {
+
+      const payload: Partial<Maintenance> = {
         completedAt: completedDate,
         items: updatedItems,
-        finalCost: finalCost > 0 ? finalCost : undefined,
-        laborCost: laborCost > 0 ? laborCost : undefined,
-        partsCost: partsCost > 0 ? partsCost : undefined,
         managerId: profile?.id,
-        managerNote: completionModal.managerNote || undefined,
-      });
+      };
+
+      if (Number.isFinite(finalCost) && finalCost > 0) {
+        payload.finalCost = Number(finalCost.toFixed(2));
+      }
+      if (Number.isFinite(laborCost) && laborCost > 0) {
+        payload.laborCost = Number(laborCost.toFixed(2));
+      }
+      if (Number.isFinite(partsCost) && partsCost > 0) {
+        payload.partsCost = Number(partsCost.toFixed(2));
+      }
+      const trimmedNote = completionModal.managerNote?.trim();
+      if (trimmedNote) {
+        payload.managerNote = trimmedNote;
+      }
+
+      await updateMaintenanceStatus(completionModal.maintenance.id, "done", payload);
       setCompletionModal({ open: false, maintenance: null, date: "", cost: "", laborCost: "", itemCosts: {}, managerNote: "" });
     } catch (error) {
       console.error("Erro ao finalizar manutenção", error);
