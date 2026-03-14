@@ -12,6 +12,33 @@ const statusLabels: Record<string, string> = {
   all: "Todas",
 };
 
+const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
+
+const formatQuantity = (value: number) => value.toString().replace(".", ",");
+
+const getDetailedItems = (maintenance: Maintenance) => {
+  const directorItems = maintenance.directorApproval?.items || [];
+  if (directorItems.length > 0) {
+    return directorItems.map((item) => {
+      const quantity = typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1;
+      const total = typeof item.cost === "number" ? item.cost : quantity * (typeof item.unitCost === "number" ? item.unitCost : 0);
+      const unitCost = typeof item.unitCost === "number" ? item.unitCost : quantity > 0 ? total / quantity : total;
+      return { name: item.name, quantity, unitCost, total };
+    });
+  }
+
+  return (maintenance.items || [])
+    .filter((item) => item.status)
+    .map((item) => {
+      const quantity = typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1;
+      const total = typeof item.cost === "number" ? item.cost : 0;
+      const unitCost = typeof item.unitCost === "number" ? item.unitCost : quantity > 0 ? total / quantity : total;
+      return { name: item.name, quantity, unitCost, total };
+    });
+};
+
 const AdminMaintenanceHistoryPage = () => {
   const [items, setItems] = useState<Maintenance[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -102,6 +129,16 @@ const AdminMaintenanceHistoryPage = () => {
                     {m.items && m.items.length > 0 && (
                       <p className="mt-1">Itens: {m.items.filter((i:any)=> i.status).map((i:any)=> i.name).join(", ")}</p>
                     )}
+                    {getDetailedItems(m).length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <p className="font-medium">Itens detalhados:</p>
+                        {getDetailedItems(m).map((item, idx) => (
+                          <p key={`${item.name}-${idx}`} className="text-[11px] text-gray-600">
+                            {item.name} • Qtde: {formatQuantity(item.quantity)} • Unit: {formatCurrency(item.unitCost)} • Total: {formatCurrency(item.total)}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                     {(m as any).notes && <p className="mt-1">Obs: {(m as any).notes}</p>}
 
                     {(m.statusHistory && (m.statusHistory as any[]).length > 0) && (
@@ -166,6 +203,9 @@ const AdminMaintenanceHistoryPage = () => {
                       {m.forecastedCompletion && <p className="mt-1">Previsão: {formatDateField(m.forecastedCompletion)}</p>}
                       {m.completedAt && <p className="mt-1">Finalizado: {formatDateField(m.completedAt)}</p>}
                       {(m as any).managerNote && <p className="mt-1">Obs (gestor): {(m as any).managerNote}</p>}
+                      {typeof m.directorApproval?.total === "number" && <p className="mt-1">Orçamento aprovado: {formatCurrency(m.directorApproval.total)}</p>}
+                      {typeof m.partsCost === "number" && <p className="mt-1">Peças: {formatCurrency(m.partsCost)}</p>}
+                      {typeof m.laborCost === "number" && <p className="mt-1">Mão de obra: {formatCurrency(m.laborCost)}</p>}
                       {m.finalCost && <p className="mt-1 text-emerald-600 font-semibold">Valor final: R$ {Number(m.finalCost).toFixed(2).replace('.', ',')}</p>}
 
                       {(m.statusHistory && (m.statusHistory as any[]).length > 0) && (

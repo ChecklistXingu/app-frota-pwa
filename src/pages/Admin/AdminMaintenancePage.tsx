@@ -221,6 +221,45 @@ const formatQuantity = (value: number) => {
   return value.toString().replace(".", ",");
 };
 
+const getDetailedMaintenanceItems = (maintenance: Maintenance) => {
+  const directorItems = maintenance.directorApproval?.items || [];
+  if (directorItems.length > 0) {
+    return directorItems.map((item) => ({
+      name: item.name,
+      quantity: typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1,
+      unitCost:
+        typeof item.unitCost === "number"
+          ? item.unitCost
+          : typeof item.cost === "number" && typeof item.quantity === "number" && item.quantity > 0
+            ? item.cost / item.quantity
+            : typeof item.cost === "number"
+              ? item.cost
+              : 0,
+      total:
+        typeof item.cost === "number"
+          ? item.cost
+          : (typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1) *
+            (typeof item.unitCost === "number" ? item.unitCost : 0),
+      approved: true,
+    }));
+  }
+
+  return (maintenance.items || [])
+    .filter((item) => item.status)
+    .map((item) => {
+      const quantity = typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1;
+      const total = typeof item.cost === "number" ? item.cost : 0;
+      const unitCost = typeof item.unitCost === "number" ? item.unitCost : quantity > 0 ? total / quantity : total;
+      return {
+        name: item.name,
+        quantity,
+        unitCost,
+        total,
+        approved: false,
+      };
+    });
+};
+
 const AdminMaintenancePage = () => {
   const [items, setItems] = useState<Maintenance[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -714,11 +753,13 @@ const AdminMaintenancePage = () => {
       // Usa a previsão de finalização se existir, senão usa a data atual
       const defaultDate = toInputDateTime(maintenance.forecastedCompletion) || currentDateTime;
       
+      const detailedItems = getDetailedMaintenanceItems(maintenance);
+
       // Inicializar custos por item
       const itemCosts: Record<string, string> = {};
-      maintenance.items?.forEach(item => {
-        if (item.status && item.cost) {
-          itemCosts[item.name] = item.cost.toString();
+      detailedItems.forEach(item => {
+        if (item.total) {
+          itemCosts[item.name] = item.total.toString();
         }
       });
       
@@ -812,6 +853,14 @@ const AdminMaintenancePage = () => {
       if (forecastedDate) payload.forecastedCompletion = forecastedDate;
       if (forecastedCost && !Number.isNaN(forecastedCost)) payload.forecastedCost = forecastedCost;
       if (ticketForm.managerNote) payload.managerNote = ticketForm.managerNote;
+      if (ticketModal.maintenance.directorApproval) {
+        payload.directorApproval = {
+          ...ticketModal.maintenance.directorApproval,
+          status: "approved",
+          responseAt: new Date(),
+          responseBy: profile?.id,
+        };
+      }
       
       console.log('[TICKET] Payload final:', payload);
       
@@ -842,16 +891,22 @@ const AdminMaintenancePage = () => {
     setCompleting(true);
     try {
       const completedDate = completionModal.date ? new Date(completionModal.date) : new Date();
+      const detailedItems = getDetailedMaintenanceItems(completionModal.maintenance);
       
       // Atualizar items com custos
-      const updatedItems = completionModal.maintenance.items?.map(item => {
+      const updatedItems = detailedItems.map(item => {
         const inputValue = completionModal.itemCosts[item.name] ?? "";
-        const parsedCost = item.status ? parseCurrencyInput(inputValue) : (item.cost || 0);
+        const parsedCost = parseCurrencyInput(inputValue);
         const normalizedCost = Number.isFinite(parsedCost) ? parsedCost : 0;
+        const quantity = item.quantity > 0 ? item.quantity : 1;
 
         return {
-          ...item,
-          cost: normalizedCost,
+          name: item.name,
+          status: true,
+          quantity,
+          unitCost: Number((normalizedCost / quantity).toFixed(2)),
+          cost: Number(normalizedCost.toFixed(2)),
+          description: item.approved ? "Item aprovado pela diretoria" : undefined,
         };
       });
       
@@ -859,6 +914,20 @@ const AdminMaintenancePage = () => {
       const laborCost = parseCurrencyInput(completionModal.laborCost || "");
       const partsCost = updatedItems?.reduce((sum, item) => sum + (item.cost || 0), 0) || 0;
       const finalCost = laborCost + partsCost;
+      const approvedTotal = completionModal.maintenance.directorApproval?.total;
+      const hasApprovedTotal = typeof approvedTotal === "number";
+      const approvedLabel = hasApprovedTotal ? formatCurrency(approvedTotal) : null;
+      const finalLabel = formatCurrency(finalCost);
+
+      const confirmationMessage =
+        hasApprovedTotal && approvedLabel && Math.abs(approvedTotal - finalCost) > 0.009
+          ? `O orçamento aprovado pela diretoria foi de ${approvedLabel}, mas o valor final calculado está em ${finalLabel}. Confirma que os valores finais conferem?`
+          : `Confirma a finalização da manutenção com valor final de ${finalLabel}?`;
+
+      if (!window.confirm(confirmationMessage)) {
+        setCompleting(false);
+        return;
+      }
 
       const payload: Partial<Maintenance> = {
         completedAt: completedDate,
@@ -878,6 +947,14 @@ const AdminMaintenancePage = () => {
       const trimmedNote = completionModal.managerNote?.trim();
       if (trimmedNote) {
         payload.managerNote = trimmedNote;
+      }
+      if (completionModal.maintenance.directorApproval) {
+        payload.directorApproval = {
+          ...completionModal.maintenance.directorApproval,
+          status: "approved",
+          responseAt: completionModal.maintenance.directorApproval.responseAt || new Date(),
+          responseBy: completionModal.maintenance.directorApproval.responseBy || profile?.id,
+        };
       }
 
       await updateMaintenanceStatus(completionModal.maintenance.id, "done", payload);
@@ -1159,6 +1236,7 @@ const AdminMaintenancePage = () => {
                             Orçamento: {formatCurrency(m.directorApproval.total)}
                           </p>
                         )}
+                        <DetailedMaintenanceItems maintenance={m} title="Itens do orçamento" />
                       </div>
                     )}
                   </td>
@@ -1342,6 +1420,7 @@ const AdminMaintenancePage = () => {
                   {typeof m.finalCost !== "number" && typeof m.forecastedCost === "number" && (
                     <p>Previsão de valor: R$ {m.forecastedCost.toFixed(2)}</p>
                   )}
+                  {m.directorApproval && <DetailedMaintenanceItems maintenance={m} title="Itens do orçamento" />}
                 </div>
 
                 <div className="space-y-2">
@@ -1795,9 +1874,9 @@ const AdminMaintenancePage = () => {
               <div>
                 <label className="text-xs font-semibold text-gray-700 mb-2 block">Custos por serviço realizado</label>
                 <div className="space-y-2 bg-gray-50 p-3 rounded-lg">
-                  {completionModal.maintenance?.items?.filter(item => item.status).map((item) => (
+                  {completionModal.maintenance && getDetailedMaintenanceItems(completionModal.maintenance).map((item) => (
                     <div key={item.name} className="flex items-center gap-2">
-                      <span className="text-sm flex-1">{item.name}</span>
+                      <span className="text-sm flex-1">{item.name} <span className="text-[11px] text-gray-500">(Qtde: {formatQuantity(item.quantity)})</span></span>
                       <div className="flex items-center rounded-lg border bg-white px-2 py-1 text-sm w-32">
                         <span className="text-gray-400 mr-1 text-xs">R$</span>
                         <input
@@ -1960,6 +2039,31 @@ const DirectorApprovalBadge = ({ approval }: { approval: DirectorApproval }) => 
     <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium ${data.className}`}>
       {data.label}
     </span>
+  );
+};
+
+const DetailedMaintenanceItems = ({
+  maintenance,
+  title = "Itens detalhados",
+}: {
+  maintenance: Maintenance;
+  title?: string;
+}) => {
+  const items = getDetailedMaintenanceItems(maintenance);
+
+  if (!items.length) return null;
+
+  return (
+    <div className="mt-2">
+      <p className="font-medium">{title}:</p>
+      <div className="mt-1 space-y-1">
+        {items.map((item, index) => (
+          <p key={`${item.name}-${index}`} className="text-[11px] text-gray-600">
+            {item.name} • Qtde: {formatQuantity(item.quantity)} • Unit: {formatCurrency(item.unitCost)} • Total: {formatCurrency(item.total)}
+          </p>
+        ))}
+      </div>
+    </div>
   );
 };
 

@@ -68,6 +68,8 @@ export type MaintenanceItem = {
   name: string;
   status?: boolean;
   cost?: number;
+  quantity?: number;
+  unitCost?: number;
   description?: string;
 };
 

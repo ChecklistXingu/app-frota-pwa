@@ -9,7 +9,7 @@ import {
 import { db } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { Car, Fuel, Wrench } from "lucide-react";
-import { normalizeMaintenanceStatus, type MaintenanceStatus } from "../../services/maintenanceService";
+import { normalizeMaintenanceStatus, type MaintenanceStatus, type DirectorApproval } from "../../services/maintenanceService";
 
 type RefuelingRecord = {
   id: string;
@@ -26,7 +26,7 @@ type MaintenanceRecord = {
   status: MaintenanceStatus;
   date: Date | null;
   km?: number;
-  items?: { name: string; status?: boolean }[];
+  items?: { name: string; status?: boolean; cost?: number; quantity?: number; unitCost?: number }[];
   notes?: string;
   photos?: string[];
   audioUrl?: string | null;
@@ -45,6 +45,36 @@ interface ExtendedMaintenanceRecord extends MaintenanceRecord {
   forecastedCompletion?: any;
   workshopName?: string;
   finalCost?: number;
+  laborCost?: number;
+  partsCost?: number;
+  directorApproval?: DirectorApproval;
+};
+
+const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
+
+const formatQuantity = (value: number) => value.toString().replace(".", ",");
+
+const getDetailedItems = (maintenance: ExtendedMaintenanceRecord) => {
+  const directorItems = maintenance.directorApproval?.items || [];
+  if (directorItems.length > 0) {
+    return directorItems.map((item) => {
+      const quantity = typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1;
+      const total = typeof item.cost === "number" ? item.cost : quantity * (typeof item.unitCost === "number" ? item.unitCost : 0);
+      const unitCost = typeof item.unitCost === "number" ? item.unitCost : quantity > 0 ? total / quantity : total;
+      return { name: item.name, quantity, unitCost, total };
+    });
+  }
+
+  return (maintenance.items || [])
+    .filter((item) => item.status)
+    .map((item) => {
+      const quantity = typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1;
+      const total = typeof item.cost === "number" ? item.cost : 0;
+      const unitCost = typeof item.unitCost === "number" ? item.unitCost : quantity > 0 ? total / quantity : total;
+      return { name: item.name, quantity, unitCost, total };
+    });
 };
 
 type Vehicle = {
@@ -189,6 +219,9 @@ const DashboardPage = () => {
           audioUrl: typeof d.data.audioUrl === 'string' ? d.data.audioUrl : null,
           audioDurationSeconds: typeof d.data.audioDurationSeconds === 'number' ? d.data.audioDurationSeconds : null,
           finalCost: typeof d.data.finalCost === 'number' ? d.data.finalCost : undefined,
+          laborCost: typeof d.data.laborCost === 'number' ? d.data.laborCost : undefined,
+          partsCost: typeof d.data.partsCost === 'number' ? d.data.partsCost : undefined,
+          directorApproval: d.data.directorApproval,
           statusHistory: Array.isArray(d.data.statusHistory) ? d.data.statusHistory : [],
           audioEvents: Array.isArray(d.data.audioEvents) ? d.data.audioEvents : [],
         }));
@@ -425,6 +458,16 @@ const DashboardPage = () => {
                       {m.items && m.items.length > 0 && (
                         <p className="mt-1">Itens: {m.items.filter((i: { name: string; status?: boolean }) => i.status).map((i: { name: string }) => i.name).join(", ")}</p>
                       )}
+                      {getDetailedItems(m).length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <p className="font-medium">Itens detalhados:</p>
+                          {getDetailedItems(m).map((item, idx) => (
+                            <p key={`${item.name}-${idx}`} className="text-[11px] text-gray-600">
+                              {item.name} • Qtde: {formatQuantity(item.quantity)} • Unit: {formatCurrency(item.unitCost)} • Total: {formatCurrency(item.total)}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                       {m.notes && <p className="mt-1">Obs: {m.notes}</p>}
 
                       {/* Histórico inferido do motorista (quando não houver statusHistory público) */}
@@ -495,6 +538,9 @@ const DashboardPage = () => {
                         {m.forecastedCompletion && <p className="mt-1">Previsão: {formatDateField(m.forecastedCompletion)}</p>}
                         {m.completedAtRaw && <p className="mt-1">Finalizado: {formatDateField(m.completedAtRaw)}</p>}
                         {m.managerNote && <p className="mt-1">Obs (gestor): {m.managerNote}</p>}
+                        {typeof m.directorApproval?.total === "number" && <p className="mt-1">Orçamento aprovado: {formatCurrency(m.directorApproval.total)}</p>}
+                        {typeof m.partsCost === "number" && <p className="mt-1">Peças: {formatCurrency(m.partsCost)}</p>}
+                        {typeof m.laborCost === "number" && <p className="mt-1">Mão de obra: {formatCurrency(m.laborCost)}</p>}
                         {m.finalCost && <p className="mt-1 text-emerald-600 font-semibold">Valor final: R$ {Number(m.finalCost).toFixed(2).replace('.', ',')}</p>}
 
                         {(m.statusHistory && m.statusHistory.length > 0) && (
