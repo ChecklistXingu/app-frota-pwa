@@ -5,7 +5,7 @@ import { ASSISTANT_NAME, type AssistantMode } from "./config";
 import { useSpeechRecognition } from "./hooks/useSpeechRecognition";
 import { useTextToSpeech } from "./hooks/useTextToSpeech";
 import { answerQuestion } from "./services/assistantEngine";
-import { callNayaBackend } from "./services/nayaBackendClient";
+import { callNayaBackend, type ConversationMessage } from "./services/nayaBackendClient";
 import { useAuth } from "../contexts/AuthContext";
 import "./VirtualAssistant.css";
 
@@ -19,6 +19,7 @@ const VirtualAssistant = () => {
   const [inputValue, setInputValue] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [answersHistory, setAnswersHistory] = useState<string[]>([]);
+  const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
 
   const { profile } = useAuth();
   const firstName = profile?.name?.split(" ")[0] ?? "";
@@ -95,10 +96,10 @@ const VirtualAssistant = () => {
     try {
       let answer: string | null = null;
 
-      // Tenta primeiro responder via backend LLM
-      answer = await callNayaBackend(text, firstName);
+      // Envia pergunta com histórico de conversa
+      answer = await callNayaBackend(text, firstName, conversationHistory);
 
-      // Fallback para o motor local caso o backend não responda ou falhe
+      // Fallback para o motor local caso o backend não responda
       if (!answer) {
         answer = await answerQuestion(text, { userName: firstName });
       }
@@ -106,6 +107,13 @@ const VirtualAssistant = () => {
       const finalAnswer = answer ?? "Tive um problema ao processar sua pergunta agora. Tente novamente em alguns instantes.";
 
       setInputValue("");
+
+      // Atualiza histórico estruturado para enviar ao backend (mantém últimas 6 trocas)
+      setConversationHistory((prev): ConversationMessage[] =>
+        [...prev, { role: "user" as const, content: text }, { role: "assistant" as const, content: finalAnswer }].slice(-12)
+      );
+
+      // Atualiza histórico visual (mantém últimas 10 respostas)
       setAnswersHistory((prev) => [finalAnswer, ...prev].slice(0, 10));
 
       if (voiceEnabled && ttsSupported) {
@@ -222,7 +230,7 @@ const VirtualAssistant = () => {
             {answersHistory.length > 0 && (
               <button
                 type="button"
-                onClick={() => setAnswersHistory([])}
+                onClick={() => { setAnswersHistory([]); setConversationHistory([]); }}
                 className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-gray-200 px-2.5 py-1 text-[10px] text-gray-600 hover:bg-gray-50"
               >
                 <span>Limpar conversa</span>

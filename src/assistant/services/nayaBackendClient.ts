@@ -11,9 +11,15 @@ const getNayaBackendBaseUrl = (): string => {
   return "https://backend-nps.onrender.com";
 };
 
+export interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export const callNayaBackend = async (
   question: string,
   userName?: string,
+  conversationHistory: ConversationMessage[] = [],
 ): Promise<string | null> => {
   const baseUrl = getNayaBackendBaseUrl();
 
@@ -28,6 +34,7 @@ export const callNayaBackend = async (
         user: {
           name: userName || "Gestor",
         },
+        conversationHistory,
       }),
     });
 
@@ -37,8 +44,9 @@ export const callNayaBackend = async (
     }
 
     const data = (await response.json()) as { answer?: string };
+
     if (!data.answer || typeof data.answer !== "string") {
-      console.warn("[NayaFrontend] Resposta do backend Naya sem campo 'answer':", data);
+      console.warn("[NayaFrontend] Resposta sem campo 'answer':", data);
       return null;
     }
 
