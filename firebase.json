@@ -24,7 +24,7 @@
     ],
     "rewrites": [
       {
-        "source": "/o/{slug}",
+        "source": "/o/**",
         "function": "redirectAttachment"
       },
       {

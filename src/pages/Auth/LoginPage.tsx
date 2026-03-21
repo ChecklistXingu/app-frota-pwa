@@ -54,7 +54,7 @@ const LoginPage = () => {
       <div
         className="flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-8 relative"
         style={{
-          backgroundImage: 'url(/frota%20page.png)',
+          backgroundImage: 'url(/frota-page.png)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
