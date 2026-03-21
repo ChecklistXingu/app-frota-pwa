@@ -15,6 +15,7 @@ export type DashboardData = {
     inReview: number;
     scheduled: number;
     done: number;
+    refused: number;
     averageResolutionTime: string;
     avgAnalysisTime: string;
     avgCompletionTime: string;

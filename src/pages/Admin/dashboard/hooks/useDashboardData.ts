@@ -127,6 +127,7 @@ export const useDashboardData = (filters?: DashboardFilters) => {
       inReview: filteredMaintenances.filter(m => m.status === 'in_review').length,
       scheduled: filteredMaintenances.filter(m => m.status === 'scheduled').length,
       done: filteredMaintenances.filter(m => m.status === 'done').length,
+      refused: filteredMaintenances.filter(m => m.status === 'refused').length,
       averageResolutionTime: formatDuration(avgResolutionMs),
       avgAnalysisTime: formatDuration(avgAnalysisMs),
       avgCompletionTime: formatDuration(avgResolutionMs),

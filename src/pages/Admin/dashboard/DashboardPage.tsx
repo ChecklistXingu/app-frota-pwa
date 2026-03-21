@@ -404,6 +404,9 @@ const CompactMaintCard = ({ stats }: { stats: any }) => (
             <a className="inline-flex items-center gap-2 rounded-full bg-[#cffafe] px-3 py-1 text-xs font-semibold text-[#0f766e]" href="/admin/maintenance?status=scheduled">Agendadas {stats.scheduled}</a>
             <a className="inline-flex items-center gap-2 rounded-full bg-[#dcfce7] px-3 py-1 text-xs font-semibold text-[#15803d]" href="/admin/maintenance?status=done">Finalizadas {stats.done}</a>
           </div>
+          <div className="flex gap-2">
+            <a className="inline-flex items-center gap-2 rounded-full bg-[#fee2e2] px-3 py-1 text-xs font-semibold text-[#b91c1c]" href="/admin/maintenance-history?status=refused">Recusadas {stats.refused}</a>
+          </div>
         </div>
       </div>
     </CardContent>

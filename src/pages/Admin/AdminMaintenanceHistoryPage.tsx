@@ -45,6 +45,7 @@ const AdminMaintenanceHistoryPage = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [vehicleFilter, setVehicleFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "done" | "refused">("all");
 
   useEffect(() => {
     const unsubM = listenMaintenances({}, setItems);
@@ -85,18 +86,24 @@ const AdminMaintenanceHistoryPage = () => {
     return items
       .filter((m) => (m.status || "pending") === "done" || (m.status || "pending") === "refused")
       .filter((m) => vehicleFilter === "all" ? true : m.vehicleId === vehicleFilter)
+      .filter((m) => statusFilter === "all" ? true : m.status === statusFilter)
       .sort((a, b) => {
         const aTime = a.completedAt?.seconds ? a.completedAt.seconds * 1000 : a.completedAt?.toDate ? a.completedAt.toDate().getTime() : (a.updatedAt?.seconds ? a.updatedAt.seconds * 1000 : 0);
         const bTime = b.completedAt?.seconds ? b.completedAt.seconds * 1000 : b.completedAt?.toDate ? b.completedAt.toDate().getTime() : (b.updatedAt?.seconds ? b.updatedAt.seconds * 1000 : 0);
         return bTime - aTime;
       });
-  }, [items, vehicleFilter]);
+  }, [items, vehicleFilter, statusFilter]);
 
   return (
     <div className="space-y-4 px-2 sm:px-0">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-3"><Wrench size={20} /> Histórico de Manutenções</h2>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "all" | "done" | "refused")} className="border rounded-lg px-3 py-2 text-sm w-full sm:w-auto">
+            <option value="all">Todos os status</option>
+            <option value="done">Finalizados</option>
+            <option value="refused">Recusados</option>
+          </select>
           <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} className="border rounded-lg px-3 py-2 text-sm w-full sm:w-auto">
             <option value="all">Todos os veículos</option>
             {vehicles.map((v) => (

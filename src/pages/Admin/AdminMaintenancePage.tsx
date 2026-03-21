@@ -10,7 +10,7 @@ import { openEmailClient } from "../../utils/emailHelper";
 import { db } from "../../services/firebase";
 import { doc, setDoc } from "firebase/firestore";
 
-const statusOptions: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done"];
+const statusOptions: MaintenanceStatus[] = ["pending", "in_review", "scheduled", "done", "refused"];
 
 const statusLabels: Record<string, string> = {
   pending: "Pendente",
@@ -748,6 +748,11 @@ const AdminMaintenancePage = () => {
       openTicketModal(maintenance);
       return;
     }
+
+    if (status === "refused") {
+      setRefusalModal({ open: true, maintenance, note: "" });
+      return;
+    }
     if (status === "done") {
       const now = new Date();
       const currentDateTime = now.toISOString().slice(0, 16);
@@ -1245,64 +1250,38 @@ const AdminMaintenancePage = () => {
                     )}
                   </td>
                   <td className="p-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end sm:gap-2">
-                      <div className="flex-shrink-0">
-                        <select
-                          value={m.status || "pending"}
-                          onChange={(e) => onChangeStatus(m, e.target.value as MaintenanceStatus)}
-                          className="w-36 h-10 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-700 text-xs font-semibold px-3"
-                        >
-                          {statusOptions.map((s) => (
-                            <option key={s} value={s}>{statusLabels[s]}</option>
-                          ))}
-                        </select>
-                      </div>
+                    <div className="flex items-center justify-end gap-2 flex-wrap">
+                      <select
+                        value={m.status || "pending"}
+                        onChange={(e) => onChangeStatus(m, e.target.value as MaintenanceStatus)}
+                        className="w-36 h-10 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-700 text-xs font-semibold px-3"
+                      >
+                        {statusOptions.map((s) => (
+                          <option key={s} value={s}>{statusLabels[s]}</option>
+                        ))}
+                      </select>
 
-                      <div className="flex gap-2 flex-wrap mt-2 sm:mt-0">
+                      {(m as any).photos?.length ? (
                         <button
                           type="button"
-                          onClick={() => openApprovalModal(m)}
-                          className="w-36 h-10 rounded-lg border border-green-600 text-green-700 text-xs font-semibold hover:bg-green-50"
+                          onClick={() => setPhotoModal({ open: true, photos: (m as any).photos || [], maintenance: m })}
+                          className="w-36 h-10 rounded-lg border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50"
                         >
-                          {m.directorApproval ? "Editar orçamento" : "Solicitar aprovação"}
+                          Ver fotos ({(m as any).photos.length})
                         </button>
+                      ) : null}
+
+                      {(m as any).audioUrl ? (
                         <button
                           type="button"
-                          onClick={() => openTicketModal(m)}
-                          className="w-36 h-10 rounded-lg border border-blue-600 text-blue-600 text-xs font-semibold hover:bg-blue-50"
+                          onClick={() => setAudioModal({ open: true, url: (m as any).audioUrl || null, duration: (m as any).audioDurationSeconds ?? null, maintenance: m })}
+                          className="w-36 h-10 rounded-lg border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50"
                         >
-                          {m.status === "scheduled" ? "Editar ticket" : "Abrir ticket"}
+                          Ouvir áudio
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setRefusalModal({ open: true, maintenance: m, note: "" })}
-                          className="w-36 h-10 rounded-lg border border-red-500 text-red-600 text-xs font-semibold hover:bg-red-50"
-                        >
-                          Recusar solicitação
-                        </button>
-
-                        { (m as any).photos?.length ? (
-                          <button
-                            type="button"
-                            onClick={() => setPhotoModal({ open: true, photos: (m as any).photos || [], maintenance: m })}
-                            className="w-36 h-10 rounded-lg border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50"
-                          >
-                            Ver fotos ({(m as any).photos.length})
-                          </button>
-                        ) : null}
-
-                        {(m as any).audioUrl ? (
-                          <button
-                            type="button"
-                            onClick={() => setAudioModal({ open: true, url: (m as any).audioUrl || null, duration: (m as any).audioDurationSeconds ?? null, maintenance: m })}
-                            className="w-36 h-10 rounded-lg border border-gray-200 text-gray-600 text-xs font-semibold hover:bg-gray-50"
-                          >
-                            Ouvir áudio
-                          </button>
-                        ) : (m as any).audioDurationSeconds ? (
-                          <div className="text-xs text-gray-500 flex items-center h-10">Áudio enviado offline</div>
-                        ) : null}
-                      </div>
+                      ) : (m as any).audioDurationSeconds ? (
+                        <div className="text-xs text-gray-500 flex items-center h-10">Áudio enviado offline</div>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -1448,27 +1427,6 @@ const AdminMaintenancePage = () => {
                     <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openApprovalModal(m)}
-                      className="flex-1 inline-flex items-center justify-center rounded-md border border-green-600 px-3 py-2 text-xs font-semibold text-green-700 hover:bg-green-50"
-                    >
-                      {m.directorApproval ? "Editar orçamento" : "Solicitar aprovação"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openTicketModal(m)}
-                      className="flex-1 inline-flex items-center justify-center rounded-md border border-[#0d2d6c] px-3 py-2 text-xs font-semibold text-[#0d2d6c] hover:bg-[#0d2d6c]/10"
-                    >
-                      {m.status === "scheduled" ? "Editar ticket" : "Abrir ticket"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRefusalModal({ open: true, maintenance: m, note: "" })}
-                      className="flex-1 inline-flex items-center justify-center rounded-md border border-red-500 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
-                    >
-                      Recusar solicitação
-                    </button>
                     {m.photos?.length ? (
                       <button
                         type="button"
