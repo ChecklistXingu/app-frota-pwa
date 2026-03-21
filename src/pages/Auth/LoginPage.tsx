@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { Mail, Lock, WifiOff } from "lucide-react";
-import frotaLogo from "../../assets/frota 1.png";
 
 type LoginForm = {
   email: string;
@@ -50,18 +49,22 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0d2d6c]">
-      {/* Header com logo */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-8">
-        <div className="w-20 h-20 bg-[#ffd300] rounded-full flex items-center justify-center mb-4 shadow-lg overflow-hidden">
-          <img 
-            src={frotaLogo} 
-            alt="App Frota Xingu" 
-            className="w-full h-full object-contain p-2"
-          />
+    <div className="min-h-screen flex flex-col">
+      {/* Header com foto de fundo */}
+      <div
+        className="flex-1 flex flex-col items-center justify-center px-6 pt-12 pb-8 relative"
+        style={{
+          backgroundImage: 'url(/frota%20page.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        {/* Overlay escuro para legibilidade */}
+        <div className="absolute inset-0 bg-[#0d2d6c]/60" />
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <h1 className="text-3xl font-bold text-white mb-1">App Frota Xingu</h1>
+          <p className="text-white/80 text-sm">Gestão inteligente de veículos</p>
         </div>
-        <h1 className="text-3xl font-bold text-white mb-1">App Frota Xingu</h1>
-        <p className="text-white/70 text-sm">Gestão inteligente de veículos</p>
       </div>
 
       {/* Card de login */}
@@ -93,7 +96,7 @@ const LoginPage = () => {
                 <input
                   type="email"
                   placeholder="seu@email.com"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-4 py-3 text-sm outline-none focus:border-[#ffd300] focus:ring-2 focus:ring-[#ffd300]/30 transition-all"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-4 py-3 text-sm outline-none focus:border-[#0d2d6c] focus:ring-2 focus:ring-[#0d2d6c]/20 transition-all"
                   {...register("email", { required: true })}
                 />
               </div>
@@ -106,7 +109,7 @@ const LoginPage = () => {
                 <input
                   type="password"
                   placeholder="••••••••"
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-4 py-3 text-sm outline-none focus:border-[#ffd300] focus:ring-2 focus:ring-[#ffd300]/30 transition-all"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-4 py-3 text-sm outline-none focus:border-[#0d2d6c] focus:ring-2 focus:ring-[#0d2d6c]/20 transition-all"
                   {...register("password", { required: true })}
                 />
               </div>
@@ -121,7 +124,7 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-[#ffd300] hover:bg-[#e6be00] active:bg-[#ccaa00] text-[#0d2d6c] font-semibold py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full bg-[#0d2d6c] hover:bg-[#0b255a] active:scale-[0.98] text-white font-semibold py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "Entrando..." : "Entrar"}
             </button>

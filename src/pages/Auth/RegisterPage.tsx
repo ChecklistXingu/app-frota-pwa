@@ -76,8 +76,8 @@ const RegisterPage = () => {
   });
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 bg-[color:var(--color-background)] text-[color:var(--color-primary)]">
-      <div className="w-full max-w-sm space-y-6">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: 'linear-gradient(135deg, #0d2d6c 0%, #ffffff 100%)' }}>
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm p-8 space-y-6">
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-bold">Criar conta</h1>
           <p className="text-sm text-gray-600">
@@ -89,7 +89,7 @@ const RegisterPage = () => {
           <div className="space-y-1">
             <label className="text-sm font-medium">Nome</label>
             <input
-              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
+              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0d2d6c]/20 focus:border-[#0d2d6c]"
               {...registerField("name", { required: true })}
             />
           </div>
@@ -98,7 +98,7 @@ const RegisterPage = () => {
             <label className="text-sm font-medium">Telefone</label>
             <input
               type="tel"
-              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
+              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0d2d6c]/20 focus:border-[#0d2d6c]"
               {...phoneRegister}
               value={phoneDisplay}
               onChange={handlePhoneChange}
@@ -109,7 +109,7 @@ const RegisterPage = () => {
           <div className="space-y-1">
             <label className="text-sm font-medium">Filial</label>
             <select
-              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] bg-white"
+              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0d2d6c]/20 focus:border-[#0d2d6c] bg-white"
               {...registerField("filial", { required: true })}
             >
               <option value="">Selecione a filial</option>
@@ -127,7 +127,7 @@ const RegisterPage = () => {
             </div>
             <input
               type="email"
-              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
+              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0d2d6c]/20 focus:border-[#0d2d6c]"
               {...registerField("email", { required: true })}
             />
           </div>
@@ -139,7 +139,7 @@ const RegisterPage = () => {
             </div>
             <input
               type="password"
-              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[color:var(--color-accent)]"
+              className="w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#0d2d6c]/20 focus:border-[#0d2d6c]"
               {...registerField("password", { required: true, minLength: 6 })}
             />
           </div>
@@ -150,7 +150,7 @@ const RegisterPage = () => {
 
           <button
             type="submit"
-            className="btn-primary w-full"
+            className="w-full bg-[#0d2d6c] hover:bg-[#0b255a] active:scale-[0.98] text-white font-semibold py-2.5 rounded-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             disabled={isSubmitting}
           >
             {isSubmitting ? "Criando conta..." : "Criar conta"}
