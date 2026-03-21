@@ -17,6 +17,7 @@ const statusLabels: Record<string, string> = {
   in_review: "Em análise",
   scheduled: "Agendado",
   done: "Finalizado",
+  refused: "Recusado",
   all: "Todas",
 };
 
@@ -291,6 +292,8 @@ const AdminMaintenancePage = () => {
     managerNote: "",
   });
   const [savingTicket, setSavingTicket] = useState(false);
+  const [refusalModal, setRefusalModal] = useState<{ open: boolean; maintenance: Maintenance | null; note: string }>({ open: false, maintenance: null, note: "" });
+  const [refusing, setRefusing] = useState(false);
   const [completionModal, setCompletionModal] = useState<{ 
     open: boolean; 
     maintenance: Maintenance | null; 
@@ -825,6 +828,22 @@ const AdminMaintenancePage = () => {
     setCompletionModal({ open: false, maintenance: null, date: "", cost: "", laborCost: "", itemCosts: {}, managerNote: "" });
   };
 
+  const handleRefusalSubmit = async () => {
+    if (!refusalModal.maintenance || !refusalModal.note.trim()) return;
+    setRefusing(true);
+    try {
+      await updateMaintenanceStatus(refusalModal.maintenance.id, "refused", {
+        managerId: profile?.id,
+        managerNote: refusalModal.note.trim(),
+      });
+      setRefusalModal({ open: false, maintenance: null, note: "" });
+    } catch (error) {
+      console.error("Erro ao recusar manutenção", error);
+    } finally {
+      setRefusing(false);
+    }
+  };
+
   const handleTicketSubmit = async () => {
     if (!ticketModal.maintenance) {
       console.error('[TICKET] Nenhuma manutenção selecionada');
@@ -914,21 +933,6 @@ const AdminMaintenancePage = () => {
       const laborCost = parseCurrencyInput(completionModal.laborCost || "");
       const partsCost = updatedItems?.reduce((sum, item) => sum + (item.cost || 0), 0) || 0;
       const finalCost = laborCost + partsCost;
-      const approvedTotal = completionModal.maintenance.directorApproval?.total;
-      const hasApprovedTotal = typeof approvedTotal === "number";
-      const approvedLabel = hasApprovedTotal ? formatCurrency(approvedTotal) : null;
-      const finalLabel = formatCurrency(finalCost);
-
-      const confirmationMessage =
-        hasApprovedTotal && approvedLabel && Math.abs(approvedTotal - finalCost) > 0.009
-          ? `O orçamento aprovado pela diretoria foi de ${approvedLabel}, mas o valor final calculado está em ${finalLabel}. Confirma que os valores finais conferem?`
-          : `Confirma a finalização da manutenção com valor final de ${finalLabel}?`;
-
-      if (!window.confirm(confirmationMessage)) {
-        setCompleting(false);
-        return;
-      }
-
       const payload: Partial<Maintenance> = {
         completedAt: completedDate,
         items: updatedItems,
@@ -1269,6 +1273,13 @@ const AdminMaintenancePage = () => {
                         >
                           {m.status === "scheduled" ? "Editar ticket" : "Abrir ticket"}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setRefusalModal({ open: true, maintenance: m, note: "" })}
+                          className="w-36 h-10 rounded-lg border border-red-500 text-red-600 text-xs font-semibold hover:bg-red-50"
+                        >
+                          Recusar solicitação
+                        </button>
 
                         { (m as any).photos?.length ? (
                           <button
@@ -1450,6 +1461,13 @@ const AdminMaintenancePage = () => {
                       className="flex-1 inline-flex items-center justify-center rounded-md border border-[#0d2d6c] px-3 py-2 text-xs font-semibold text-[#0d2d6c] hover:bg-[#0d2d6c]/10"
                     >
                       {m.status === "scheduled" ? "Editar ticket" : "Abrir ticket"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRefusalModal({ open: true, maintenance: m, note: "" })}
+                      className="flex-1 inline-flex items-center justify-center rounded-md border border-red-500 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                    >
+                      Recusar solicitação
                     </button>
                     {m.photos?.length ? (
                       <button
@@ -1854,6 +1872,45 @@ const AdminMaintenancePage = () => {
         </div>
       )}
 
+      {refusalModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold mb-1 text-red-600">Recusar solicitação</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Informe o motivo da recusa. O motorista será notificado e a solicitação será encerrada.
+            </p>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-700">Motivo da recusa <span className="text-red-500">*</span></label>
+              <textarea
+                rows={4}
+                value={refusalModal.note}
+                onChange={(e) => setRefusalModal((prev) => ({ ...prev, note: e.target.value }))}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+                placeholder="Descreva o motivo da recusa..."
+              />
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setRefusalModal({ open: false, maintenance: null, note: "" })}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-600"
+                disabled={refusing}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleRefusalSubmit}
+                disabled={refusing || !refusalModal.note.trim()}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {refusing ? "Recusando..." : "Confirmar recusa"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {completionModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
@@ -2023,6 +2080,7 @@ const StatusBadge = ({ status }: { status: MaintenanceStatus }) => {
     in_review: "bg-blue-100 text-blue-800",
     scheduled: "bg-purple-100 text-purple-800",
     done: "bg-emerald-100 text-emerald-800",
+    refused: "bg-red-100 text-red-700",
   };
   return <span className={`px-2 py-1 rounded-md text-xs font-medium ${map[status]}`}>{statusLabels[status]}</span>;
 };

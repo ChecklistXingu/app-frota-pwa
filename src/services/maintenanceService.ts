@@ -1,7 +1,7 @@
 import { collection, doc, getDoc, onSnapshot, query, serverTimestamp, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "./firebase";
 
-export type MaintenanceStatus = "pending" | "in_review" | "scheduled" | "done";
+export type MaintenanceStatus = "pending" | "in_review" | "scheduled" | "done" | "refused";
 
 export type DirectorApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -53,6 +53,7 @@ export const normalizeMaintenanceStatus = (status?: string): MaintenanceStatus =
     scheduled: "scheduled",
     completed: "done",
     done: "done",
+    refused: "refused",
   };
   return map[status || "pending"] ?? "pending";
 };

@@ -58,7 +58,7 @@ type VehicleOption = {
 };
 
 type MaintenanceType = "preventiva" | "corretiva" | "solicitacao";
-type MaintenanceStatus = "pending" | "in_review" | "scheduled" | "done";
+type MaintenanceStatus = "pending" | "in_review" | "scheduled" | "done" | "refused";
 
 type MaintenanceForm = {
   vehicleId: string;
@@ -255,16 +255,14 @@ const MaintenancePage = () => {
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      // Ordena localmente por data e filtra para não exibir itens finalizados (done)
+      // Carrega todos os itens e separa ativos/histórico no render
       const sortedDocs = snap.docs
         .map((d) => ({ id: d.id, data: d.data() as any }))
-        .filter((doc) => (doc.data.status ? doc.data.status !== 'done' : true))
         .sort((a, b) => {
           const dateA = a.data.date?.toDate?.() || new Date(0);
           const dateB = b.data.date?.toDate?.() || new Date(0);
           return dateB.getTime() - dateA.getTime();
-        })
-        .slice(0, 20);
+        });
       
       const list: MaintenanceRecord[] = sortedDocs.map((doc) => {
         const data = doc.data as any;
@@ -631,6 +629,7 @@ const MaintenancePage = () => {
     in_review: "Em análise",
     scheduled: "Agendado",
     done: "Finalizado",
+    refused: "Recusado",
   };
 
   const statusClasses: Record<MaintenanceStatus, string> = {
@@ -638,6 +637,7 @@ const MaintenancePage = () => {
     in_review: "bg-blue-100 text-blue-700",
     scheduled: "bg-indigo-100 text-indigo-700",
     done: "bg-emerald-100 text-emerald-700",
+    refused: "bg-red-100 text-red-700",
   };
 
   return (
@@ -874,14 +874,14 @@ const MaintenancePage = () => {
           <p className="text-xs text-gray-600">Carregando registros...</p>
         )}
 
-        {!loadingMaintenance && maintenanceList.length === 0 && (
+        {!loadingMaintenance && maintenanceList.filter(m => m.status !== "done" && m.status !== "refused").length === 0 && (
           <p className="text-xs text-gray-600">
-            Nenhuma manutenção registrada ainda.
+            Nenhuma manutenção em aberto.
           </p>
         )}
 
         <div className="space-y-3">
-          {maintenanceList.map((m) => (
+          {maintenanceList.filter(m => m.status !== "done" && m.status !== "refused").map((m) => (
             <div
               key={m.id}
               className="rounded-xl border bg-white px-4 py-3 shadow-sm text-xs"
@@ -985,6 +985,39 @@ const MaintenancePage = () => {
           ))}
         </div>
       </div>
+
+      {/* Histórico de manutenções encerradas */}
+      {!loadingMaintenance && maintenanceList.filter(m => m.status === "done" || m.status === "refused").length > 0 && (
+        <div className="rounded-xl border bg-white px-4 py-3 shadow-sm">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Histórico</h3>
+          <div className="space-y-2">
+            {maintenanceList
+              .filter(m => m.status === "done" || m.status === "refused")
+              .map((m) => (
+                <div key={m.id} className="rounded-lg border px-3 py-2 text-xs bg-gray-50">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold">{getVehicleLabel(m.vehicleId)}</p>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusClasses[m.status]}`}>
+                        {statusLabels[m.status]}
+                      </span>
+                    </div>
+                    {m.date && (
+                      <p className="text-[10px] text-gray-400 whitespace-nowrap">{m.date.toLocaleDateString("pt-BR")}</p>
+                    )}
+                  </div>
+                  <p className="text-gray-600">{m.type === "solicitacao" ? "Solicitação" : m.type === "preventiva" ? "Preventiva" : "Corretiva"} • {m.km.toLocaleString("pt-BR")} km</p>
+                  {m.status === "refused" && m.managerNote && (
+                    <p className="mt-1 text-red-700 font-medium">Motivo da recusa: {m.managerNote}</p>
+                  )}
+                  {m.status === "done" && m.completedAt && (
+                    <p className="mt-1 text-gray-500">Finalizado: {formatDateTime(m.completedAt)}</p>
+                  )}
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       {/* Modal de Edição */}
       {editingRecord && (

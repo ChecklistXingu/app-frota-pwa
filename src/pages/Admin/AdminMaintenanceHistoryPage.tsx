@@ -9,6 +9,7 @@ const statusLabels: Record<string, string> = {
   in_review: "Em análise",
   scheduled: "Agendado",
   done: "Finalizado",
+  refused: "Recusado",
   all: "Todas",
 };
 
@@ -82,11 +83,11 @@ const AdminMaintenanceHistoryPage = () => {
 
   const finished = useMemo(() => {
     return items
-      .filter((m) => (m.status || "pending") === "done")
+      .filter((m) => (m.status || "pending") === "done" || (m.status || "pending") === "refused")
       .filter((m) => vehicleFilter === "all" ? true : m.vehicleId === vehicleFilter)
       .sort((a, b) => {
-        const aTime = a.completedAt?.seconds ? a.completedAt.seconds * 1000 : a.completedAt?.toDate ? a.completedAt.toDate().getTime() : 0;
-        const bTime = b.completedAt?.seconds ? b.completedAt.seconds * 1000 : b.completedAt?.toDate ? b.completedAt.toDate().getTime() : 0;
+        const aTime = a.completedAt?.seconds ? a.completedAt.seconds * 1000 : a.completedAt?.toDate ? a.completedAt.toDate().getTime() : (a.updatedAt?.seconds ? a.updatedAt.seconds * 1000 : 0);
+        const bTime = b.completedAt?.seconds ? b.completedAt.seconds * 1000 : b.completedAt?.toDate ? b.completedAt.toDate().getTime() : (b.updatedAt?.seconds ? b.updatedAt.seconds * 1000 : 0);
         return bTime - aTime;
       });
   }, [items, vehicleFilter]);
@@ -115,7 +116,9 @@ const AdminMaintenanceHistoryPage = () => {
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-2">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                     <p className="font-semibold text-sm">{getVehicleLabel(m.vehicleId)}</p>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 self-start sm:self-auto`}>Finalizado</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold self-start sm:self-auto ${m.status === "refused" ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>
+                      {m.status === "refused" ? "Recusado" : "Finalizado"}
+                    </span>
                   </div>
                   <div className="text-[10px] text-gray-500 sm:text-right">{m.completedAt ? formatDateField(m.completedAt) : ""}</div>
                 </div>
@@ -202,7 +205,11 @@ const AdminMaintenanceHistoryPage = () => {
                       {m.scheduledFor && <p className="mt-1">Agendado: {formatDateField(m.scheduledFor)}{m.managerId ? ` • agendado por ${usersById[m.managerId] || m.managerId}` : ''}</p>}
                       {m.forecastedCompletion && <p className="mt-1">Previsão: {formatDateField(m.forecastedCompletion)}</p>}
                       {m.completedAt && <p className="mt-1">Finalizado: {formatDateField(m.completedAt)}</p>}
-                      {(m as any).managerNote && <p className="mt-1">Obs (gestor): {(m as any).managerNote}</p>}
+                      {(m as any).managerNote && (
+                        <p className={`mt-1 ${m.status === "refused" ? "text-red-700 font-medium" : ""}`}>
+                          {m.status === "refused" ? "Motivo da recusa: " : "Obs (gestor): "}{(m as any).managerNote}
+                        </p>
+                      )}
                       {typeof m.directorApproval?.total === "number" && <p className="mt-1">Orçamento aprovado: {formatCurrency(m.directorApproval.total)}</p>}
                       {typeof m.partsCost === "number" && <p className="mt-1">Peças: {formatCurrency(m.partsCost)}</p>}
                       {typeof m.laborCost === "number" && <p className="mt-1">Mão de obra: {formatCurrency(m.laborCost)}</p>}
