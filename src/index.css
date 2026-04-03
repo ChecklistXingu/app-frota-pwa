@@ -50,6 +50,18 @@
   }
 }
 
+/* Quando carregado dentro de iframe no Hub, esconde sidebar, header e nav mobile */
+html.embedded header,
+html.embedded aside,
+html.embedded nav {
+  display: none !important;
+}
+
+html.embedded main {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
 /* Animações */
 @keyframes slide-up {
   from {
